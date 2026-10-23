@@ -17,3 +17,7 @@ services:
         value: 7d
       - key: CLIENT_URL
         sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        value: 8849417539:AAFXg2njcRGhnq8EPTtHusuEVuur5qqVzAk
+      - key: TELEGRAM_CHAT_ID
+        value: 7951472080,1286578760

@@ -12,26 +12,44 @@ const https = require('https');
 const Setting = require('../models/Setting');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8849417539:AAFXg2njcRGhnq8EPTtHusuEVuur5qqVzAk';
+// Default verified hotel admin & management Telegram chat IDs
+const DEFAULT_FALLBACK_CHAT_IDS = ['7951472080', '1286578760'];
 // Fallback: env-var chat IDs (used if DB has no subscribers yet)
-const ENV_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '')
+const ENV_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '7951472080,1286578760')
   .split(',')
   .map(id => id.trim())
-  .filter(id => id && id !== 'your_chat_id_here');
+  .filter(id => id && id !== 'your_chat_id_here' && id !== 'null' && id !== 'undefined');
 const HOTEL = 'Baba Roti Café';
+
+function cleanChatId(id) {
+  if (!id) return null;
+  const s = String(id).trim();
+  if (!s || s === 'null' || s === 'undefined' || s === 'your_chat_id_here') return null;
+  return s;
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 // ── Low-level sender ─────────────────────────────────────────────
 async function getChatIds() {
   try {
     const User = require('../models/User');
-    const [settings, inactiveUsers] = await Promise.all([
+    const [settings, inactiveUsers, activeStaff] = await Promise.all([
       Setting.findOne().select('telegramSubscribers').lean(),
       User.find({ isActive: false }).select('telegramChatId phone email name').lean(),
+      User.find({ isActive: { $ne: false }, telegramChatId: { $exists: true, $ne: '' } }).select('telegramChatId').lean(),
     ]);
 
     // Build blocklists from disabled/deactivated accounts
     const blockedChatIds = new Set(
       (inactiveUsers || [])
-        .map(u => String(u.telegramChatId || '').trim())
+        .map(u => cleanChatId(u.telegramChatId))
         .filter(Boolean)
     );
     const blockedPhones = new Set(
@@ -46,7 +64,7 @@ async function getChatIds() {
     );
 
     const validSubscribers = (settings?.telegramSubscribers || []).filter(s => {
-      const cId = String(s.chatId || '').trim();
+      const cId = cleanChatId(s.chatId);
       const sPhone = (s.phone || '').replace(/\D/g, '').slice(-9);
       const sUser = (s.username || '').toLowerCase().trim();
       const sName = (s.name || '').toLowerCase().trim();
@@ -58,18 +76,32 @@ async function getChatIds() {
       return true;
     });
 
-    const dbIds = validSubscribers.map(s => String(s.chatId)).filter(Boolean);
-    const all = [...new Set([...dbIds, ...ENV_CHAT_IDS])];
-    // Also ensure no blocked chat ID from ENV gets messages
-    return all.filter(id => id && !blockedChatIds.has(String(id)));
-  } catch {
-    return ENV_CHAT_IDS;
+    const dbIds = validSubscribers
+      .map(s => cleanChatId(s.chatId))
+      .filter(Boolean);
+
+    // Active staff members with configured telegramChatId
+    const staffIds = (activeStaff || [])
+      .map(u => cleanChatId(u.telegramChatId))
+      .filter(id => id && !blockedChatIds.has(id));
+
+    const all = [...new Set([...dbIds, ...staffIds, ...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])];
+    // Ensure no blocked chat ID gets messages and no invalid values
+    return all.filter(id => id && id !== 'null' && id !== 'undefined' && !blockedChatIds.has(String(id)));
+  } catch (err) {
+    console.warn('[Telegram] Chat IDs fetch error:', err.message);
+    return [...new Set([...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])].filter(
+      id => id && id !== 'null' && id !== 'undefined'
+    );
   }
 }
 
 function sendToOne(chatId, text) {
+  const cleanId = cleanChatId(chatId);
+  if (!cleanId) return;
+
   const body = JSON.stringify({
-    chat_id: chatId,
+    chat_id: cleanId,
     text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
@@ -86,10 +118,10 @@ function sendToOne(chatId, text) {
     if (res.statusCode !== 200) {
       let data = '';
       res.on('data', chunk => { data += chunk; });
-      res.on('end', () => console.warn(`[Telegram] Non-200 for chat ${chatId}:`, data));
+      res.on('end', () => console.warn(`[Telegram] Non-200 for chat ${cleanId}:`, data));
     }
   });
-  req.on('error', (err) => console.warn(`[Telegram] Send error to ${chatId}:`, err.message));
+  req.on('error', (err) => console.warn(`[Telegram] Send error to ${cleanId}:`, err.message));
   req.write(body);
   req.end();
 }
@@ -98,9 +130,11 @@ function sendTelegram(text) {
   if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') return;
   // Fire-and-forget async
   getChatIds().then(ids => {
-    if (!ids.length) return;
+    if (!ids || !ids.length) return;
     ids.forEach(id => sendToOne(id, text));
-  }).catch(() => { });
+  }).catch((err) => {
+    console.warn('[Telegram] Dispatch error:', err.message);
+  });
 }
 
 // ── Timestamp helper ─────────────────────────────────────────────
@@ -315,14 +349,14 @@ function notifyMaterialCreated(mat, user) {
 ━━━━━━━━━━━━━━━━━━━━
 🧱 <b>NEW RAW MATERIAL</b>
 
-🏷 <b>Code:</b>          ${mat.code || '—'}
-📦 <b>Name:</b>          ${mat.name}
-🗂 <b>Category:</b>      ${mat.category || '—'}
-⚖️  <b>Unit:</b>          ${mat.unit}
-📊 <b>Opening Stock:</b> ${mat.currentStock} ${mat.unit}
+🏷 <b>Code:</b>          ${escapeHtml(mat.code || '—')}
+📦 <b>Name:</b>          ${escapeHtml(mat.name)}
+🗂 <b>Category:</b>      ${escapeHtml(mat.category || '—')}
+⚖️  <b>Unit:</b>          ${escapeHtml(mat.unit)}
+📊 <b>Opening Stock:</b> ${mat.currentStock ?? 0} ${escapeHtml(mat.unit)}
 💰 <b>Unit Cost:</b>     ${etb(mat.unitCost)}
 
-👤 <b>Added by:</b> ${user?.name || '—'}
+👤 <b>Added by:</b> ${escapeHtml(user?.name || '—')}
 🕐 <b>Time:</b>     ${now()}
 ━━━━━━━━━━━━━━━━━━━━`
   );
@@ -429,13 +463,13 @@ function notifyProductCreated(product, user) {
 ━━━━━━━━━━━━━━━━━━━━
 🍽️ <b>NEW PRODUCT</b>
 
-🏷 <b>Code:</b>        ${product.code || '—'}
-📦 <b>Name:</b>        ${product.name}
-🗂 <b>Category:</b>    ${product.category || '—'}
+🏷 <b>Code:</b>        ${escapeHtml(product.code || '—')}
+📦 <b>Name:</b>        ${escapeHtml(product.name)}
+🗂 <b>Category:</b>    ${escapeHtml(product.category || '—')}
 🧪 <b>Ingredients:</b> ${product.ingredients?.length || 0} item(s)
 💰 <b>Sell Price:</b>  ${etb(product.sellingPrice)}
 
-👤 <b>Added by:</b> ${user?.name || '—'}
+👤 <b>Added by:</b> ${escapeHtml(user?.name || '—')}
 🕐 <b>Time:</b>     ${now()}
 ━━━━━━━━━━━━━━━━━━━━`
   );
@@ -741,13 +775,13 @@ function notifyEmployeeCreated(emp, user) {
 ━━━━━━━━━━━━━━━━━━━━
 👷 <b>NEW EMPLOYEE ADDED</b>
 
-🆔 <b>ID:</b>         ${emp.employeeId || '—'}
-👤 <b>Name:</b>       ${emp.firstName} ${emp.lastName}
-🏢 <b>Department:</b> ${emp.department || '—'}
-💼 <b>Position:</b>   ${emp.position || '—'}
-📞 <b>Phone:</b>      ${emp.phone || '—'}
+🆔 <b>ID:</b>         ${escapeHtml(emp.employeeId || '—')}
+👤 <b>Name:</b>       ${escapeHtml(emp.firstName)} ${escapeHtml(emp.lastName)}
+🏢 <b>Department:</b> ${escapeHtml(emp.department || '—')}
+💼 <b>Position:</b>   ${escapeHtml(emp.position || '—')}
+📞 <b>Phone:</b>      ${escapeHtml(emp.phone || '—')}
 
-🛠 <b>Added by:</b> ${user?.name || '—'}
+🛠 <b>Added by:</b> ${escapeHtml(user?.name || '—')}
 🕐 <b>Time:</b>     ${now()}
 ━━━━━━━━━━━━━━━━━━━━`
   );

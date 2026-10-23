@@ -69,9 +69,22 @@ const handleWebhook = asyncHandler(async (req, res) => {
       console.warn('[TelegramWebhook] Inactive check error:', e.message);
     }
 
-    if (alreadySubscribed) {
+    // Check if user already exists (by chatId OR by matching username)
+    const existingIdx = subscribers.findIndex(s =>
+      (s.chatId && String(s.chatId) === String(chatId)) ||
+      (username && s.username && s.username.toLowerCase() === username.toLowerCase())
+    );
+
+    if (existingIdx !== -1) {
+      subscribers[existingIdx].chatId = String(chatId);
+      if (name) subscribers[existingIdx].name = name;
+      if (username) subscribers[existingIdx].username = username;
+      settings.telegramSubscribers = subscribers;
+      settings.markModified('telegramSubscribers');
+      await settings.save();
+
       await reply(chatId,
-        `✅ <b>Already subscribed!</b>\n\nYou are already receiving Baba Roti  CaféHotel notifications.\n\nTo unsubscribe, send /unsubscribe`
+        `✅ <b>Subscribed successfully!</b>\n\nYou are receiving Baba Roti Café notifications.\n\nTo unsubscribe, send /unsubscribe`
       );
       return;
     }
@@ -175,9 +188,13 @@ const addSubscriber = asyncHandler(async (req, res) => {
     if (dupChat) { res.status(400); throw new Error(`Chat ID already registered to ${dupChat.name}`); }
   }
 
+  const cleanChatIdVal = chatId && String(chatId).trim() && String(chatId).trim() !== 'null' && String(chatId).trim() !== 'undefined'
+    ? String(chatId).trim()
+    : null;
+
   const newSub = {
     id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-    chatId: chatId ? String(chatId) : null,
+    chatId: cleanChatIdVal,
     name: name.trim(),
     username: username ? username.trim().replace(/^@/, '') : '',
     phone: phone.trim(),
@@ -199,11 +216,13 @@ const getSubscribers = asyncHandler(async (req, res) => {
   let modified = false;
   const raw = settings?.telegramSubscribers || [];
   const subscribers = raw.map((s, idx) => {
+    let cleanChat = s.chatId;
+    if (cleanChat === 'null' || cleanChat === 'undefined') cleanChat = null;
     if (!s.id) {
       modified = true;
-      return { ...s, id: s.chatId ? String(s.chatId) : `sub_${idx}_${Date.now()}` };
+      return { ...s, chatId: cleanChat, id: cleanChat ? String(cleanChat) : `sub_${idx}_${Date.now()}` };
     }
-    return s;
+    return { ...s, chatId: cleanChat };
   });
   if (modified && settings) {
     settings.telegramSubscribers = subscribers;
