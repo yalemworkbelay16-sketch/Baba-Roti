@@ -171,11 +171,12 @@ const addSubscriber = asyncHandler(async (req, res) => {
 
   // Check duplicate chatId (if provided)
   if (chatId) {
-    const dupChat = subscribers.find(s => String(s.chatId) === String(chatId));
+    const dupChat = subscribers.find(s => s.chatId && String(s.chatId) === String(chatId));
     if (dupChat) { res.status(400); throw new Error(`Chat ID already registered to ${dupChat.name}`); }
   }
 
   const newSub = {
+    id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     chatId: chatId ? String(chatId) : null,
     name: name.trim(),
     username: username ? username.trim().replace(/^@/, '') : '',
@@ -195,7 +196,21 @@ const addSubscriber = asyncHandler(async (req, res) => {
 // ── GET /api/telegram/subscribers (admin only) ───────────────────
 const getSubscribers = asyncHandler(async (req, res) => {
   const settings = await Setting.findOne();
-  res.json(settings?.telegramSubscribers || []);
+  let modified = false;
+  const raw = settings?.telegramSubscribers || [];
+  const subscribers = raw.map((s, idx) => {
+    if (!s.id) {
+      modified = true;
+      return { ...s, id: s.chatId ? String(s.chatId) : `sub_${idx}_${Date.now()}` };
+    }
+    return s;
+  });
+  if (modified && settings) {
+    settings.telegramSubscribers = subscribers;
+    settings.markModified('telegramSubscribers');
+    await settings.save().catch(() => {});
+  }
+  res.json(subscribers);
 });
 
 // ── PUT /api/telegram/subscribers/:chatId/phone (admin only) ─────
@@ -209,13 +224,20 @@ const updateSubscriberPhone = asyncHandler(async (req, res) => {
   if (!settings) { res.status(404); throw new Error('Settings not found'); }
 
   const subscribers = settings.telegramSubscribers || [];
-  const idx = subscribers.findIndex(s => String(s.chatId) === String(req.params.chatId));
+  const target = String(req.params.chatId).trim();
+
+  const idx = subscribers.findIndex(s =>
+    (s.id && String(s.id) === target) ||
+    (s.chatId && String(s.chatId) === target) ||
+    (s._id && String(s._id) === target)
+  );
+
   if (idx === -1) { res.status(404); throw new Error('Subscriber not found'); }
 
   // Normalize phone — trim whitespace
   const normalized = String(phone).trim();
 
-  // Check for duplicate phone
+  // Check for duplicate phone on other subscribers
   const duplicate = subscribers.find((s, i) => i !== idx && s.phone === normalized);
   if (duplicate) {
     res.status(400);
@@ -235,37 +257,49 @@ const removeSubscriber = asyncHandler(async (req, res) => {
   const settings = await Setting.findOne();
   if (!settings) return res.json({ message: 'No settings found' });
 
-  const targetChatId = String(req.params.chatId).trim();
-  const removedSub = (settings.telegramSubscribers || []).find(s => String(s.chatId) === targetChatId);
+  const target = String(req.params.chatId).trim();
+  const removedSub = (settings.telegramSubscribers || []).find(s =>
+    (s.id && String(s.id) === target) ||
+    (s.chatId && String(s.chatId) === target) ||
+    (s._id && String(s._id) === target)
+  );
 
   settings.telegramSubscribers = (settings.telegramSubscribers || [])
-    .filter(s => String(s.chatId) !== targetChatId);
+    .filter(s =>
+      !(s.id && String(s.id) === target) &&
+      !(s.chatId && String(s.chatId) === target) &&
+      !(s._id && String(s._id) === target)
+    );
   settings.markModified('telegramSubscribers');
   await settings.save();
 
   // Also clear telegramChatId on corresponding user account if linked
-  try {
-    const User = require('../models/User');
-    const user = await User.findOne({
-      $or: [
-        { telegramChatId: targetChatId },
-        ...(removedSub?.phone ? [{ phone: removedSub.phone }] : []),
-        ...(removedSub?.username ? [{ email: removedSub.username }] : []),
-      ]
-    });
-    if (user && user.telegramChatId) {
-      user.telegramChatId = '';
-      await user.save();
+  if (removedSub) {
+    try {
+      const User = require('../models/User');
+      const user = await User.findOne({
+        $or: [
+          ...(removedSub.chatId ? [{ telegramChatId: String(removedSub.chatId) }] : []),
+          ...(removedSub.phone ? [{ phone: removedSub.phone }] : []),
+          ...(removedSub.username ? [{ email: removedSub.username }] : []),
+        ]
+      });
+      if (user && user.telegramChatId) {
+        user.telegramChatId = '';
+        await user.save();
+      }
+    } catch (err) {
+      console.warn('[RemoveSubscriber] Could not unlink user telegramChatId:', err.message);
     }
-  } catch (err) {
-    console.warn('[RemoveSubscriber] Could not unlink user telegramChatId:', err.message);
-  }
 
-  // Send polite unsubscription notice to that Telegram chat
-  await reply(
-    targetChatId,
-    `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n🔕 <b>UNSUBSCRIBED BY ADMINISTRATOR</b>\n\nYour Telegram notifications subscription has been removed by the administrator. You will no longer receive alerts.\n━━━━━━━━━━━━━━━━━━━━`
-  );
+    // Send polite unsubscription notice if it was a real Telegram chat
+    if (removedSub.chatId) {
+      await reply(
+        removedSub.chatId,
+        `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n🔕 <b>UNSUBSCRIBED BY ADMINISTRATOR</b>\n\nYour Telegram notifications subscription has been removed by the administrator. You will no longer receive alerts.\n━━━━━━━━━━━━━━━━━━━━`
+      );
+    }
+  }
 
   res.json({ message: 'Subscriber removed and notifications stopped.' });
 });

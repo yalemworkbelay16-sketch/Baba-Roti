@@ -448,12 +448,15 @@ export default function Settings() {
   };
 
   // Handle phone number registration for a subscriber
-  const handleRegisterPhone = async (chatId) => {
-    if (!tgPhoneVal.trim()) return;
+  const handleRegisterPhone = async (subId) => {
+    if (!tgPhoneVal.trim()) {
+      setTgError('Please enter a valid phone number before saving.');
+      return;
+    }
     setTgPhoneSaving(true);
     setTgError('');
     try {
-      await api.put(`/telegram/subscribers/${chatId}/phone`, { phone: tgPhoneVal.trim() });
+      await api.put(`/telegram/subscribers/${encodeURIComponent(subId)}/phone`, { phone: tgPhoneVal.trim() });
       setTgSuccess('Phone number registered — this number can now receive OTP codes.');
       setTimeout(() => setTgSuccess(''), 5000);
       setTgEditPhone(null);
@@ -2223,95 +2226,104 @@ export default function Settings() {
               <p className="text-xs text-ink-300 mt-1">Share t.me/BabarotiBot to get started</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-ink-100">
-              <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <div className="overflow-x-auto rounded-xl border border-ink-100 shadow-xs">
+              <table className="w-full min-w-[720px] text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)' }}>
                   <tr>
-                    {['#', 'Name', 'Username', 'Phone (OTP)', 'Subscribed At', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100"
-                        style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>
-                        {h}
-                      </th>
-                    ))}
+                    <th className="px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 w-12" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>#</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[130px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Name</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[110px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Username</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[220px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Phone (OTP)</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Subscribed At</th>
+                    <th className="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[120px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tgSubscribers.map((sub, i) => (
-                    <tr key={sub.chatId} className="hover:bg-ink-50/40" style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td className="px-4 py-3 text-xs text-ink-400 tabular-nums">{i + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-ink-800">{sub.name || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-blue-600">
-                        {sub.username ? `@${sub.username}` : '—'}
-                      </td>
+                  {tgSubscribers.map((sub, i) => {
+                    const subId = sub.id || sub.chatId || `sub_${i}`;
+                    const isEditing = Boolean(tgEditPhone && tgEditPhone === subId);
 
-                      {/* Phone column with inline register/edit */}
-                      <td className="px-4 py-3 min-w-[180px]">
-                        {tgEditPhone === sub.chatId ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="tel"
-                              value={tgPhoneVal}
-                              onChange={e => setTgPhoneVal(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleRegisterPhone(sub.chatId);
-                                if (e.key === 'Escape') { setTgEditPhone(null); setTgPhoneVal(''); }
-                              }}
-                              placeholder="e.g. 0918592028"
-                              autoFocus
-                              className="w-32 rounded-lg border border-blue-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                            />
-                            <button
-                              onClick={() => handleRegisterPhone(sub.chatId)}
-                              disabled={tgPhoneSaving}
-                              className="rounded-lg bg-blue-600 hover:bg-blue-700 px-2 py-1 text-[10px] font-bold text-white transition disabled:opacity-50"
-                            >
-                              {tgPhoneSaving ? '…' : 'Save'}
-                            </button>
-                            <button
-                              onClick={() => { setTgEditPhone(null); setTgPhoneVal(''); }}
-                              className="text-ink-400 hover:text-ink-600 text-xs"
-                            >✕</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            {sub.phone ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                ✅ {sub.phone}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-ink-300 italic">Not registered</span>
-                            )}
-                            <button
-                              onClick={() => { setTgEditPhone(sub.chatId); setTgPhoneVal(sub.phone || ''); setTgError(''); }}
-                              className="text-[10px] font-semibold text-blue-500 hover:text-blue-700 hover:underline"
-                            >
-                              {sub.phone ? 'Edit' : '+ Register'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
+                    return (
+                      <tr key={subId} className="hover:bg-ink-50/40 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td className="px-3 py-3 text-center text-xs text-ink-400 tabular-nums">{i + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-ink-800">{sub.name || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-blue-600">
+                          {sub.username ? `@${sub.username}` : '—'}
+                        </td>
 
-                      <td className="px-4 py-3 text-xs text-ink-400 whitespace-nowrap">
-                        {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleString() : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleRemoveTgSubscriber(sub.chatId, sub.name)}
-                          disabled={tgRemoving === sub.chatId}
-                          className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 transition disabled:opacity-50"
-                        >
-                          <Trash2 size={12} />
-                          {tgRemoving === sub.chatId ? 'Removing…' : 'Remove'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        {/* Phone column with inline register/edit */}
+                        <td className="px-4 py-3">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="tel"
+                                value={tgPhoneVal}
+                                onChange={e => setTgPhoneVal(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleRegisterPhone(subId);
+                                  if (e.key === 'Escape') { setTgEditPhone(null); setTgPhoneVal(''); }
+                                }}
+                                placeholder="e.g. 0918592028"
+                                autoFocus
+                                className="w-36 rounded-lg border border-blue-400 bg-white px-2.5 py-1.5 text-xs text-ink-800 outline-none focus:ring-2 focus:ring-blue-500/30"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRegisterPhone(subId)}
+                                disabled={tgPhoneSaving}
+                                className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50 shadow-xs cursor-pointer"
+                              >
+                                {tgPhoneSaving ? '…' : 'Save'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setTgEditPhone(null); setTgPhoneVal(''); }}
+                                className="p-1 text-ink-400 hover:text-ink-600 text-xs rounded hover:bg-ink-100 transition"
+                                title="Cancel"
+                              >✕</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {sub.phone ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                                  ✅ {sub.phone}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-ink-400 italic">Not registered</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => { setTgEditPhone(subId); setTgPhoneVal(sub.phone || ''); setTgError(''); }}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              >
+                                {sub.phone ? 'Edit' : '+ Register'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-ink-500 whitespace-nowrap">
+                          {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleString() : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTgSubscriber(subId, sub.name)}
+                            disabled={tgRemoving === subId}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition disabled:opacity-50 shadow-xs cursor-pointer"
+                          >
+                            <Trash2 size={13} className="shrink-0" />
+                            <span>{tgRemoving === subId ? 'Removing…' : 'Remove'}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              <div className="border-t border-ink-100 px-4 py-2 text-xs text-ink-400">
-                {tgSubscribers.length} subscriber{tgSubscribers.length !== 1 ? 's' : ''} total
-                {' · '}
-                {tgSubscribers.filter(s => s.phone).length} with registered phone
+              <div className="border-t border-ink-100 px-4 py-2.5 bg-ink-50/50 text-xs text-ink-500 flex items-center justify-between">
+                <span>{tgSubscribers.length} subscriber{tgSubscribers.length !== 1 ? 's' : ''} total</span>
+                <span className="font-medium text-emerald-700">{tgSubscribers.filter(s => s.phone).length} with registered phone</span>
               </div>
             </div>
           )}
