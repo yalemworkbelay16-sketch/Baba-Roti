@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
+import { dispatchPrint } from "../utils/localPrintDispatcher";
 import { exportToExcel, exportToCSV, exportToPDF } from "../utils/exportUtils";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
@@ -108,7 +109,7 @@ export default function CaptainOrder() {
   const handleSendToKitchen = async (orderId) => {
     try {
       const res = await api.post(`/captain-orders/${orderId}/send-to-kitchen`);
-      posPrint.printKOT(res.data.order, { businessName: "Baba Roti Café" });
+      dispatchPrint('kot', res.data.order, { businessName: "Baba Roti Café" });
       showToast("Order sent to Kitchen & KOT printed!");
       loadOrders();
       if (refOrder?._id === orderId) {
@@ -1118,7 +1119,7 @@ export default function CaptainOrder() {
               {/* Print KOT */}
               <button
                 type="button"
-                onClick={() => posPrint.printKOT(refOrder, { businessName: "Baba Roti Café" })}
+                onClick={() => dispatchPrint('kot', refOrder, { businessName: "Baba Roti Café", isReprint: true })}
                 style={{
                   padding: "9px 16px",
                   borderRadius: 10,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
+import { dispatchPrint } from "../utils/localPrintDispatcher";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
   UtensilsCrossed, ReceiptText, Printer, Check, CreditCard,
@@ -456,13 +457,12 @@ export default function POS() {
     showToast("Cart cleared. Ready for next order.", "info");
   };
 
-  // ── SILENT THERMAL PRINTER FIRE ──────────────────────────────────
-  // Sends print job to configured network printers via server API.
-  // Errors are non-blocking — ordering always continues.
+  // ── UNIFIED NETWORK & RELAY PRINTER FIRE ──────────────────────────
+  // Dispatches print job to local bridge (127.0.0.1:9101) or central server / relay.
+  // Errors are non-blocking — ordering always continues smoothly.
   const firePrinter = async (type, order, opts = {}) => {
     try {
-      const endpoint = type === 'kot' ? '/printers/action/kot' : '/printers/action/receipt';
-      await api.post(endpoint, { order, opts });
+      await dispatchPrint(type, order, { ...opts, fallbackBrowser: false });
     } catch (_) {
       // silent — printer errors must never block ordering
     }
@@ -1739,12 +1739,17 @@ export default function POS() {
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     posPrint.printReceipt(lastOrder, {
                       hotelName: "Baba Roti Café",
                       taxRate: settings.taxRate,
-                    })
-                  }
+                    });
+                    firePrinter('receipt', lastOrder, {
+                      hotelName: "Baba Roti Café",
+                      taxRate: settings.taxRate,
+                      isReprint: true,
+                    });
+                  }}
                   style={{
                     flex: 1,
                     padding: "7px",
@@ -1766,7 +1771,10 @@ export default function POS() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => posPrint.printKOT(lastOrder, { businessName: "Baba Roti Café" })}
+                  onClick={() => {
+                    posPrint.printKOT(lastOrder, { businessName: "Baba Roti Café" });
+                    firePrinter('kot', lastOrder, { businessName: "Baba Roti Café", isReprint: true });
+                  }}
                   style={{
                     flex: 1,
                     padding: "7px",

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import posPrint from '../utils/posPrint';
+import { checkLocalBridge, checkRelayStatus } from '../utils/localPrintDispatcher';
 import { useAuth } from '../context/AuthContext';
 import { useSessionTimeout, TIMEOUT_OPTIONS } from '../context/SessionTimeoutContext';
 import { THEME_OPTIONS } from '../config/sidebarThemes';
@@ -217,7 +218,7 @@ export default function Settings() {
   const [newDevKey, setNewDevKey] = useState('');
 
   // ── Printer Settings state ──────────────────────────────────────────────
-  const PRINTER_BRANDS = ['Epson', 'Star', 'Datecs', 'Citizen', 'Bixolon', 'HP', 'Generic'];
+  const PRINTER_BRANDS = ['Epson', 'Bixolon', 'Rongta', 'Xprinter', 'Star', 'Citizen', 'Datecs', 'HP', 'Generic'];
   const PRINTER_TYPES  = [
     { key: 'kitchen', label: 'Kitchen / Prep Station' },
     { key: 'receipt', label: 'Customer Receipt' },
@@ -229,44 +230,49 @@ export default function Settings() {
   // Real-world thermal printer models grouped by brand
   const PRINTER_MODELS = {
     Epson: [
-      // 80mm POS
       'TM-T20III', 'TM-T20X', 'TM-T70II', 'TM-T82III',
       'TM-T83III', 'TM-T88VI', 'TM-T88VII',
-      // 58mm POS
       'TM-T20II', 'TM-T81III',
-      // Kitchen / Open-frame
       'TM-U220', 'TM-U330', 'TM-H6000V',
     ],
+    Bixolon: [
+      'SRP-350plusIII', 'SRP-380', 'SRP-330II',
+      'SRP-Q200', 'SRP-Q300', 'SRP-F310II',
+      'SRP-270', 'SRP-275III',
+    ],
+    Rongta: [
+      'RP80USE (80mm Thermal)',
+      'RP326 (80mm Thermal)',
+      'RP328 (80mm Thermal)',
+      'RP58BU (58mm Thermal)',
+      'RP80VI (80mm Thermal)',
+      'RCE-200 (Fiscal)',
+    ],
+    Xprinter: [
+      'XP-N160M (80mm Thermal)',
+      'XP-Q800 (80mm Thermal)',
+      'XP-Q200 (80mm Thermal)',
+      'XP-T80A (80mm Thermal)',
+      'XP-58IIH (58mm Thermal)',
+      'XP-C260M (Kitchen with Alarm)',
+    ],
     Star: [
-      // 80mm TSP series
       'TSP100III', 'TSP100IIIBI', 'TSP143IIIW',
       'TSP650II', 'TSP654II', 'TSP700II', 'TSP800II',
-      // 58mm mPOP / mC series
       'mC-Print2', 'mC-Print3',
-      // Kitchen
       'SP700', 'SP742', 'SP747',
     ],
     Datecs: [
-      // Desktop ESC/POS
       'DP-25', 'DP-35', 'DP-50', 'DP-150',
-      // Mobile
       'DPP-250', 'DPP-350', 'DPP-450',
-      // Fiscal
       'FP-700', 'FP-800',
-      // Label
       'LP-50', 'LP-60', 'LP-600',
-      // Kiosk
       'WP-500X', 'KP-200', 'KP-300',
     ],
     Citizen: [
       'CT-E351', 'CT-E651', 'CT-E301',
       'CT-S310II', 'CT-S651', 'CT-S801II',
       'CMP-20II', 'CMP-25L', 'CMP-30II', 'CMP-40L',
-    ],
-    Bixolon: [
-      'SRP-350plusIII', 'SRP-380', 'SRP-330II',
-      'SRP-Q200', 'SRP-Q300', 'SRP-F310II',
-      'SRP-270', 'SRP-275III',
     ],
     Generic: [
       'Generic 80mm ESC/POS',
@@ -276,8 +282,6 @@ export default function Settings() {
       'POS-80 (Generic)',
       'POS-58 (Generic)',
       'JP-5890K (Generic)',
-      'Rongta RP80USE',
-      'Rongta RP58BU',
       'SEWOO SLK-TS400',
       'Custom (type manually)',
     ],
@@ -327,7 +331,10 @@ export default function Settings() {
   const [pingStatus, setPingStatus]         = useState({}); // { [ip]: 'ok' | 'fail' | 'pending' }
   const [printTestStatus, setPrintTestStatus] = useState({}); // { [idOrIp]: 'ok' | 'fail' | 'pending' }
 
-  // Load printers from API (component-scoped so nav button can call it)
+  const [relayAgentInfo, setRelayAgentInfo] = useState({ online: false });
+  const [localBridgeInfo, setLocalBridgeInfo] = useState({ online: false });
+
+  // Load printers and agent statuses
   const loadPrinters = async () => {
     setPrintersLoading(true);
     try {
@@ -335,6 +342,10 @@ export default function Settings() {
       setPrinters(Array.isArray(res.data) ? res.data : []);
     } catch (_) {}
     finally { setPrintersLoading(false); }
+
+    // Check Cloud Relay and Local Bridge
+    checkRelayStatus().then((r) => setRelayAgentInfo(r)).catch(() => {});
+    checkLocalBridge().then((b) => setLocalBridgeInfo(b)).catch(() => {});
   };
 
   // Telegram subscribers state (Admin)
@@ -2833,6 +2844,59 @@ export default function Settings() {
                 <AlertCircle size={16} className="flex-shrink-0" />{printerError}
               </div>
             )}
+
+            {/* Network Architecture & Relay Agent Status */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                    <Wifi size={13} className="text-violet-600" /> Direct RAW TCP (Port 9100)
+                  </span>
+                  <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
+                    ACTIVE
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-1">
+                  Parallel non-blocking dispatch with TCP FIN spooling &amp; 2.5s fail-fast timeout.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                    <Printer size={13} className="text-indigo-600" /> Local Bridge (:9101)
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    localBridgeInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
+                  }`}>
+                    {localBridgeInfo.online ? 'ONLINE' : 'STANDBY'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-1">
+                  {localBridgeInfo.online
+                    ? 'Connected to local Baba Roti agent. Direct LAN print ready.'
+                    : 'Run baba-roti-agent.js locally for instant 0ms LAN print bridge.'}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                    <Radio size={13} className="text-amber-600" /> Cloud Relay Agent
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    relayAgentInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
+                  }`}>
+                    {relayAgentInfo.online ? 'CONNECTED' : 'STANDBY'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-1">
+                  {relayAgentInfo.online
+                    ? `Agent online (${relayAgentInfo.agent?.agentName || 'Relay'}). Cloud-to-LAN active.`
+                    : 'Allows cloud servers (Render / Aletcloud) to print to local IP printers.'}
+                </p>
+              </div>
+            </div>
 
             {/* How-to banner */}
             <div className="mb-6 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-indigo-50 p-4">

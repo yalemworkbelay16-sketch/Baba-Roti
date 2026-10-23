@@ -19,7 +19,7 @@ const printerSchema = new mongoose.Schema(
     },
     brand: {
       type: String,
-      enum: ['Epson', 'Star', 'Datecs', 'Citizen', 'Bixolon', 'HP', 'Generic'],
+      trim: true,
       default: 'Generic',
     },
     model: {

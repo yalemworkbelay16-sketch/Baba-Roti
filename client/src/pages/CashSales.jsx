@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
+import { dispatchPrint } from "../utils/localPrintDispatcher";
 import { exportToExcel, exportToCSV, exportToPDF } from "../utils/exportUtils";
 import {
   Search, X, Clock, Printer, CreditCard, Smartphone, Banknote,
@@ -150,8 +151,8 @@ export default function CashSales() {
       // Mark captain order as paid
       await api.patch(`/captain-orders/${o._id}`, { status: "paid" });
 
-      // Print thermal receipt
-      posPrint.printReceipt(posOrder, {
+      // Print thermal receipt via network dispatcher + browser fallback
+      dispatchPrint('receipt', posOrder, {
         hotelName: "Baba Roti Café",
         taxRate: 15,
       });
@@ -1034,7 +1035,7 @@ export default function CashSales() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  posPrint.printReceipt(s, {
+                                  dispatchPrint('receipt', s, {
                                     hotelName: "Baba Roti Café",
                                     taxRate: s.taxPercent || 15,
                                     isReprint: true,
@@ -1375,7 +1376,7 @@ export default function CashSales() {
               <button
                 type="button"
                 onClick={() =>
-                  posPrint.printReceipt(refOrder, {
+                  dispatchPrint('receipt', refOrder, {
                     hotelName: "Baba Roti Café",
                     taxRate: refOrder.taxPercent || 15,
                     isReprint: true,

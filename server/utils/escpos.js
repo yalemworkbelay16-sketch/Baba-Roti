@@ -91,11 +91,33 @@ function buildKOT(order, opts = {}) {
   const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-ET');
 
+  // Filter items by target station if specified ('kitchen', 'barista', etc.)
+  const targetStation = opts.targetStation || opts.station;
+  const items = (order.items || []).filter((item) => {
+    if (!targetStation || targetStation === 'all' || targetStation === 'both') return true;
+    if (targetStation === 'barista' || targetStation === 'bar') {
+      return item.station === 'barista' || item.station === 'bar';
+    }
+    return item.station !== 'barista' && item.station !== 'bar';
+  });
+
   const chunks = [
     INIT,
     ALIGN_CENTER,
+  ];
+
+  if (opts.isReprint) {
+    chunks.push(
+      BOLD_ON,
+      text('*** DUPLICATE REPRINT ***'),
+      BOLD_OFF,
+      LINE_FEED
+    );
+  }
+
+  chunks.push(
     DOUBLE_SIZE_ON,
-    text('** KITCHEN ORDER **'),
+    text(targetStation === 'barista' ? '** BARISTA DRINKS **' : '** KITCHEN ORDER **'),
     DOUBLE_SIZE_OFF,
     BOLD_ON,
     text(businessName.toUpperCase()),
@@ -105,7 +127,7 @@ function buildKOT(order, opts = {}) {
     text(divider('=', W)),
     text(twoCol('Order #:', order.orderNo || '--', W)),
     text(twoCol('Type:', (order.orderType || 'dine_in').replace('_', ' ').toUpperCase(), W)),
-  ];
+  );
 
   if (order.tableNo) {
     chunks.push(text(twoCol('Table:', order.tableNo, W)));
@@ -127,7 +149,7 @@ function buildKOT(order, opts = {}) {
     text(divider('-', W)),
   );
 
-  (order.items || []).forEach((item) => {
+  items.forEach((item) => {
     const name = String(item.productName || item.name || '').slice(0, W - 12);
     const qty  = String(item.quantity || 1);
     const note = String(item.notes || '').slice(0, 12);
@@ -149,7 +171,7 @@ function buildKOT(order, opts = {}) {
     BOLD_OFF,
     ALIGN_LEFT,
     FEED_5,
-    CUT_HALF,
+    CUT_FULL,
   );
 
   return Buffer.concat(chunks);
@@ -264,7 +286,7 @@ function buildReceipt(order, opts = {}) {
     text(`Printed: ${dateStr} ${timeStr}`),
     LINE_FEED,
     FEED_5,
-    CUT_HALF,
+    CUT_FULL,
   );
 
   return Buffer.concat(chunks);
