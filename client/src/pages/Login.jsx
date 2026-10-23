@@ -762,8 +762,8 @@ export default function Login() {
 
           {/* Baba Roti Café Official Emblem */}
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div className="rounded-2xl p-1.5 shadow-2xl ring-2 ring-white/20 inline-block bg-white/5 backdrop-blur-md">
-              <BabaRotiIcon size={68} />
+            <div className="rounded-full p-2.5 shadow-2xl ring-4 ring-amber-400/40 inline-block bg-white/95 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:ring-amber-400/70">
+              <BabaRotiIcon size={96} className="shadow-none ring-0" />
             </div>
           </div>
 
@@ -792,11 +792,11 @@ export default function Login() {
           {/* top bar */}
           <div className="login-topbar">
             <div className="flex items-center gap-2.5">
-              <BabaRotiIcon size={26} />
+              <BabaRotiIcon size={32} className="ring-2 ring-amber-400/50 shadow-sm" />
               <span className="login-wordmark flex items-center gap-1" aria-label="Baba Roti Café">
                 <span className="login-wordmark__five">Baba </span>
                 <span className="login-wordmark__stop">Roti</span>
-                <span className="ml-1 rounded bg-amber-400 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Café</span>
+                <span className="ml-1 rounded bg-amber-400 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950 shadow-xs">Café</span>
               </span>
             </div>
             <div className="login-status" aria-live="polite">

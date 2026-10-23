@@ -24,9 +24,8 @@ const connectDB = async () => {
     console.warn('[DB] Placeholder detected in MONGO_URI, using verified Baba Roti cluster URI');
     uri = FALLBACK_URI;
   }
-
-  const MAX_RETRIES   = 5;
-  const RETRY_DELAY   = 3000; // ms between retries
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 3000; // ms between retries
 
   const attempt = async (retryCount = 0) => {
     try {
@@ -63,7 +62,6 @@ mongoose.connection.on('disconnected', () => {
   console.warn('[DB] MongoDB disconnected. Will reconnect on next request.');
   connectionPromise = null;
 });
-
 mongoose.connection.on('error', (err) => {
   console.error('[DB] MongoDB error:', err.message);
   connectionPromise = null;

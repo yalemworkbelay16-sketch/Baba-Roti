@@ -4,17 +4,17 @@ const sharp = require('sharp');
 
 async function generate() {
   const publicDir = path.resolve(__dirname, '../public');
-  const svgPath = path.join(publicDir, 'favicon.svg');
-  const svgBuffer = fs.readFileSync(svgPath);
+  const imgPath = path.join(publicDir, 'baba-roti-logo.png');
+  const imgBuffer = fs.readFileSync(imgPath);
 
   // 1. Generate PNGs at multiple resolutions
-  const png16 = await sharp(svgBuffer).resize(16, 16).png().toBuffer();
-  const png32 = await sharp(svgBuffer).resize(32, 32).png().toBuffer();
-  const png48 = await sharp(svgBuffer).resize(48, 48).png().toBuffer();
-  const png64 = await sharp(svgBuffer).resize(64, 64).png().toBuffer();
-  const png128 = await sharp(svgBuffer).resize(128, 128).png().toBuffer();
-  const png192 = await sharp(svgBuffer).resize(192, 192).png().toBuffer();
-  const png512 = await sharp(svgBuffer).resize(512, 512).png().toBuffer();
+  const png16 = await sharp(imgBuffer).resize(16, 16).png().toBuffer();
+  const png32 = await sharp(imgBuffer).resize(32, 32).png().toBuffer();
+  const png48 = await sharp(imgBuffer).resize(48, 48).png().toBuffer();
+  const png64 = await sharp(imgBuffer).resize(64, 64).png().toBuffer();
+  const png128 = await sharp(imgBuffer).resize(128, 128).png().toBuffer();
+  const png192 = await sharp(imgBuffer).resize(192, 192).png().toBuffer();
+  const png512 = await sharp(imgBuffer).resize(512, 512).png().toBuffer();
 
   // Save standard favicons
   fs.writeFileSync(path.join(publicDir, 'favicon.png'), png32);
