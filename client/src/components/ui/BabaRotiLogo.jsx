@@ -2,20 +2,20 @@ import React from 'react';
 
 /**
  * Baba Roti Café Official Badge Icon / Emblem
- * Features the signature Chef with thumbs up, fresh Roti & hot Coffee
+ * Features the authentic signature Mexican Coffee Bun, butter drip & coffee beans
  */
 export const BabaRotiIcon = ({ size = 36, className = '', alt = 'Baba Roti Café' }) => {
   const px = typeof size === 'number' ? `${size}px` : size;
   return (
     <div
       style={{ width: px, height: px, minWidth: px, minHeight: px }}
-      className={`relative inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden bg-white shadow-md ring-2 ring-amber-400/40 transition-transform duration-200 hover:scale-105 ${className}`}
+      className={`relative inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden bg-[#450f0f] shadow-md ring-2 ring-amber-400/50 transition-transform duration-200 hover:scale-105 ${className}`}
       title="Baba Roti Café"
     >
       <img
         src="/baba-roti-logo.png"
         alt={alt}
-        className="w-full h-full object-contain p-0.5 select-none"
+        className="w-full h-full object-cover select-none"
         loading="eager"
         onError={(e) => {
           if (e.target.src.indexOf('baba-roti-logo.png') !== -1) {

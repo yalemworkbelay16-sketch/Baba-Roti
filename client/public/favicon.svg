@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <!-- Background Sapphire & Indigo Gradient -->
+    <!-- Background Deep Espresso & Coffee Burgundy Gradient -->
     <linearGradient id="brBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e3a8a"/>
-      <stop offset="45%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#172554"/>
+      <stop offset="0%" stop-color="#450f0f"/>
+      <stop offset="50%" stop-color="#2a0808"/>
+      <stop offset="100%" stop-color="#190404"/>
     </linearGradient>
 
     <!-- Luxury Gold & Caramel Gradient -->

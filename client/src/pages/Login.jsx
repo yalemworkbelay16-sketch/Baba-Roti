@@ -762,8 +762,8 @@ export default function Login() {
 
           {/* Baba Roti Café Official Emblem */}
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div className="rounded-full p-2.5 shadow-2xl ring-4 ring-amber-400/40 inline-block bg-white/95 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:ring-amber-400/70">
-              <BabaRotiIcon size={96} className="shadow-none ring-0" />
+            <div className="rounded-full p-1 shadow-2xl ring-4 ring-amber-400/50 inline-block bg-[#450f0f] backdrop-blur-md transition-all duration-300 hover:scale-105 hover:ring-amber-400/80">
+              <BabaRotiIcon size={100} className="shadow-none ring-0" />
             </div>
           </div>
 
