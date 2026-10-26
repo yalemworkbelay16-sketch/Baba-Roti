@@ -16,12 +16,23 @@ async function generate() {
   const png192 = await sharp(imgBuffer).resize(192, 192).png().toBuffer();
   const png512 = await sharp(imgBuffer).resize(512, 512).png().toBuffer();
 
-  // Save standard favicons
-  fs.writeFileSync(path.join(publicDir, 'favicon.png'), png32);
-  fs.writeFileSync(path.join(publicDir, 'favicon-32x32.png'), png32);
-  fs.writeFileSync(path.join(publicDir, 'favicon-16x16.png'), png16);
-  fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), png192);
-  fs.writeFileSync(path.join(publicDir, 'logo.png'), png512);
+  const targetDirs = [publicDir];
+  const distDir = path.resolve(__dirname, '../dist');
+  if (fs.existsSync(distDir)) {
+    targetDirs.push(distDir);
+  }
+
+  for (const dir of targetDirs) {
+    fs.writeFileSync(path.join(dir, 'favicon.png'), png32);
+    fs.writeFileSync(path.join(dir, 'favicon-32x32.png'), png32);
+    fs.writeFileSync(path.join(dir, 'favicon-16x16.png'), png16);
+    fs.writeFileSync(path.join(dir, 'apple-touch-icon.png'), png192);
+    fs.writeFileSync(path.join(dir, 'logo.png'), png512);
+    fs.writeFileSync(path.join(dir, 'baba-roti-logo.png'), imgBuffer);
+    if (fs.existsSync(path.join(publicDir, 'favicon.svg')) && dir !== publicDir) {
+      fs.copyFileSync(path.join(publicDir, 'favicon.svg'), path.join(dir, 'favicon.svg'));
+    }
+  }
 
   // 2. Generate valid multi-resolution ICO file containing 16, 32, 48, 64 PNG frames
   const frames = [
@@ -61,7 +72,9 @@ async function generate() {
   }
 
   const icoBuffer = Buffer.concat([header, ...entryBuffers, ...imageBuffers]);
-  fs.writeFileSync(path.join(publicDir, 'favicon.ico'), icoBuffer);
+  for (const dir of targetDirs) {
+    fs.writeFileSync(path.join(dir, 'favicon.ico'), icoBuffer);
+  }
 
   console.log('Successfully generated all Baba Roti Café favicons and icon files!');
 }

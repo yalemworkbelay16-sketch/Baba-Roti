@@ -113,7 +113,7 @@ if (distExists) {
   app.use(
     express.static(distPath, {
       setHeaders: (res, filePath) => {
-        if (filePath.endsWith('index.html')) {
+        if (filePath.endsWith('index.html') || filePath.includes('favicon') || filePath.includes('logo') || filePath.endsWith('.ico')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
