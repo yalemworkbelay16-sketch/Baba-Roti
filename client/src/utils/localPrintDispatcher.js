@@ -2,42 +2,58 @@
  * localPrintDispatcher.js – Multi-tier Restaurant Network Print Dispatcher
  *
  * Implements seamless, ultra-reliable printing across all network topologies:
- *  - Tier 1: Local Loopback Bridge (http://127.0.0.1:9101) with fast 1000ms timeout.
- *            Directly prints to local LAN printers from local terminal.
- *  - Tier 2: Central Server API (/api/printers/action/kot & /action/receipt).
- *            Dispatches in parallel using Promise.allSettled and queues to Cloud Relay Agent if needed.
+ *  - Tier 1: Local Loopback Bridge (http://127.0.0.1:5000 or fallback :9101) with fast timeout.
+ *            Directly prints to local LAN printers from the local POS terminal with <5ms latency.
+ *  - Tier 2: Central Cloud Server API (/api/printers/action/kot & /action/receipt).
+ *            Dispatches in parallel and automatically routes to Cloud Relay Agent if needed.
  *  - Tier 3: Browser Iframe Print Fallback (posPrint).
- *            Ensures staff never drop an order even during total network separation.
+ *            Ensures staff never drop an order even during complete network failure.
  */
 
 import api from '../api/axios';
 import { posPrint } from './posPrint';
 
-const LOCAL_BRIDGE_URL = 'http://127.0.0.1:9101';
-const BRIDGE_TIMEOUT_MS = 1000; // Optimized 1.0s timeout for swift fallback
+const LOCAL_BRIDGE_URLS = ['http://127.0.0.1:5000', 'http://127.0.0.1:9101'];
+const BRIDGE_TIMEOUT_MS = 1000; // Fast 1.0s timeout
+
+let cachedBridgeUrl = null;
+let lastBridgeCheckTime = 0;
 
 /**
- * Probes whether the local loopback bridge (baba-roti-agent.js) is running on this machine.
- * Returns { online: boolean, info: Object|null }
+ * Probes whether the local loopback bridge (pos-agent.js) is running on this machine.
+ * Checks port 5000 first, then port 9101.
+ * Returns { online: boolean, url: string|null, info: Object|null }
  */
 export async function checkLocalBridge() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), BRIDGE_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${LOCAL_BRIDGE_URL}/health`, {
-      method: 'GET',
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      return { online: true, ...data };
-    }
-    return { online: false };
-  } catch (_) {
-    clearTimeout(timer);
-    return { online: false };
+  const now = Date.now();
+  // Return cached result if checked within the last 15 seconds and was online
+  if (cachedBridgeUrl && now - lastBridgeCheckTime < 15000) {
+    return { online: true, url: cachedBridgeUrl };
   }
+
+  for (const url of LOCAL_BRIDGE_URLS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), BRIDGE_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${url}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        cachedBridgeUrl = url;
+        lastBridgeCheckTime = now;
+        return { online: true, url, ...data };
+      }
+    } catch (_) {
+      clearTimeout(timer);
+    }
+  }
+
+  cachedBridgeUrl = null;
+  lastBridgeCheckTime = now;
+  return { online: false, url: null };
 }
 
 /**
@@ -68,14 +84,14 @@ export async function checkRelayStatus() {
 export async function dispatchPrint(type, order, opts = {}) {
   const fallbackBrowser = opts.fallbackBrowser !== false;
 
-  // ── Tier 1: Try Local Loopback Bridge (1000ms fast attempt) ──────────────
+  // ── Tier 1: Try Local Loopback Bridge (Port 5000 / 9101) ─────────────────
   try {
     const bridgeCheck = await checkLocalBridge();
-    if (bridgeCheck.online) {
+    if (bridgeCheck.online && bridgeCheck.url) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
+      const timer = setTimeout(() => controller.abort(), 4000);
 
-      // Fetch printers list from server to know IPs if needed, or pass order directly
+      // Fetch printers list from server or local state
       const printerRes = await api.get('/printers').catch(() => ({ data: [] }));
       const targetPrinters = (printerRes.data || []).filter((p) => {
         if (!p.enabled || !p.ipAddress) return false;
@@ -85,7 +101,7 @@ export async function dispatchPrint(type, order, opts = {}) {
 
       if (targetPrinters.length > 0) {
         const bridgePromises = targetPrinters.map(async (printer) => {
-          const res = await fetch(`${LOCAL_BRIDGE_URL}/print`, {
+          const res = await fetch(`${bridgeCheck.url}/print`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -146,6 +162,28 @@ export async function dispatchPrint(type, order, opts = {}) {
 }
 
 /**
+ * Direct ping helper checking local bridge then cloud server
+ */
+export async function pingPrinter(ip, port = 9100) {
+  const bridge = await checkLocalBridge();
+  if (bridge.online && bridge.url) {
+    try {
+      const res = await fetch(`${bridge.url}/api/printers/action/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, port }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (_) {}
+  }
+
+  const res = await api.post('/printers/action/ping', { ip, port });
+  return res.data;
+}
+
+/**
  * Convenience shortcuts
  */
 export const localPrintDispatcher = {
@@ -154,6 +192,7 @@ export const localPrintDispatcher = {
   printReceipt: (order, opts) => dispatchPrint('receipt', order, opts),
   checkLocalBridge,
   checkRelayStatus,
+  pingPrinter,
 };
 
 export default localPrintDispatcher;

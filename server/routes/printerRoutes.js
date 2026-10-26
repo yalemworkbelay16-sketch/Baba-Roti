@@ -11,7 +11,9 @@ const {
   printKOTEndpoint,
   printReceiptEndpoint,
   printTestPageEndpoint,
+  getRelayPoll,
   getRelayJobs,
+  completeRelayJob,
   updateRelayJobStatus,
   relayHeartbeat,
   getRelayStatus,
@@ -28,7 +30,9 @@ router.post('/action/kot',       protect, printKOTEndpoint);
 router.post('/action/receipt',   protect, printReceiptEndpoint);
 
 // Cloud Relay Agent endpoints (accessible by standalone background agent)
+router.get('/relay/poll',                   getRelayPoll);
 router.get('/relay/jobs',                   getRelayJobs);
+router.post('/relay/complete',              completeRelayJob);
 router.post('/relay/jobs/:jobId/status',    updateRelayJobStatus);
 router.post('/relay/heartbeat',             relayHeartbeat);
 router.get('/relay/status',                 getRelayStatus);

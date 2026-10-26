@@ -1,0 +1,13 @@
+{
+  "restaurantName": "Baba Roti Café",
+  "cloudBackendUrl": "https://baba-roti-1.app.aletcloud.com",
+  "localBridgePort": 5000,
+  "fallbackBridgePort": 9101,
+  "defaultPrinterIp": "192.168.1.100",
+  "defaultPrinterPort": 9100,
+  "pollIntervalMs": 25000,
+  "heartbeatIntervalMs": 15000,
+  "connectTimeoutMs": 2500,
+  "writeTimeoutMs": 8000,
+  "logLevel": "info"
+}

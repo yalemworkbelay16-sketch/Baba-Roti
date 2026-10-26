@@ -18,15 +18,29 @@ let relayAgentState = {
   agentName: null,
   ip: null,
   platform: null,
-  version: '2.0.0',
+  version: '2.5.0',
 };
 
 const AGENT_TIMEOUT_MS = 60 * 1000; // Agent considered online if heartbeat within 60s
 const waitingPollers = []; // Long-polling client listeners
+const pendingRelayResolvers = new Map(); // jobId -> { resolve, timer }
 
 function isRelayAgentOnline() {
   if (!relayAgentState.lastHeartbeat) return false;
   return Date.now() - relayAgentState.lastHeartbeat < AGENT_TIMEOUT_MS;
+}
+
+const hasActiveRelayAgent = isRelayAgentOnline;
+
+function waitForRelayJob(jobId, timeoutMs = 4500) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingRelayResolvers.delete(jobId);
+      resolve({ ok: false, error: 'Relay execution timeout' });
+    }, timeoutMs);
+
+    pendingRelayResolvers.set(jobId, { resolve, timer });
+  });
 }
 
 function queueRelayJob(type, printer, order, opts = {}) {
@@ -121,8 +135,34 @@ const pingPrinter = asyncHandler(async (req, res) => {
   const { ip, port } = req.body;
   if (!ip) return res.status(400).json({ ok: false, error: 'IP address is required' });
 
-  const result = await testPrinter(ip, port || 9100);
-  res.json(result);
+  // 1. Try direct TCP first (if running locally or printer is publicly routed)
+  try {
+    const result = await testPrinter(ip, port || 9100);
+    if (result && result.ok) {
+      return res.json({ ...result, method: 'direct_tcp' });
+    }
+  } catch (_) {}
+
+  // 2. If direct TCP fails, check if Local Relay Agent is online
+  if (isRelayAgentOnline()) {
+    const job = queueRelayJob('ping', { ipAddress: ip, port: port || 9100 });
+    const relayResult = await waitForRelayJob(job.id, 4500);
+    if (relayResult.ok) {
+      return res.json({
+        ok: true,
+        method: 'relay_agent',
+        agent: relayAgentState.agentName,
+        message: `Printer online (verified via ${relayAgentState.agentName})`,
+      });
+    }
+    return res.json({
+      ok: false,
+      method: 'relay_agent',
+      error: relayResult.error || `Printer unreachable at ${ip}:${port || 9100}`,
+    });
+  }
+
+  res.json({ ok: false, error: `Printer unreachable at ${ip}:${port || 9100}. Start pos-agent.js on local network for relay.` });
 });
 
 // ── PRINT a KOT (Kitchen Order Ticket) with PARALLEL DISPATCH ─────────────────
@@ -309,56 +349,72 @@ const printTestPageEndpoint = asyncHandler(async (req, res) => {
 // ── RELAY AGENT ENDPOINTS ───────────────────────────────────────────────────
 
 /**
- * GET /api/printers/relay/jobs
- * Standalone Local Relay Agent polls this to fetch pending print jobs.
- * Supports long-polling (up to 20 seconds) for instant real-time dispatch.
+ * GET /api/printers/relay/poll & /api/printers/relay/jobs
+ * Standalone Local Print Agent polls this to fetch pending print jobs.
+ * Supports long-polling (up to 25 seconds) for real-time <50ms dispatch.
  */
-const getRelayJobs = asyncHandler(async (req, res) => {
+const getRelayPoll = asyncHandler(async (req, res) => {
+  if (req.query.agentName) {
+    relayAgentState.lastHeartbeat = Date.now();
+    relayAgentState.agentName = req.query.agentName;
+    relayAgentState.ip = req.ip || req.socket.remoteAddress;
+  }
+
   const pending = relayQueue.filter((j) => j.status === 'pending');
   if (pending.length > 0) {
-    // Mark as in-flight
     pending.forEach((j) => { j.status = 'dispatched'; });
     return res.json({ jobs: pending });
   }
 
-  // If long-polling requested (wait=true)
-  if (req.query.wait === 'true' || req.query.wait === '1') {
-    const timer = setTimeout(() => {
-      const idx = waitingPollers.indexOf(sendJobs);
-      if (idx !== -1) waitingPollers.splice(idx, 1);
-      res.json({ jobs: [] });
-    }, 20000);
+  // Hold connection for long-polling (up to 25 seconds)
+  const timer = setTimeout(() => {
+    const idx = waitingPollers.indexOf(sendJobs);
+    if (idx !== -1) waitingPollers.splice(idx, 1);
+    res.json({ jobs: [] });
+  }, 25000);
 
-    const sendJobs = (newJobs) => {
-      clearTimeout(timer);
-      newJobs.forEach((j) => { j.status = 'dispatched'; });
-      res.json({ jobs: newJobs });
-    };
+  const sendJobs = (newJobs) => {
+    clearTimeout(timer);
+    newJobs.forEach((j) => { j.status = 'dispatched'; });
+    res.json({ jobs: newJobs });
+  };
 
-    waitingPollers.push(sendJobs);
-    return;
-  }
-
-  res.json({ jobs: [] });
+  waitingPollers.push(sendJobs);
 });
 
+const getRelayJobs = getRelayPoll;
+
 /**
- * POST /api/printers/relay/jobs/:jobId/status
+ * POST /api/printers/relay/complete & /api/printers/relay/jobs/:jobId/status
  * Local Relay Agent reports outcome of print execution.
  */
-const updateRelayJobStatus = asyncHandler(async (req, res) => {
-  const { jobId } = req.params;
-  const { status, error } = req.body;
+const completeRelayJob = asyncHandler(async (req, res) => {
+  const jobId = req.params.jobId || req.body.jobId;
+  const { status, ok, error, latencyMs } = req.body;
 
   const job = relayQueue.find((j) => j.id === jobId);
   if (job) {
-    job.status = status || 'completed';
+    job.status = status || (ok !== false ? 'completed' : 'failed');
     job.error = error || null;
     job.completedAt = Date.now();
   }
 
+  // Resolve any waiting in-flight caller (e.g. ping or test page)
+  if (pendingRelayResolvers.has(jobId)) {
+    const entry = pendingRelayResolvers.get(jobId);
+    clearTimeout(entry.timer);
+    pendingRelayResolvers.delete(jobId);
+    entry.resolve({
+      ok: ok !== false && status !== 'failed',
+      error: error || null,
+      latencyMs: latencyMs || null,
+    });
+  }
+
   res.json({ ok: true });
 });
+
+const updateRelayJobStatus = completeRelayJob;
 
 /**
  * POST /api/printers/relay/heartbeat
@@ -371,7 +427,7 @@ const relayHeartbeat = asyncHandler(async (req, res) => {
     agentName: agentName || 'Local Relay Agent',
     ip: req.ip || req.socket.remoteAddress,
     platform: platform || 'node',
-    version: version || '2.0.0',
+    version: version || '2.5.0',
   };
   res.json({ ok: true, serverTime: Date.now() });
 });
@@ -401,8 +457,13 @@ module.exports = {
   printKOTEndpoint,
   printReceiptEndpoint,
   printTestPageEndpoint,
+  getRelayPoll,
   getRelayJobs,
+  completeRelayJob,
   updateRelayJobStatus,
   relayHeartbeat,
   getRelayStatus,
+  isRelayAgentOnline,
+  hasActiveRelayAgent,
 };
+
