@@ -11,6 +11,7 @@ const {
   restoreMaterial,
   permanentDeleteMaterial,
   exportMaterialsExcel,
+  exportMaterialTemplate,
   importMaterialsExcel,
 } = require('../controllers/materialController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -19,8 +20,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(protect);
 
-// Excel import/export (before /:id to avoid conflict)
+// Excel import/export/template (before /:id to avoid conflict)
 router.get('/export/excel', authorize('admin', 'manager'), exportMaterialsExcel);
+router.get('/template/excel', authorize('admin', 'manager', 'storekeeper', 'supervisor'), exportMaterialTemplate);
 router.post('/import/excel', authorize('admin', 'manager'), upload.single('file'), importMaterialsExcel);
 
 // Bulk + restore (before /:id)

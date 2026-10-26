@@ -7,6 +7,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import { exportToExcel } from '../utils/exportUtils';
 const emptyForm = { code: '', name: '', category: '', unit: '', currentStock: 0, reorderLevel: 10, unitCost: 0, storeLocation: 'Main Store' };
 
 // Common units for hospitality / kitchen / store
@@ -42,6 +43,7 @@ const RawMaterials = () => {
   const [unitCustom, setUnitCustom] = useState(false);
   const [categoryCustom, setCategoryCustom] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [importing, setImporting] = useState(false);
   const importRef = useRef();
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
@@ -145,18 +147,68 @@ const RawMaterials = () => {
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setImporting(true);
+    setImportResult(null);
     const formData = new FormData();
     formData.append('file', file);
     try {
       const res = await api.post('/materials/import/excel', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setImportResult(res.data);
+      setImportResult({ type: 'success', message: res.data.message });
       load();
     } catch (err) {
-      setImportResult({ message: err.response?.data?.message ?? 'Import failed' });
+      setImportResult({ type: 'error', message: err.response?.data?.message ?? 'Import failed' });
+    } finally {
+      setImporting(false);
+      e.target.value = '';
     }
-    e.target.value = '';
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await api.get('/materials/template/excel', { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'baba_roti_materials_template.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (_) {
+      const templateData = [
+        {
+          'Code': 'RM-0001',
+          'Material Name': 'Special Bread Flour',
+          'Category': 'Bakery & Grains',
+          'Unit': 'kg',
+          'Current Stock': 50,
+          'Reorder Level': 10,
+          'Unit Cost (ETB)': 120.0,
+          'Store Location': 'Dry Store Room A',
+        },
+        {
+          'Code': 'RM-0002',
+          'Material Name': 'Butter Unsalted',
+          'Category': 'Dairy & Eggs',
+          'Unit': 'kg',
+          'Current Stock': 20,
+          'Reorder Level': 5,
+          'Unit Cost (ETB)': 450.0,
+          'Store Location': 'Cold Storage',
+        },
+        {
+          'Code': 'RM-0003',
+          'Material Name': 'Coffee Beans Arabica',
+          'Category': 'Beverages',
+          'Unit': 'kg',
+          'Current Stock': 15,
+          'Reorder Level': 4,
+          'Unit Cost (ETB)': 600.0,
+          'Store Location': 'Baristas Cupboard',
+        },
+      ];
+      exportToExcel(templateData, 'baba_roti_materials_template', 'Materials Template');
+    }
   };
 
   const columns = [
@@ -201,9 +253,11 @@ const RawMaterials = () => {
       'Code': m.code || '—',
       'Material Name': m.name,
       'Category': m.category || 'General',
-      'In Stock': `${m.currentStock} ${m.unit || ''}`.trim(),
-      'Reorder Level': `${m.reorderLevel} ${m.unit || ''}`.trim(),
+      'Unit': m.unit || 'pcs',
+      'Current Stock': m.currentStock || 0,
+      'Reorder Level': m.reorderLevel || 10,
       'Unit Cost (ETB)': Number(m.unitCost || 0).toFixed(2),
+      'Store Location': m.storeLocation || 'Main Store',
       'Status': m.status || (m.currentStock <= m.reorderLevel ? 'Low Stock' : 'Optimal'),
     }));
   }, [materials]);
@@ -231,6 +285,19 @@ const RawMaterials = () => {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Template Download Button */}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-xs hover:border-emerald-300 hover:bg-emerald-100 transition"
+              title="Download sample Excel template for importing raw materials"
+            >
+              <Download size={14} className="text-emerald-700" />
+              <span>Template</span>
+            </button>
+          )}
+
           {/* Export & Import (Excel, PDF, CSV, Print) */}
           <ExportDropdown
             data={exportData}
@@ -267,10 +334,23 @@ const RawMaterials = () => {
         </div>
       )}
 
+      {/* Importing Spinner */}
+      {importing && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 animate-pulse">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent flex-shrink-0" />
+          <p className="font-medium">Importing materials from Excel and updating inventory...</p>
+        </div>
+      )}
+
+      {/* Import Result Banner */}
       {importResult && (
-        <div className="flex items-start justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div className={`flex items-start justify-between rounded-lg border px-4 py-3 text-sm ${
+          importResult.type === 'error'
+            ? 'border-red-200 bg-red-50 text-red-800'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+        }`}>
           <p className="font-medium">{importResult.message}</p>
-          <button onClick={() => setImportResult(null)} className="ml-4 text-blue-500 hover:text-blue-700">
+          <button onClick={() => setImportResult(null)} className="ml-4 text-ink-400 hover:text-ink-700">
             <X size={16} />
           </button>
         </div>
