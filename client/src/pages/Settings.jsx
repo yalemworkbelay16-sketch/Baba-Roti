@@ -219,7 +219,7 @@ export default function Settings() {
   const [newDevKey, setNewDevKey] = useState('');
 
   // ── Printer Settings state ──────────────────────────────────────────────
-  const PRINTER_BRANDS = ['Epson', 'Bixolon', 'Rongta', 'Xprinter', 'Star', 'Citizen', 'Datecs', 'HP', 'Generic'];
+  const PRINTER_BRANDS = ['Epson', 'Datecs', 'Bixolon', 'Rongta', 'Xprinter', 'Star', 'Citizen', 'HP', 'Generic'];
   const PRINTER_TYPES  = [
     { key: 'kitchen', label: 'Kitchen / Prep Station' },
     { key: 'receipt', label: 'Customer Receipt' },
@@ -228,92 +228,86 @@ export default function Settings() {
   ];
   const PAPER_WIDTHS   = ['58mm', '80mm', 'A4'];
 
-  // Real-world thermal printer models grouped by brand
+  // Thermal & laser printer models grouped by brand with universal standard ESC/POS profiles
   const PRINTER_MODELS = {
     Epson: [
-      'TM-T20III', 'TM-T20X', 'TM-T70II', 'TM-T82III',
-      'TM-T83III', 'TM-T88VI', 'TM-T88VII',
-      'TM-T20II', 'TM-T81III',
-      'TM-U220', 'TM-U330', 'TM-H6000V',
-    ],
-    Bixolon: [
-      'SRP-350plusIII', 'SRP-380', 'SRP-330II',
-      'SRP-Q200', 'SRP-Q300', 'SRP-F310II',
-      'SRP-270', 'SRP-275III',
-    ],
-    Rongta: [
-      'RP80USE (80mm Thermal)',
-      'RP326 (80mm Thermal)',
-      'RP328 (80mm Thermal)',
-      'RP58BU (58mm Thermal)',
-      'RP80VI (80mm Thermal)',
-      'RCE-200 (Fiscal)',
-    ],
-    Xprinter: [
-      'XP-N160M (80mm Thermal)',
-      'XP-Q800 (80mm Thermal)',
-      'XP-Q200 (80mm Thermal)',
-      'XP-T80A (80mm Thermal)',
-      'XP-58IIH (58mm Thermal)',
-      'XP-C260M (Kitchen with Alarm)',
-    ],
-    Star: [
-      'TSP100III', 'TSP100IIIBI', 'TSP143IIIW',
-      'TSP650II', 'TSP654II', 'TSP700II', 'TSP800II',
-      'mC-Print2', 'mC-Print3',
-      'SP700', 'SP742', 'SP747',
+      'All Epson TM-Series (Standard ESC/POS)',
+      'TM-T20 / TM-T20II / TM-T20III',
+      'TM-T82 / TM-T82II / TM-T82III',
+      'TM-T88 / TM-T88IV / TM-T88V / TM-T88VI / TM-T88VII',
+      'TM-m30 / TM-m30II (Compact)',
+      'TM-T70 / TM-T70II (Front-loading)',
+      'TM-U220 / TM-U330 (Impact / Kitchen)',
+      'Custom / Other Model (Type Manually)',
     ],
     Datecs: [
-      'DP-25', 'DP-35', 'DP-50', 'DP-150',
-      'DPP-250', 'DPP-350', 'DPP-450',
-      'FP-700', 'FP-800',
-      'LP-50', 'LP-60', 'LP-600',
-      'WP-500X', 'KP-200', 'KP-300',
+      'All Datecs Models (Standard ESC/POS)',
+      'DP-25 / DP-35 / DP-50 / DP-150',
+      'DPP-250 / DPP-350 / DPP-450 (Mobile / Portable)',
+      'FP-700 / FP-800 (Fiscal / POS)',
+      'LP-50 / LP-60 / LP-600',
+      'WP-500X / KP-200 / KP-300',
+      'Custom / Other Model (Type Manually)',
+    ],
+    Bixolon: [
+      'All Bixolon Models (Standard ESC/POS)',
+      'SRP-350 / SRP-350plusIII',
+      'SRP-330 / SRP-330II',
+      'SRP-380 / SRP-Q300',
+      'SRP-275III (Kitchen Impact)',
+      'Custom / Other Model (Type Manually)',
+    ],
+    Rongta: [
+      'All Rongta Models (Standard ESC/POS)',
+      'RP80USE (80mm Thermal)',
+      'RP326 / RP328 (80mm Thermal)',
+      'RP58BU (58mm Thermal)',
+      'Custom / Other Model (Type Manually)',
+    ],
+    Xprinter: [
+      'All Xprinter Models (Standard ESC/POS)',
+      'XP-N160M / XP-Q800 (80mm Thermal)',
+      'XP-Q200 / XP-T80A (80mm Thermal)',
+      'XP-58IIH (58mm Thermal)',
+      'XP-C260M (Kitchen with Buzzer)',
+      'Custom / Other Model (Type Manually)',
+    ],
+    Star: [
+      'All Star Micronics Models (Standard ESC/POS)',
+      'TSP100 / TSP143 (Line Mode / ESC/POS)',
+      'TSP650 / TSP654II',
+      'mC-Print2 / mC-Print3',
+      'SP700 (Kitchen Impact)',
+      'Custom / Other Model (Type Manually)',
     ],
     Citizen: [
-      'CT-E351', 'CT-E651', 'CT-E301',
-      'CT-S310II', 'CT-S651', 'CT-S801II',
-      'CMP-20II', 'CMP-25L', 'CMP-30II', 'CMP-40L',
-    ],
-    Generic: [
-      'Generic 80mm ESC/POS',
-      'Generic 58mm ESC/POS',
-      'XP-58 (Generic)',
-      'XP-80 (Generic)',
-      'POS-80 (Generic)',
-      'POS-58 (Generic)',
-      'JP-5890K (Generic)',
-      'SEWOO SLK-TS400',
-      'Custom (type manually)',
+      'All Citizen Models (Standard ESC/POS)',
+      'CT-E351 / CT-E651',
+      'CT-S310II / CT-S651 / CT-S801II',
+      'CMP-20II / CMP-30II (Mobile)',
+      'Custom / Other Model (Type Manually)',
     ],
     HP: [
-      // LaserJet Pro — most common office/restaurant laser printers
-      'LaserJet M402dne',
-      'LaserJet M402dn',
-      'LaserJet M402n',
-      'LaserJet M404dn',
-      'LaserJet M404dw',
-      'LaserJet M404n',
-      'LaserJet M428fdw',
-      'LaserJet M428fdn',
-      // LaserJet Pro M series
-      'LaserJet Pro M118dw',
-      'LaserJet Pro M203dn',
-      'LaserJet Pro M203dw',
-      'LaserJet Pro M227fdw',
-      'LaserJet Pro M227sdn',
-      // Color LaserJet
-      'Color LaserJet Pro M255dw',
-      'Color LaserJet Pro M283fdw',
-      'Color LaserJet Pro M479fdw',
-      // Older popular models
-      'LaserJet 1020', 'LaserJet P1102w',
-      'LaserJet P2055dn', 'LaserJet P3015dn',
+      'All HP LaserJet Office Printers (PCL RAW 9100)',
+      'LaserJet M402dn / M402dne / M402n',
+      'LaserJet M404dn / M404dw / M404n',
+      'LaserJet Pro M428fdw / M428fdn',
+      'LaserJet Pro M118dw / M203dn / M227fdw',
+      'Color LaserJet Pro M255dw / M283fdw / M479fdw',
+      'Custom / Other Model (Type Manually)',
+    ],
+    Generic: [
+      'Generic 80mm ESC/POS (Universal)',
+      'Generic 58mm ESC/POS (Universal)',
+      'POS-80 (Generic 80mm)',
+      'POS-58 (Generic 58mm)',
+      'XP-80 / XP-58 (Generic)',
+      'Custom / Other Model (Type Manually)',
     ],
   };
 
   const blankPrinter = {
-    name: '', type: 'kitchen', brand: 'Generic', model: '',
+    name: '', type: 'kitchen', brand: 'Epson', model: 'All Epson TM-Series (Standard ESC/POS)',
     paperWidth: '80mm', connectionType: 'network',
     ipAddress: '', port: 9100, enabled: true,
     printOnOrder: true, printOnCheckout: true, copies: 1,
@@ -3095,7 +3089,15 @@ export default function Settings() {
                         <label className="block text-xs font-semibold text-ink-700 mb-1">Printer Brand</label>
                         <select
                           value={printerForm.brand}
-                          onChange={e => setPrinterForm(f => ({ ...f, brand: e.target.value }))}
+                          onChange={e => {
+                            const newBrand = e.target.value;
+                            const brandModels = PRINTER_MODELS[newBrand] || PRINTER_MODELS.Generic;
+                            setPrinterForm(f => ({
+                              ...f,
+                              brand: newBrand,
+                              model: brandModels[0] || '',
+                            }));
+                          }}
                           className="w-full rounded-xl border border-ink-200 py-2.5 px-3 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 bg-white"
                         >
                           {PRINTER_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -3104,33 +3106,59 @@ export default function Settings() {
 
                       {/* Model — grouped by selected brand */}
                       <div>
-                        <label className="block text-xs font-semibold text-ink-700 mb-1">Model</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-ink-700">Model</label>
+                          <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            {printerForm.brand === 'HP' ? 'PCL / Laser' : 'Standard ESC/POS'}
+                          </span>
+                        </div>
                         <select
-                          value={printerForm.model}
+                          value={
+                            (PRINTER_MODELS[printerForm.brand] || PRINTER_MODELS.Generic).includes(printerForm.model)
+                              ? printerForm.model
+                              : '__custom__'
+                          }
                           onChange={e => {
                             const val = e.target.value;
-                            setPrinterForm(f => ({ ...f, model: val === '__custom__' ? '' : val }));
+                            if (val === '__custom__') {
+                              const inList = (PRINTER_MODELS[printerForm.brand] || []).includes(printerForm.model);
+                              setPrinterForm(f => ({ ...f, model: inList ? '' : f.model }));
+                            } else {
+                              setPrinterForm(f => ({ ...f, model: val }));
+                            }
                           }}
                           className="w-full rounded-xl border border-ink-200 py-2.5 px-3 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 bg-white"
                         >
-                          <option value="">— Select a model —</option>
                           {(PRINTER_MODELS[printerForm.brand] || PRINTER_MODELS.Generic).map(m => (
-                            <option key={m} value={m === 'Custom (type manually)' ? '__custom__' : m}>{m}</option>
+                            <option key={m} value={m.includes('Custom') ? '__custom__' : m}>{m}</option>
                           ))}
                         </select>
-                        {/* Show free-text input if custom or model not in list */}
-                        {(printerForm.model === '' ||
-                          !(PRINTER_MODELS[printerForm.brand] || PRINTER_MODELS.Generic)
-                            .filter(m => m !== 'Custom (type manually)')
-                            .includes(printerForm.model)
-                        ) && (
-                          <input
-                            type="text"
-                            value={printerForm.model}
-                            onChange={e => setPrinterForm(f => ({ ...f, model: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-violet-200 bg-violet-50/30 py-2 px-3 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 font-mono"
-                            placeholder="Type model name manually (e.g. TM-T88VI)"
-                          />
+
+                        {/* ONLY show manual input if Custom / Other is chosen */}
+                        {(!(PRINTER_MODELS[printerForm.brand] || PRINTER_MODELS.Generic).includes(printerForm.model)) && (
+                          <div className="mt-2">
+                            <input
+                              type="text"
+                              value={printerForm.model}
+                              onChange={e => setPrinterForm(f => ({ ...f, model: e.target.value }))}
+                              className="w-full rounded-xl border border-violet-300 bg-violet-50/40 py-2 px-3 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 font-mono"
+                              placeholder={`Type custom ${printerForm.brand} model (e.g. ${printerForm.brand === 'Datecs' ? 'DP-25' : 'TM-T20'})`}
+                              autoFocus
+                            />
+                            <p className="text-[11px] text-ink-400 mt-1">
+                              Custom model will use standard {printerForm.brand} ESC/POS protocol.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Reassuring compatibility note */}
+                        {(PRINTER_MODELS[printerForm.brand] || PRINTER_MODELS.Generic).includes(printerForm.model) && (
+                          <p className="text-[11px] text-ink-500 mt-1.5 flex items-center gap-1.5">
+                            <CheckCircle2 size={12} className="text-emerald-500 flex-shrink-0" />
+                            <span>
+                              Fully functional for all <strong>{printerForm.brand}</strong> printers on Port {printerForm.port || 9100}.
+                            </span>
+                          </p>
                         )}
                       </div>
 
