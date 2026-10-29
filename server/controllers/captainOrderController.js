@@ -1,4 +1,5 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const CaptainOrder = require("../models/CaptainOrder");
 const Product = require("../models/Product");
 const Setting = require("../models/Setting");
@@ -257,8 +258,138 @@ const getActiveTables = asyncHandler(async (req, res) => {
   res.json(activeOrders);
 });
 
+// @desc   Create order submitted by customer from public digital menu
+// @route  POST /api/captain-orders/customer-order
+// @access Public
+const createCustomerOrder = asyncHandler(async (req, res) => {
+  const {
+    tableNo = "",
+    tableLabel = "",
+    customerName = "Walk-in Guest",
+    customerPhone = "",
+    guestCount = 1,
+    orderType = "dine_in",
+    items = [],
+    tableNotes = "",
+  } = req.body;
+
+  if (!items || !Array.isArray(items) || !items.length) {
+    res.status(400);
+    throw new Error("Order must have at least one item");
+  }
+
+  const safeCustomerName = String(customerName || "Walk-in Guest").trim().slice(0, 100);
+  const safeCustomerPhone = String(customerPhone || "").trim().slice(0, 30);
+  const safeTableNo = String(tableNo || "Counter / Takeaway").trim().slice(0, 50);
+  const safeTableLabel = String(tableLabel || tableNo || "Table").trim().slice(0, 50);
+  const safeTableNotes = String(tableNotes || "").trim().slice(0, 500);
+
+  const settings = await Setting.findOne().lean();
+  const taxRate = Number(settings?.taxRate ?? 15);
+  let safeServicePct = 0;
+  if (settings?.enableServiceCharge && (!settings?.autoApplyServiceChargeDineIn || orderType === "dine_in")) {
+    safeServicePct = Math.min(100, Math.max(0, Number(settings?.serviceChargeRate) || 10));
+  }
+
+  const { orderNo, dailySequence } = await generateCaptainOrderNo();
+
+  let subtotal = 0;
+  const processedItems = [];
+
+  for (const item of items) {
+    if (!item.product) {
+      res.status(400);
+      throw new Error("Each item must specify a valid product");
+    }
+    const qty = Math.max(0.001, Number(item.quantity) || 1);
+    const product = await Product.findById(item.product).lean();
+    if (!product) {
+      res.status(400);
+      throw new Error(`Product not found: ${item.productName || item.product}`);
+    }
+
+    const unitPrice = Math.max(0, Number(item.unitPrice !== undefined ? item.unitPrice : product.sellingPrice) || 0);
+    const lineTotal = Math.round(unitPrice * qty * 100) / 100;
+    subtotal += lineTotal;
+    const station = determineStation(product.category, product.parentCategory, product.name);
+
+    processedItems.push({
+      product: product._id,
+      productName: product.name,
+      productCode: product.code || "",
+      category: product.category || "General",
+      parentCategory: product.parentCategory || "FOOD",
+      quantity: qty,
+      unitPrice,
+      totalPrice: lineTotal,
+      notes: (item.notes || "").trim(),
+      station,
+      addedRound: 1,
+    });
+  }
+
+  const taxAmount = Math.round(subtotal * taxRate / 100 * 100) / 100;
+  const finalServiceCharge = safeServicePct > 0 ? Math.round(subtotal * safeServicePct / 100 * 100) / 100 : 0;
+  const grandTotal = Math.round((subtotal + taxAmount + finalServiceCharge) * 100) / 100;
+
+  // Link to a default system user
+  const User = require("../models/User");
+  const systemUser = await User.findOne({ role: { $in: ["admin", "manager", "cashier", "dev"] } }).lean();
+  const createdById = systemUser ? systemUser._id : new mongoose.Types.ObjectId();
+
+  const order = await CaptainOrder.create({
+    orderNo,
+    dailySequence,
+    tableNo: safeTableNo,
+    tableLabel: safeTableLabel,
+    customerName: safeCustomerName,
+    customerPhone: safeCustomerPhone,
+    guestCount: Math.max(1, Number(guestCount) || 1),
+    orderType,
+    waiter: null,
+    waiterName: "Self-Order QR",
+    createdBy: createdById,
+    createdByName: "Customer Digital Menu",
+    items: processedItems,
+    subtotal,
+    discountPercent: 0,
+    discountAmount: 0,
+    taxPercent: taxRate,
+    taxAmount,
+    serviceChargePercent: safeServicePct,
+    serviceCharge: finalServiceCharge,
+    grandTotal,
+    status: "sent_to_kitchen",
+    tableNotes: safeTableNotes,
+  });
+
+  const tg = require("../utils/telegramNotifier");
+  if (tg && typeof tg.sendNotification === "function") {
+    try {
+      const itemsList = processedItems.map((p) => `${p.productName} x${p.quantity}`).join(", ");
+      tg.sendNotification(
+        `🛎️ <b>New Customer Digital Menu Order!</b>\n` +
+        `🪑 <b>Table:</b> ${safeTableNo}\n` +
+        `👤 <b>Customer:</b> ${safeCustomerName} (${safeCustomerPhone || "No Phone"})\n` +
+        `🍴 <b>Items:</b> ${itemsList}\n` +
+        `💰 <b>Total:</b> ETB ${grandTotal.toFixed(2)}\n` +
+        (safeTableNotes ? `📝 <b>Note:</b> ${safeTableNotes}\n` : "") +
+        `<i>Ready in POS for Kitchen prep & Cashier settlement.</i>`
+      );
+    } catch (_) {}
+  }
+
+  res.status(201).json({
+    success: true,
+    orderNo: order.orderNo,
+    order,
+    message: `Order #${orderNo} sent to kitchen successfully!`,
+  });
+});
+
 module.exports = {
   createCaptainOrder,
+  createCustomerOrder,
   getCaptainOrders,
   getCaptainOrderById,
   updateCaptainOrder,

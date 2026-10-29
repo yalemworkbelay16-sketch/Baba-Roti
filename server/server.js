@@ -124,8 +124,7 @@ if (distExists) {
         }
       },
     })
-  ); 
-  
+  );
   // Exclude /api routes from being caught by the wildcard
   app.get(/^(?!\/api).*/, (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

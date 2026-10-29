@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, verifyModuleLicense } = require("../middleware/authMiddleware");
 const {
   createCaptainOrder,
+  createCustomerOrder,
   getCaptainOrders,
   getCaptainOrderById,
   updateCaptainOrder,
@@ -10,6 +11,9 @@ const {
   voidCaptainOrder,
   getActiveTables,
 } = require("../controllers/captainOrderController");
+
+// Public Customer Self-Ordering endpoint (No auth required)
+router.post("/customer-order", createCustomerOrder);
 
 router.use(protect);
 router.use(verifyModuleLicense('subsystem'));

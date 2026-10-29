@@ -314,6 +314,22 @@ const createOrder = asyncHandler(async (req, res) => {
     salesRecord: salesRecordId,
   });
 
+  // If this order settles an existing Captain / Table order, mark it paid and close the table
+  if (captainOrderRef) {
+    try {
+      const CaptainOrder = require('../models/CaptainOrder');
+      await CaptainOrder.findByIdAndUpdate(captainOrderRef, {
+        status: 'paid',
+        cashSaleRef: order._id,
+        billedAt: new Date(),
+        billedBy: req.user?._id,
+        billedByName: req.user?.name || 'Cashier',
+      });
+    } catch (capErr) {
+      console.warn('[POS] Could not update linked captain order:', capErr.message);
+    }
+  }
+
   // Optional Telegram notification
   if (tg && typeof tg.sendNotification === 'function') {
     try {

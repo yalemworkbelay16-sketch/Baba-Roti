@@ -334,6 +334,8 @@ export default function POS() {
   useEffect(() => {
     loadData();
     loadHeldOrders();
+    const interval = setInterval(loadHeldOrders, 10000); // 10s auto-refresh for incoming customer QR orders
+    return () => clearInterval(interval);
   }, [loadData, loadHeldOrders]);
 
   // Computed
@@ -945,6 +947,30 @@ export default function POS() {
               </span>
             )}
           </button>
+
+          {/* QR Customer Digital Menu Link */}
+          <a
+            href="/menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open customer-facing QR Digital Menu in new tab"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "7px 12px",
+              borderRadius: 10,
+              border: "1.5px solid #a7f3d0",
+              background: "#ecfdf5",
+              color: "#047857",
+              fontWeight: 800,
+              fontSize: 12,
+              textDecoration: "none",
+              transition: "all 0.15s",
+            }}
+          >
+            <span>📱 QR Menu</span>
+          </a>
         </div>
 
         {/* Right: Clock & User info */}

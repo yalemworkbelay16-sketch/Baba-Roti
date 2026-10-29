@@ -22,6 +22,7 @@ import Expenses from './pages/Expenses';
 import POS from './pages/POS';
 import CaptainOrder from './pages/CaptainOrder';
 import CashSales from './pages/CashSales';
+import DigitalMenu from './pages/DigitalMenu';
 import ErrorBoundary from './components/ErrorBoundary';
 import { SessionTimeoutProvider } from './context/SessionTimeoutContext';
 import SessionTimeoutModal from './components/common/SessionTimeoutModal';
@@ -33,6 +34,7 @@ function App() {
         <SessionTimeoutModal />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/menu" element={<DigitalMenu />} />
 
           <Route
             element={

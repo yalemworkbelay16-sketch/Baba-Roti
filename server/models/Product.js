@@ -17,6 +17,7 @@ const productSchema = new mongoose.Schema(
     uom: { type: String, trim: true, default: 'Pcs' },               // Unit of Measure
     description: { type: String, trim: true, default: '' },
     sellingPrice: { type: Number, default: 0 },                      // Default Value
+    imageUrl: { type: String, trim: true, default: '' },             // Food image photo
     ingredients: [ingredientSchema],
     isActive: { type: Boolean, default: true },
     deletedAt:   { type: Date, default: null },

@@ -14,10 +14,14 @@ const {
   importProductsExcel,
   exportRecipeTemplate,
   importRecipesExcel,
+  getPublicMenu,
 } = require('../controllers/productController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Public menu for customer self-ordering (No auth required)
+router.get('/public-menu', getPublicMenu);
 
 router.use(protect);
 

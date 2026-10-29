@@ -655,5 +655,45 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
   res.end();
 });
 
+// @desc   Get public menu items for customer digital menu (no auth needed)
+// @route  GET /api/products/public-menu
+// @access Public
+const getPublicMenu = asyncHandler(async (req, res) => {
+  const [products, settings] = await Promise.all([
+    Product.find({ isActive: true, deletedAt: null })
+      .select('name code category parentCategory sellingPrice description uom imageUrl')
+      .sort({ category: 1, name: 1 })
+      .lean(),
+    Setting.findOne().lean(),
+  ]);
 
-module.exports = { getProducts, getProductById, createProduct, updateProduct, deleteProduct, bulkDeleteProducts, restoreProduct, permanentDeleteProduct, exportProductsExcel, importProductsExcel, exportRecipeTemplate, importRecipesExcel };
+  const categories = Array.from(new Set(products.map(p => p.category || 'General')));
+
+  res.json({
+    success: true,
+    cafeName: 'Baba Roti Café',
+    tagline: 'Good Food • Good Mood',
+    currency: 'ETB',
+    taxRate: Number(settings?.taxRate ?? 15),
+    enableServiceCharge: !!settings?.enableServiceCharge,
+    serviceChargeRate: Number(settings?.serviceChargeRate ?? 10),
+    categories,
+    products,
+  });
+});
+
+module.exports = {
+  getProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  bulkDeleteProducts,
+  restoreProduct,
+  permanentDeleteProduct,
+  exportProductsExcel,
+  importProductsExcel,
+  exportRecipeTemplate,
+  importRecipesExcel,
+  getPublicMenu,
+};
