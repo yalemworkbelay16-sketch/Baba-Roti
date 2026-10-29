@@ -42,14 +42,20 @@ const autoSeed = async () => {
   }
 };
 
+const { migrateLocalUploads } = require('./utils/gridfs');
+
 connectDB()
-  .then(() => autoSeed())
+  .then(async () => {
+    await autoSeed();
+    await migrateLocalUploads();
+  })
   .catch((err) => {
     console.error('[DB] Startup connect error:', err.message);
     global.mongoConnectionError = err.message;
   });
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -67,7 +73,6 @@ app.get('/api/health', (req, res) => {
     mongoError: global.mongoConnectionError || null,
   });
 });
-
 // Ensure DB is connected for API requests
 app.use(async (req, res, next) => {
   if (req.path === '/api/health') return next();
@@ -78,7 +83,6 @@ app.use(async (req, res, next) => {
     next(err);
   }
 });
-
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/suppliers', require('./routes/supplierRoutes'));
@@ -120,8 +124,8 @@ if (distExists) {
         }
       },
     })
-  );
-
+  ); 
+  
   // Exclude /api routes from being caught by the wildcard
   app.get(/^(?!\/api).*/, (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -133,12 +137,9 @@ if (distExists) {
   console.warn('[STATIC] Warning: client/dist/index.html not found. Check build output.');
   app.get('/', (req, res) => res.send('Baba Roti API Server is running. Frontend build in progress or not mounted.'));
 }
-
 app.use(notFound);
 app.use(errorHandler);
-
 const PORT = process.env.PORT || 5000;
-
 // Listen on port unless we are in Vercel's serverless environment
 if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
@@ -147,7 +148,7 @@ if (!process.env.VERCEL) {
     // ── Keep-alive ping every 10 minutes ──────────────────────────
     // Prevents free-tier hosting (Aletcloud, Render) from sleeping.
     // Only runs if a PUBLIC_URL env var is set (set it in Aletcloud
-    // to your server URL, e.g. https://five-stop.app.aletcloud.com)
+    // to your server URL, e.g. https://baba-roti-1.app.aletcloud.com/
     const publicUrl = process.env.PUBLIC_URL;
     if (publicUrl) {
       const https = require('https');

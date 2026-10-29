@@ -32,7 +32,9 @@ import {
   Printer,
   ChevronDown,
   UploadCloud,
+  ExternalLink,
 } from 'lucide-react';
+import { normalizeFileUrl, isPdfDocument } from '../utils/fileUrl';
 import {
   ResponsiveContainer,
   BarChart,
@@ -206,7 +208,11 @@ function printVoucher(voucher, formatETB) {
         <div class="field"><div class="lbl">Recorded At</div><div class="val">${createdAt}</div></div>
       </div>
       ${voucher.notes ? `<div class="notes-lbl">Notes / Purpose</div><div class="notes-box">${voucher.notes}</div>` : ''}
-      ${voucher.receiptUrl ? `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt</div><img src="${voucher.receiptUrl}" alt="Receipt" class="receipt-img"/></div>` : ''}
+      ${voucher.receiptUrl ? (
+        isPdfDocument(voucher.receiptUrl)
+          ? `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt (PDF Document)</div><div style="font-size:11px;color:#475569;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0">PDF Receipt Attached: ${voucher.receiptUrl}</div></div>`
+          : `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt</div><img src="${normalizeFileUrl(voucher.receiptUrl)}" alt="Receipt" class="receipt-img"/></div>`
+      ) : ''}
     </div>
     <div class="footer">Baba Roti Café &middot; ${voucherId} &middot; Printed ${new Date().toLocaleString()}</div>
   </div>
@@ -235,6 +241,107 @@ function printVoucher(voucher, formatETB) {
       setTimeout(() => iframe.remove(), 1000);
     }, 250);
   };
+}
+
+function VoucherReceiptPreview({ rawUrl, voucherId, onReuploaded }) {
+  const [hasError, setHasError] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const safeUrl = normalizeFileUrl(rawUrl);
+  const isPdf   = isPdfDocument(safeUrl);
+
+  const handleReupload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReplacing(true);
+    try {
+      const uploadForm = new FormData();
+      uploadForm.append('files', file);
+      const res = await api.post('/upload', uploadForm, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const newUrl = res.data?.files?.[0]?.url;
+      if (newUrl) {
+        if (voucherId) {
+          await api.put(`/expenses/${voucherId}`, { receiptUrl: newUrl });
+        }
+        setHasError(false);
+        if (onReuploaded) onReuploaded(newUrl);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Re-upload failed.');
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  if (isPdf) {
+    return (
+      <div className="flex items-center justify-between p-3 rounded-xl border border-red-200 bg-red-50/70">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-lg bg-red-100 border border-red-200 flex flex-col items-center justify-center shrink-0 text-red-600">
+            <FileText size={18} />
+            <span className="text-[8px] font-bold">PDF</span>
+          </div>
+          <div>
+            <p className="font-semibold text-ink-800 text-xs">PDF Document Receipt</p>
+            <p className="text-[11px] text-ink-400">Stored in MongoDB Atlas</p>
+          </div>
+        </div>
+        <a
+          href={safeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-xs transition"
+        >
+          <FileText size={13} /> View PDF <ExternalLink size={11} />
+        </a>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex items-center justify-between p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900">
+        <div className="flex items-center gap-2.5">
+          <AlertCircle size={20} className="text-amber-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-xs">Receipt Image Unavailable</p>
+            <p className="text-[11px] text-amber-700">Wiped from ephemeral server storage</p>
+          </div>
+        </div>
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs cursor-pointer transition">
+          <UploadCloud size={13} /> {replacing ? 'Uploading…' : 'Re-upload'}
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            disabled={replacing}
+            onChange={handleReupload}
+            className="hidden"
+          />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={safeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block group relative overflow-hidden rounded-xl border border-ink-200 bg-ink-50 hover:border-blue-300 transition"
+      title="Click to view full receipt"
+    >
+      <img
+        src={safeUrl}
+        alt="Receipt"
+        className="max-h-56 w-full object-contain"
+        onError={() => setHasError(true)}
+      />
+      <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-black/60 text-white px-2 py-1 rounded text-[10px] opacity-0 group-hover:opacity-100 transition">
+        <ExternalLink size={10} /> Open full image
+      </span>
+    </a>
+  );
 }
 
 export default function Expenses() {
@@ -281,6 +388,7 @@ export default function Expenses() {
     receiptUrl: '',
     status: 'Paid',
   });
+  const [formReceiptError, setFormReceiptError] = useState(false);
 
   // Calculate actual from/to dates based on preset
   const dateParams = useMemo(() => {
@@ -380,6 +488,7 @@ export default function Expenses() {
   const openNewExpenseModal = (template = null) => {
     setEditingExpense(null);
     setFormError('');
+    setFormReceiptError(false);
     setFormData({
       title: template?.title || '',
       category: template?.category || categoriesList[0] || 'Utilities (Power, Water, Gas)',
@@ -398,6 +507,7 @@ export default function Expenses() {
   const openEditModal = (expense) => {
     setEditingExpense(expense);
     setFormError('');
+    setFormReceiptError(false);
     setFormData({
       title: expense.title || '',
       category: expense.category || 'Utilities (Power, Water, Gas)',
@@ -454,7 +564,7 @@ export default function Expenses() {
     }
   };
 
-  // Upload receipt image
+  // Upload receipt image or PDF
   const handleReceiptUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -466,6 +576,7 @@ export default function Expenses() {
       });
       if (res.data?.files?.[0]?.url) {
         setFormData((prev) => ({ ...prev, receiptUrl: res.data.files[0].url }));
+        setFormReceiptError(false);
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Receipt upload failed');
@@ -917,12 +1028,16 @@ export default function Expenses() {
                         <div className="font-bold text-ink-900 flex items-center gap-1.5">
                           <span>{exp.title}</span>
                           {exp.receiptUrl && (
-                            <span
-                              title="Receipt attached"
-                              className="inline-flex items-center text-blue-600 bg-blue-50 rounded px-1 text-[10px]"
+                            <a
+                              href={normalizeFileUrl(exp.receiptUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View attached document / receipt"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1.5 py-0.5 text-[10px] font-medium transition"
                             >
                               <Paperclip size={10} className="mr-0.5" /> receipt
-                            </span>
+                            </a>
                           )}
                         </div>
                         {exp.notes && (
@@ -1152,44 +1267,83 @@ export default function Expenses() {
               />
             </div>
 
-            {/* Receipt Image Attachment */}
+            {/* Receipt Image / PDF Attachment */}
             <div>
               <label className="block text-xs font-bold text-ink-800 mb-1">
                 Receipt Attachment (Optional)
               </label>
               {formData.receiptUrl ? (
-                <div className="flex items-center gap-3 p-2 rounded-xl bg-blue-50 border border-blue-200">
-                  <img
-                    src={formData.receiptUrl}
-                    alt="Receipt"
-                    className="h-12 w-12 object-cover rounded-lg border"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-blue-900 truncate">Receipt uploaded</p>
-                    <a
-                      href={formData.receiptUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-blue-600 underline"
-                    >
-                      View full image
-                    </a>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData((p) => ({ ...p, receiptUrl: '' }))}
-                    className="text-red-500 hover:text-red-700 p-1"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
+                (() => {
+                  const safeUrl = normalizeFileUrl(formData.receiptUrl);
+                  const isPdf   = isPdfDocument(safeUrl);
+                  return (
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                      {isPdf ? (
+                        <div className="h-12 w-12 rounded-lg bg-red-100 border border-red-200 flex flex-col items-center justify-center shrink-0 text-red-600">
+                          <FileText size={20} />
+                          <span className="text-[9px] font-bold">PDF</span>
+                        </div>
+                      ) : formReceiptError ? (
+                        <div className="h-12 w-12 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                          <AlertCircle size={20} />
+                        </div>
+                      ) : (
+                        <img
+                          src={safeUrl}
+                          alt="Receipt"
+                          className="h-12 w-12 object-cover rounded-lg border border-blue-200 shrink-0"
+                          onError={() => setFormReceiptError(true)}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-blue-900 truncate">
+                          {isPdf ? 'PDF Receipt Attached' : 'Receipt Uploaded'}
+                        </p>
+                        {formReceiptError ? (
+                          <label className="text-[11px] text-amber-700 font-medium underline cursor-pointer hover:text-amber-900">
+                            Image wiped — click to re-upload
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                setFormReceiptError(false);
+                                handleReceiptUpload(e);
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        ) : (
+                          <a
+                            href={safeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 underline"
+                          >
+                            {isPdf ? 'View PDF' : 'View full image'} <ExternalLink size={10} />
+                          </a>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData((p) => ({ ...p, receiptUrl: '' }));
+                          setFormReceiptError(false);
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        title="Remove attachment"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  );
+                })()
               ) : (
                 <label className="flex items-center justify-center gap-2 border-2 border-dashed border-ink-200 hover:border-blue-400 hover:bg-blue-50/30 rounded-xl p-3 cursor-pointer text-xs text-ink-500 transition">
                   <UploadCloud size={16} className="text-blue-500" />
-                  <span>Upload receipt image / photo</span>
+                  <span>Upload receipt image or PDF (up to 10 MB)</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.pdf"
                     onChange={handleReceiptUpload}
                     className="hidden"
                   />
@@ -1311,18 +1465,14 @@ export default function Expenses() {
               {activeVoucher.receiptUrl && (
                 <div className="text-xs pt-2">
                   <p className="text-ink-400 font-medium mb-1">Attached Receipt</p>
-                  <a
-                    href={activeVoucher.receiptUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <img
-                      src={activeVoucher.receiptUrl}
-                      alt="Receipt"
-                      className="max-h-48 w-full object-contain rounded-xl border border-ink-200 bg-ink-50"
-                    />
-                  </a>
+                  <VoucherReceiptPreview
+                    rawUrl={activeVoucher.receiptUrl}
+                    voucherId={activeVoucher._id}
+                    onReuploaded={(newUrl) => {
+                      setActiveVoucher((prev) => (prev ? { ...prev, receiptUrl: newUrl } : null));
+                      fetchExpenses();
+                    }}
+                  />
                 </div>
               )}
             </div>
