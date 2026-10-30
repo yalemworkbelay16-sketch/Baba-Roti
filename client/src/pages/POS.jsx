@@ -358,7 +358,7 @@ export default function POS() {
   useEffect(() => {
     loadData();
     loadHeldOrders();
-    const interval = setInterval(loadHeldOrders, 10000); // 10s auto-refresh for incoming customer QR orders
+    const interval = setInterval(loadHeldOrders, 3000); // 3s fast refresh for instant customer QR order sound notification
     return () => clearInterval(interval);
   }, [loadData, loadHeldOrders]);
 

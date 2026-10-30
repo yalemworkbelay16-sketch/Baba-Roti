@@ -723,6 +723,7 @@ const getPublicMenu = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    isLicensed: settings?.licensedModules?.digitalMenu !== false,
     cafeName: settings?.hotelName || 'Baba Roti Café',
     tagline: 'Good Food • Good Mood',
     currency: settings?.currency || 'ETB',

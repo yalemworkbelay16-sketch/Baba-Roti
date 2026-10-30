@@ -375,12 +375,77 @@ const applyRawMaterialPriceAdjustment = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Submit customer review/rating from digital menu
+// @route  POST /api/settings/menu-reviews
+// @access Public
+const createMenuReview = asyncHandler(async (req, res) => {
+  const { customerName, tableNo, rating, comment, tags } = req.body;
+  const MenuReview = require('../models/MenuReview');
+
+  if (!rating || Number(rating) < 1 || Number(rating) > 5) {
+    res.status(400);
+    throw new Error('Rating must be between 1 and 5 stars.');
+  }
+
+  const review = await MenuReview.create({
+    customerName: (customerName || '').trim() || 'Valued Guest',
+    tableNo: (tableNo || '').trim(),
+    rating: Number(rating),
+    comment: (comment || '').trim(),
+    tags: Array.isArray(tags) ? tags : [],
+  });
+
+  res.status(201).json({
+    success: true,
+    review,
+    message: 'Thank you for your rating! Your review has been recorded.',
+  });
+});
+
+// @desc   Get all customer reviews & aggregate score
+// @route  GET /api/settings/menu-reviews
+// @access Public / Private
+const getMenuReviews = asyncHandler(async (req, res) => {
+  const MenuReview = require('../models/MenuReview');
+  const reviews = await MenuReview.find({ isPublic: { $ne: false } })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  const total = reviews.length;
+  const avg = total > 0 ? (reviews.reduce((acc, r) => acc + (r.rating || 0), 0) / total).toFixed(1) : '5.0';
+
+  res.json({
+    success: true,
+    total,
+    averageRating: Number(avg),
+    reviews,
+  });
+});
+
+// @desc   Delete customer review
+// @route  DELETE /api/settings/menu-reviews/:id
+// @access Private (Admin, Manager, Dev)
+const deleteMenuReview = asyncHandler(async (req, res) => {
+  const MenuReview = require('../models/MenuReview');
+  const review = await MenuReview.findById(req.params.id);
+  if (!review) {
+    res.status(404);
+    throw new Error('Review not found');
+  }
+  await review.deleteOne();
+  res.json({ success: true, message: 'Review deleted.' });
+});
+
 module.exports = {
   getSettings,
   updateSettings,
   applyProductPriceAdjustment,
   applyRawMaterialPriceAdjustment,
   updateDeveloperLicense,
+  createMenuReview,
+  getMenuReviews,
+  deleteMenuReview,
 };
 
 

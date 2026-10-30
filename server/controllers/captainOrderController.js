@@ -159,7 +159,22 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
 
   const order = await CaptainOrder.findById(req.params.id);
   if (!order) { res.status(404); throw new Error("Captain order not found"); }
-  if (["paid", "voided", "cancelled"].includes(order.status)) {
+
+  // If already in target status, return early as idempotent success
+  if (status && order.status === status) {
+    return res.json(order);
+  }
+
+  // If order is already closed/settled, allow confirming status to 'billed' or 'paid'
+  if (["paid", "billed", "voided", "cancelled"].includes(order.status)) {
+    if (status === "paid" || status === "billed") {
+      order.status = status;
+      if (status === "billed" && !order.billedAt) {
+        order.billedAt = new Date();
+      }
+      await order.save();
+      return res.json(order);
+    }
     res.status(400); throw new Error(`Cannot edit an order with status: ${order.status}`);
   }
 

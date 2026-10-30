@@ -196,6 +196,12 @@ export const AuthProvider = ({ children }) => {
   /** Check whether a sidebar nav section is visible for this user's role */
   const canSeeNav = (navKey) => {
     if (!user) return false;
+    // Digital Menu master gating: if locked by dev, hide completely from non-dev users!
+    if (navKey === 'digitalMenu') {
+      if (licensedModules?.digitalMenu === false && user.role !== 'dev') {
+        return false;
+      }
+    }
     // Subsystem master gating: if locked by dev, hide completely from non-dev users!
     // This gates the parent 'subsystem' key AND its children (pos, captainOrder, cashSales)
     if (['subsystem', 'pos', 'captainOrder', 'cashSales'].includes(navKey)) {

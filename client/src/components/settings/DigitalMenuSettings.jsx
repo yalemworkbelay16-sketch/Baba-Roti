@@ -20,6 +20,8 @@ import {
   XCircle,
   Copy,
   Layers,
+  Star,
+  MessageSquare,
 } from 'lucide-react';
 import api from '../../api/axios';
 import Button from '../ui/Button';
@@ -55,7 +57,38 @@ export default function DigitalMenuSettings() {
   // Table QR Generation & Printing State
   const [newTableInput, setNewTableInput] = useState('');
   const [qrDataUrls, setQrDataUrls] = useState({});
-  const [activeTab, setActiveTab] = useState('items'); // 'items' | 'qrcodes' | 'general'
+  const [activeTab, setActiveTab] = useState('items'); // 'items' | 'qrcodes' | 'general' | 'reviews'
+
+  // Customer Reviews & Ratings state
+  const [reviewsData, setReviewsData] = useState({ total: 0, averageRating: 5.0, reviews: [] });
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const res = await api.get('/settings/menu-reviews');
+      if (res.data?.success) {
+        setReviewsData({
+          total: res.data.total || 0,
+          averageRating: res.data.averageRating || 5.0,
+          reviews: res.data.reviews || [],
+        });
+      }
+    } catch (_) {
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const handleDeleteReview = async (id) => {
+    if (!confirm('Are you sure you want to delete this customer review?')) return;
+    try {
+      await api.delete(`/settings/menu-reviews/${id}`);
+      fetchReviews();
+    } catch (_) {
+      alert('Could not delete review');
+    }
+  };
 
   // Fetch initial data
   const fetchData = async () => {
@@ -76,6 +109,7 @@ export default function DigitalMenuSettings() {
 
       setProducts(prodRes.data?.products || prodRes.data || []);
       setRawMaterials(matRes.data?.materials || matRes.data || []);
+      fetchReviews();
     } catch (err) {
       console.error('Failed to load menu settings:', err);
       setErrorMsg('Could not load menu configuration.');
@@ -445,6 +479,26 @@ export default function DigitalMenuSettings() {
         >
           <Sliders size={14} />
           <span>Menu Rules &amp; Controls</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('reviews');
+            fetchReviews();
+          }}
+          className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${activeTab === 'reviews'
+              ? 'bg-amber-900 text-white shadow-sm'
+              : 'text-ink-600 hover:bg-ink-100 bg-white border border-ink-200'
+            }`}
+        >
+          <Star size={14} className="text-amber-400 fill-amber-400" />
+          <span>Customer Ratings &amp; Reviews</span>
+          {reviewsData.total > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black">
+              {reviewsData.total}
+            </span>
+          )}
         </button>
       </div>
 
@@ -844,6 +898,129 @@ export default function DigitalMenuSettings() {
             </Button>
           </div>
         </form>
+      )}
+
+      {/* ── TAB 4: CUSTOMER RATINGS & REVIEWS ── */}
+      {activeTab === 'reviews' && (
+        <div className="space-y-4">
+          {/* Header Metric Card */}
+          <div className="rounded-3xl border border-ink-200 bg-white p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 flex flex-col items-center justify-center shadow-md font-serif font-black shrink-0">
+                <span className="text-2xl leading-none">{reviewsData.averageRating}</span>
+                <span className="text-[10px] font-sans font-bold">out of 5</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-ink-900 flex items-center gap-2">
+                  <span>Customer Satisfaction Score</span>
+                  <div className="flex items-center text-amber-500">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={14}
+                        className={s <= Math.round(reviewsData.averageRating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}
+                      />
+                    ))}
+                  </div>
+                </h3>
+                <p className="text-xs text-ink-400 mt-0.5">
+                  Based on <strong>{reviewsData.total}</strong> customer review{reviewsData.total === 1 ? '' : 's'} submitted via Customer Digital Menu.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={fetchReviews}
+              disabled={loadingReviews}
+              className="px-3.5 py-2 rounded-xl border border-ink-200 bg-ink-50 hover:bg-ink-100 text-xs font-bold text-ink-700 transition flex items-center gap-1.5 self-stretch sm:self-auto justify-center"
+            >
+              <RefreshCw size={13} className={loadingReviews ? 'animate-spin' : ''} />
+              <span>Refresh Reviews</span>
+            </button>
+          </div>
+
+          {/* Reviews List */}
+          {reviewsData.reviews.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-ink-200 bg-white py-12 text-center text-ink-400 space-y-2">
+              <Star size={36} className="mx-auto text-amber-300 stroke-[1.5]" />
+              <p className="text-sm font-bold text-ink-800">No Customer Reviews Yet</p>
+              <p className="text-xs text-ink-400 max-w-sm mx-auto">
+                When customers rate their food and dining experience from the digital menu at their table, their star scores, comments, and compliments will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {reviewsData.reviews.map((rev) => (
+                <div
+                  key={rev._id}
+                  className="rounded-2xl border border-ink-200 bg-white p-4 shadow-xs space-y-2.5 hover:border-amber-300 transition"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-ink-900">
+                          {rev.customerName || 'Valued Guest'}
+                        </span>
+                        {rev.tableNo && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-200">
+                            {rev.tableNo}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-ink-400 mt-0.5">
+                        {new Date(rev.createdAt).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex text-amber-500">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={13}
+                            className={s <= rev.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteReview(rev._id)}
+                        className="text-ink-300 hover:text-rose-600 transition p-1"
+                        title="Delete Review"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {rev.comment && (
+                    <p className="text-xs text-ink-700 bg-ink-50/50 p-2.5 rounded-xl border border-ink-100/70 italic leading-relaxed">
+                      "{rev.comment}"
+                    </p>
+                  )}
+
+                  {rev.tags && rev.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {rev.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 border border-amber-200/80 text-amber-900"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

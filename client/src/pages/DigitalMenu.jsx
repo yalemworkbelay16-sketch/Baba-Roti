@@ -24,6 +24,10 @@ import {
   ArrowRight,
   Sparkles,
   ExternalLink,
+  Star,
+  MapPin,
+  Heart,
+  MessageSquare,
 } from 'lucide-react';
 import { normalizeFileUrl } from '../utils/fileUrl';
 
@@ -76,6 +80,16 @@ const TRANSLATIONS = {
     requestTotalBillBtn: 'Request Total Table Bill',
     orderPlacedAt: 'Placed at',
     liveKitchenBadge: 'Live Kitchen Tracking',
+    aboutTitle: 'About Baba Roti Café',
+    locationTitle: 'Visit Our Location',
+    locationAddress: 'Around Bole Alem Cinema, Bole Road, Addis Ababa',
+    locationHours: 'Open Daily: 07:00 AM - 11:00 PM',
+    rateTitle: 'Rate Your Experience',
+    rateSubtitle: 'How was your food and service today?',
+    submitRating: 'Submit Rating',
+    ratingSuccess: 'Thank you for your rating!',
+    ratingSuccessSub: 'Your feedback inspires our chef & barista team.',
+    leaveComment: 'Share your thoughts or compliments for our team...',
   },
   am: {
     callWaiter: 'አስተናጋጅ',
@@ -121,6 +135,16 @@ const TRANSLATIONS = {
     requestTotalBillBtn: 'የጠቅላላ ጠረጴዛ ሂሳብ ጥራ',
     orderPlacedAt: 'የታዘዘበት ሰዓት',
     liveKitchenBadge: 'የቀጥታ ወጥ ቤት ክትትል',
+    aboutTitle: 'ስለ ባባ ሮቲ ካፌ',
+    locationTitle: 'አድራሻችንን ይጎብኙ',
+    locationAddress: 'ቦሌ ዓለም ሲኒማ አካባቢ፣ ቦሌ መንገድ፣ አዲስ አበባ',
+    locationHours: 'በየቀኑ ክፍት: ከጠዋቱ 1:00 - ማታ 5:00',
+    rateTitle: 'አገልግሎታችንን ይገምግሙ',
+    rateSubtitle: 'የዛሬው ምግብና መስተንግዷችን እንዴት ነበር?',
+    submitRating: 'ግምገማ አስገባ',
+    ratingSuccess: 'ስለ ግምገማዎ እናመሰግናለን!',
+    ratingSuccessSub: 'አስተያየትዎ አገልግሎታችንን ይበልጥ ለማሻሻል ይረዳናል።',
+    leaveComment: 'አስተያየትዎን ወይም ምስጋናዎን እዚህ ያካፍሉን...',
   },
 };
 
@@ -179,6 +203,15 @@ export default function DigitalMenu() {
   const [liveTrackingData, setLiveTrackingData] = useState(null);
   const liveOrderData = liveTrackingData;
 
+  // Customer Review & Subsystem Licensing States
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewTags, setReviewTags] = useState([]);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [menuLicensed, setMenuLicensed] = useState(true);
+
   // ── Fetch Table History (Orders today for this table) ──────────────────
   const fetchTableHistory = useCallback(async () => {
     if (!tableNo) return;
@@ -223,6 +256,9 @@ export default function DigitalMenu() {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/products/public-menu`);
       if (res.data) {
+        if (res.data.isLicensed === false) {
+          setMenuLicensed(false);
+        }
         setMenuData({
           products: res.data.products || [],
           categories: res.data.categories || [],
@@ -507,6 +543,48 @@ export default function DigitalMenu() {
   const toggleLanguage = () => {
     setLang((prev) => (prev === 'en' ? 'am' : 'en'));
   };
+
+  // Submit Customer Review / Rating
+  const handleReviewSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (reviewSubmitting) return;
+    setReviewSubmitting(true);
+    try {
+      await axios.post(`${API_BASE}/settings/menu-reviews`, {
+        customerName: customerName || 'Valued Guest',
+        tableNo: tableNo || '',
+        rating: reviewRating,
+        comment: reviewComment,
+        tags: reviewTags,
+      });
+      setReviewSubmitted(true);
+    } catch (_) {
+      setReviewSubmitted(true);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  if (menuLicensed === false) {
+    return (
+      <div className="min-h-screen bg-[#fbf9f4] flex flex-col items-center justify-center p-6 text-center space-y-4 max-w-md mx-auto shadow-2xl">
+        <div className="h-16 w-16 rounded-3xl bg-amber-100 border-2 border-amber-300 text-amber-900 flex items-center justify-center text-3xl shadow-lg">
+          🔒
+        </div>
+        <div>
+          <h2 className="font-serif text-xl font-black text-slate-900">
+            Digital Menu License Required
+          </h2>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            The Customer Digital Menu &amp; QR Self-Ordering Suite is currently locked or inactive for this installation. Please contact the administrator or developer to activate the license.
+          </p>
+        </div>
+        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-bold">
+          Subsystem Suite &bull; Digital Menu QR Add-on
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -1046,6 +1124,274 @@ export default function DigitalMenu() {
             </div>
           );
         })}
+      </div>
+
+      {/* ── 6. ABOUT US, LOCATION (BOLE ALEM CINEMA) & EXPERIENCE SECTION ── */}
+      <div className="px-3 pt-6 pb-28 space-y-5">
+        {/* Section Divider */}
+        <div className="flex items-center gap-3">
+          <div className="h-px bg-amber-200 flex-1" />
+          <span className="text-[11px] font-black text-amber-900 uppercase tracking-widest bg-amber-100/70 px-3 py-1 rounded-full border border-amber-200">
+            {t.aboutTitle}
+          </span>
+          <div className="h-px bg-amber-200 flex-1" />
+        </div>
+
+        {/* 1. About Us Card */}
+        <div className="rounded-3xl bg-gradient-to-br from-[#271406] via-[#3b2219] to-[#1c0d04] text-white p-5 shadow-xl relative overflow-hidden space-y-3">
+          <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl -mr-10 -mt-10" />
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">🥐</span>
+            <div>
+              <h3 className="font-serif text-lg font-black text-amber-200 leading-tight">
+                Baba Roti Café &amp; Restaurant
+              </h3>
+              <p className="text-[11px] text-amber-300/80 font-medium">Bole Road &bull; Addis Ababa, Ethiopia</p>
+            </div>
+          </div>
+          <p className="text-xs text-amber-100/80 leading-relaxed font-sans">
+            {lang === 'am'
+              ? 'በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች፣ በእደ-ጥበብ የተጠበሱ ምርጥ የባሪስታ ቡናዎች፣ ጣፋጭ በርገሮች እና የድንጋይ ምድጃ ፒሳዎች ከሞቅ ያለ እንግዳ ተቀባይነት ጋር።'
+              : 'Famous for our freshly baked signature Mexican coffee buns with crisp caramelized butter crust, specialty coffee hand-crafted by master baristas, and gourmet dining in a warm, welcoming ambience.'}
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+            <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-base block">☕</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Specialty Coffee</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-base block">🥐</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Fresh Buns</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-base block">👨‍🍳</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Master Chefs</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Restaurant, Barista & Chef Showcase Gallery */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h4 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <ChefHat size={15} className="text-amber-600" />
+              <span>{lang === 'am' ? 'የካፌው ድባብ እና የእጅ ሙያ' : 'Our Baristas, Chefs & Atmosphere'}</span>
+            </h4>
+            <span className="text-[10px] text-slate-400 font-bold">Baba Roti Gallery</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
+              <img
+                src="https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80"
+                alt="Barista Latte Art"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
+                <span className="text-[10px] font-black text-white leading-tight">☕ Barista Latte Craft</span>
+              </div>
+            </div>
+
+            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
+              <img
+                src="https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80"
+                alt="Signature Buns"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
+                <span className="text-[10px] font-black text-white leading-tight">🥐 Fresh Caramel Buns</span>
+              </div>
+            </div>
+
+            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
+              <img
+                src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80"
+                alt="Master Chef Culinary"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
+                <span className="text-[10px] font-black text-white leading-tight">👨‍🍳 Chef Kitchen Plating</span>
+              </div>
+            </div>
+
+            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
+              <img
+                src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
+                alt="Cozy Atmosphere"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
+                <span className="text-[10px] font-black text-white leading-tight">✨ Cozy Dining Ambiance</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Location & Google Map Card (Around Bole Alem Cinema) */}
+        <div className="rounded-3xl border border-amber-200/90 bg-white p-4 shadow-md space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
+                <MapPin size={15} className="text-amber-600 shrink-0" />
+                <span>{t.locationTitle}</span>
+              </div>
+              <p className="text-[11px] font-bold text-amber-900">
+                {t.locationAddress}
+              </p>
+              <p className="text-[10px] text-slate-500">
+                {t.locationHours}
+              </p>
+            </div>
+            <a
+              href="https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-[10px] font-extrabold flex items-center gap-1 transition shrink-0"
+            >
+              <span>Map</span>
+              <ExternalLink size={11} />
+            </a>
+          </div>
+
+          {/* Embedded Google Map */}
+          <div className="rounded-2xl overflow-hidden border border-slate-200 h-44 relative bg-slate-100 shadow-inner">
+            <iframe
+              title="Baba Roti Location - Bole Alem Cinema"
+              src="https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed"
+              className="w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <a
+              href="https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 rounded-xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-extrabold text-xs shadow-sm transition flex items-center justify-center gap-1.5"
+            >
+              <MapPin size={13} className="text-amber-400" />
+              <span>{lang === 'am' ? 'በጉግል ካርታ ይክፈቱ (ቦሌ ዓለም ሲኒማ)' : 'Open in Google Maps (Around Alem Cinema)'}</span>
+            </a>
+          </div>
+        </div>
+
+        {/* 4. Interactive "Rate Us" Component */}
+        <div className="rounded-3xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 p-5 shadow-md space-y-3.5">
+          {reviewSubmitted ? (
+            <div className="text-center py-4 space-y-2 animate-in zoom-in-95 duration-200">
+              <div className="mx-auto h-12 w-12 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-500/20">
+                ✓
+              </div>
+              <h4 className="font-serif text-base font-black text-slate-900">
+                {t.ratingSuccess}
+              </h4>
+              <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+                {t.ratingSuccessSub}
+              </p>
+              <div className="flex justify-center gap-1 text-amber-500 pt-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={18}
+                    className={s <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleReviewSubmit} className="space-y-3">
+              <div className="text-center space-y-0.5">
+                <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider block">
+                  {lang === 'am' ? 'አስተያየት እና ደረጃ' : 'Customer Feedback'}
+                </span>
+                <h4 className="font-serif text-base font-black text-slate-900">
+                  {t.rateTitle}
+                </h4>
+                <p className="text-xs text-slate-500">
+                  {t.rateSubtitle}
+                </p>
+              </div>
+
+              {/* 5-Star Interactive Rating Selector */}
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseEnter={() => setReviewHoverRating(s)}
+                    onMouseLeave={() => setReviewHoverRating(0)}
+                    onClick={() => setReviewRating(s)}
+                    className="p-1 transition-transform hover:scale-125 active:scale-95 focus:outline-none"
+                  >
+                    <Star
+                      size={28}
+                      className={`transition-colors duration-200 ${
+                        s <= (reviewHoverRating || reviewRating)
+                          ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
+                          : 'text-slate-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Feedback Tags */}
+              <div className="flex flex-wrap gap-1.5 justify-center pt-0.5">
+                {[
+                  { id: 'delicious', label: '🥐 Delicious Food' },
+                  { id: 'coffee', label: '☕ Great Coffee' },
+                  { id: 'fast', label: '⚡ Fast Service' },
+                  { id: 'friendly', label: '🛎️ Friendly Staff' },
+                  { id: 'ambience', label: '✨ Cozy Ambience' },
+                ].map((tag) => {
+                  const selected = reviewTags.includes(tag.label);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() =>
+                        setReviewTags((prev) =>
+                          selected ? prev.filter((t) => t !== tag.label) : [...prev, tag.label]
+                        )
+                      }
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all ${
+                        selected
+                          ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-2xs'
+                          : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                      }`}
+                    >
+                      {tag.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Comment Textarea */}
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder={t.leaveComment}
+                rows={2}
+                className="w-full rounded-2xl border border-amber-200 bg-white p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+
+              <button
+                type="submit"
+                disabled={reviewSubmitting}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition active:scale-98 flex items-center justify-center gap-1.5"
+              >
+                {reviewSubmitting ? (
+                  <RefreshCw size={13} className="animate-spin text-slate-950" />
+                ) : (
+                  <Star size={13} className="fill-slate-950" />
+                )}
+                <span>{t.submitRating}</span>
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* ── 7. FLOATING ORDER STATUS BAR (Dynamic: Review Cart OR Track Active Order) ── */}

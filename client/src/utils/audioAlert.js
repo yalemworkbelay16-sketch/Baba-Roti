@@ -108,11 +108,12 @@ export function triggerNewOrderAlert({ orderId, orderNo, tableNo, itemsCount, to
 
   // 2. Announce with voice after short chime delay
   setTimeout(() => {
-    const tableClean = String(tableNo || 'Table').replace(/^Table\s*/i, 'Table ');
+    let cleanTable = String(tableNo || 'Table').trim();
+    cleanTable = cleanTable.replace(/^Table\s*0*([1-9]\d*)/i, 'Table $1');
     const countText = itemsCount ? `for ${itemsCount} items` : '';
-    const voiceMessage = `New order from ${tableClean} ${countText}!`;
+    const voiceMessage = `New customer order on ${cleanTable} ${countText}!`;
     announceOrderVoice(voiceMessage);
-  }, 450);
+  }, 350);
 
   return true;
 }

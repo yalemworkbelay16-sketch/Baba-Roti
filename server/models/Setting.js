@@ -68,6 +68,7 @@ const settingSchema = new mongoose.Schema(
       type: Object,
       default: {
         subsystem: true, // Subsystem: POS Ordering, Captain Order, Cash Sales
+        digitalMenu: true, // Customer Digital Menu, QR Ordering & Tracking Suite (standalone sellable add-on)
         finance: true, // Finance & Expenses Suite: Overhead Expenses, Analytics & P&L
         themeCustomization: true, // Allow Hotel Admin to customize Sidebar Appearance & Brand Theme
         materialIcons: true, // Material UI Icons with colorful badges (true) vs Classic minimal icons (false)

@@ -210,6 +210,7 @@ export default function Settings() {
   // Developer / System Owner: license control state
   const [devLicenseForm, setDevLicenseForm] = useState({
     subsystem: true,
+    digitalMenu: true,
     finance: true,
     themeCustomization: true,
     materialIcons: true,
@@ -393,6 +394,7 @@ export default function Settings() {
                 ...prev,
                 ...res.data.licensedModules,
                 subsystem: res.data.licensedModules.subsystem !== false,
+                digitalMenu: res.data.licensedModules.digitalMenu !== false,
                 finance: res.data.licensedModules.finance !== false,
                 themeCustomization: res.data.licensedModules.themeCustomization !== false,
                 materialIcons: res.data.licensedModules.materialIcons !== false,
@@ -2480,7 +2482,35 @@ export default function Settings() {
                 </label>
               </div>
 
-              {/* 2. Finance & Expenses Suite */}
+              {/* 2. Digital Menu Suite (Standalone Sellable Subsystem) */}
+              <div className="flex items-center justify-between rounded-xl border border-ink-100 bg-ink-50/40 px-4 py-3">
+                <div className="pr-4">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-ink-900">Digital Menu Suite (Customer QR &amp; Self-Ordering)</p>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                      devLicenseForm?.digitalMenu !== false
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-slate-200 text-slate-700 border border-slate-300'
+                    }`}>
+                      {devLicenseForm?.digitalMenu !== false ? 'Licensed & Active' : 'Locked / Hidden (Off)'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-400 mt-1">
+                    Customer Digital Menu, QR Table self-ordering, interactive live tracker, and customer reviews. Can be licensed and sold as an independent subsystem.
+                  </p>
+                </div>
+                <label className="relative inline-flex cursor-pointer items-center shrink-0">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={devLicenseForm?.digitalMenu !== false}
+                    onChange={(e) => setDevLicenseForm(prev => ({ ...prev, digitalMenu: e.target.checked }))}
+                  />
+                  <div className="h-6 w-11 rounded-full bg-ink-200 peer-focus:ring-2 peer-focus:ring-amber-300 peer-checked:bg-emerald-500 transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full after:shadow" />
+                </label>
+              </div>
+
+              {/* 3. Finance & Expenses Suite */}
               <div className="flex items-center justify-between rounded-xl border border-ink-100 bg-ink-50/40 px-4 py-3">
                 <div className="pr-4">
                   <div className="flex items-center gap-2">
@@ -2508,7 +2538,7 @@ export default function Settings() {
                 </label>
               </div>
 
-              {/* 3. Hotel Sidebar Appearance Customization Permission */}
+              {/* 4. Hotel Sidebar Appearance Customization Permission */}
               <div className="flex items-center justify-between rounded-xl border border-ink-100 bg-ink-50/40 px-4 py-3">
                 <div className="pr-4">
                   <div className="flex items-center gap-2">

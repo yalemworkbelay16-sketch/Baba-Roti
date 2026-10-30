@@ -112,6 +112,12 @@ export default function CashSales() {
   useEffect(() => {
     loadPaidOrders();
     loadPendingOrders();
+
+    // Auto-refresh pending table orders every 4.5s so new incoming table orders show up immediately
+    const pollInterval = setInterval(() => {
+      loadPendingOrders();
+    }, 4500);
+    return () => clearInterval(pollInterval);
   }, [loadPaidOrders, loadPendingOrders]);
 
 
@@ -148,8 +154,10 @@ export default function CashSales() {
       const res = await api.post("/pos/orders", payload);
       const posOrder = res.data.order;
 
-      // Mark captain order as paid
-      await api.patch(`/captain-orders/${o._id}`, { status: "paid" });
+      // Mark captain order as billed / paid
+      try {
+        await api.patch(`/captain-orders/${o._id}`, { status: "billed" });
+      } catch (_) {}
 
       // Print thermal receipt via network dispatcher + browser fallback
       dispatchPrint('receipt', posOrder, {

@@ -240,7 +240,7 @@ async function searchWikimediaPhoto(query) {
         return info.url;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   return null;
 }
 
@@ -270,7 +270,7 @@ Rules:
     if (candidate && candidate.length > 8) {
       return candidate;
     }
-  } catch (_) {}
+  } catch (_) { }
 
   return `Appetizing professional food photography of ${name}, beautifully plated, warm cafe lighting`;
 }
@@ -341,8 +341,8 @@ async function downloadBuffer(targetUrl, timeoutMs = 8000) {
   const mimetype = contentType.includes('png')
     ? 'image/png'
     : contentType.includes('webp')
-    ? 'image/webp'
-    : 'image/jpeg';
+      ? 'image/webp'
+      : 'image/jpeg';
 
   return { buffer, mimetype };
 }
@@ -360,7 +360,7 @@ async function fetchFoodImageBuffer(prompt, name = '', category = '') {
   if (curatedUrl) {
     try {
       return await downloadBuffer(curatedUrl, 6000);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // Tier 2: Search Wikimedia Commons for real dish photo
@@ -369,7 +369,7 @@ async function fetchFoodImageBuffer(prompt, name = '', category = '') {
     if (wikiUrl) {
       return await downloadBuffer(wikiUrl, 6000);
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // Tier 3: Pollinations AI Fast Generation
   try {
@@ -378,7 +378,7 @@ async function fetchFoodImageBuffer(prompt, name = '', category = '') {
       prompt || name + ' appetizing restaurant dish'
     )}?width=600&height=600&nologo=true&seed=${seed}`;
     return await downloadBuffer(aiUrl, 8000);
-  } catch (_) {}
+  } catch (_) { }
 
   // Tier 4: Fallback styled vector graphic
   return createFallbackImageBuffer(name, category);
