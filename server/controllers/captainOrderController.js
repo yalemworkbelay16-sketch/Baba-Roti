@@ -25,7 +25,6 @@ async function generateCaptainOrderNo() {
   const seq = last && last.dailySequence ? last.dailySequence + 1 : 1;
   return { orderNo: `${prefix}-${String(seq).padStart(3, "0")}`, dailySequence: seq };
 }
-
 // @route POST /api/captain-orders
 const createCaptainOrder = asyncHandler(async (req, res) => {
   const {

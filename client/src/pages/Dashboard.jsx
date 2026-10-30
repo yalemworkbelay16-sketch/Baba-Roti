@@ -21,6 +21,7 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
+  PlusCircle,
   RefreshCw,
   ChevronRight,
   TrendingUp,
