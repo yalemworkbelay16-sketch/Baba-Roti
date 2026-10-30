@@ -176,6 +176,7 @@ export default function DigitalMenu() {
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
   const [liveTrackingData, setLiveTrackingData] = useState(null);
+  const liveOrderData = liveTrackingData;
 
   // ── Fetch Table History (Orders today for this table) ──────────────────
   const fetchTableHistory = useCallback(async () => {
@@ -185,7 +186,7 @@ export default function DigitalMenu() {
       if (res.data?.success) {
         setTableOrdersHistory(res.data.orders || []);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, [tableNo]);
 
   useEffect(() => {
@@ -200,7 +201,7 @@ export default function DigitalMenu() {
       if (res.data?.success && res.data.order) {
         setLiveTrackingData(res.data.order);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   // Poll live tracking when tracker is open or on confirmed screen
@@ -397,20 +398,18 @@ export default function DigitalMenu() {
             return (
               <div key={st.num} className="flex flex-col items-center text-center z-10 w-16">
                 <div
-                  className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${
-                    isCurrent
+                  className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${isCurrent
                       ? 'bg-amber-500 text-slate-950 ring-4 ring-amber-200 animate-pulse scale-110'
                       : isCompleted
-                      ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
-                      : 'bg-slate-200 text-slate-500'
-                  }`}
+                        ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
                 >
                   {isCompleted ? <Check size={14} className="stroke-[3]" /> : st.icon}
                 </div>
                 <span
-                  className={`text-[10px] mt-1.5 font-extrabold ${
-                    isCurrent ? 'text-amber-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
-                  }`}
+                  className={`text-[10px] mt-1.5 font-extrabold ${isCurrent ? 'text-amber-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                    }`}
                 >
                   {st.label}
                 </span>
@@ -667,7 +666,7 @@ export default function DigitalMenu() {
 
             {/* Live 4-Step Animated Tracking Stepper */}
             <div className="py-1">
-              {renderTrackingStepper(liveOrderData?.status || confirmedOrder.status || 'sent_to_kitchen')}
+              {renderTrackingStepper(liveTrackingData?.status || confirmedOrder.status || 'sent_to_kitchen')}
             </div>
 
             {/* Orange Button: CHECK YOUR ORDER STATUS (Opens interactive Live Tracker) */}
@@ -891,8 +890,8 @@ export default function DigitalMenu() {
         <button
           onClick={() => setActiveCategory('All Items')}
           className={`px-3.5 py-1.5 rounded-full font-bold whitespace-nowrap transition-all shadow-xs ${activeCategory === 'All Items'
-              ? 'bg-[#3b2219] text-white border-b-2 border-amber-400'
-              : 'bg-white text-slate-700 border border-slate-200'
+            ? 'bg-[#3b2219] text-white border-b-2 border-amber-400'
+            : 'bg-white text-slate-700 border border-slate-200'
             }`}
         >
           {t.allItems}
@@ -903,8 +902,8 @@ export default function DigitalMenu() {
             key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`px-3.5 py-1.5 rounded-full font-bold whitespace-nowrap transition-all shadow-xs ${activeCategory.toLowerCase() === cat.toLowerCase()
-                ? 'bg-[#3b2219] text-white border-b-2 border-amber-400'
-                : 'bg-white text-slate-700 border border-slate-200'
+              ? 'bg-[#3b2219] text-white border-b-2 border-amber-400'
+              : 'bg-white text-slate-700 border border-slate-200'
               }`}
           >
             {cat}
@@ -1056,10 +1055,10 @@ export default function DigitalMenu() {
                 {tableOrdersHistory[0]?.status === 'sent_to_kitchen'
                   ? '🍳 In Kitchen'
                   : tableOrdersHistory[0]?.status === 'ready'
-                  ? '🍽️ Ready & Serving'
-                  : tableOrdersHistory[0]?.status === 'billed'
-                  ? '💵 Billed'
-                  : '🛎️ Sent'}
+                    ? '🍽️ Ready & Serving'
+                    : tableOrdersHistory[0]?.status === 'billed'
+                      ? '💵 Billed'
+                      : '🛎️ Sent'}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-amber-400">
@@ -1181,8 +1180,8 @@ export default function DigitalMenu() {
                   setDetailProduct(null);
                 }}
                 className={`w-full py-3.5 rounded-2xl font-black text-xs shadow-md transition ${detailProduct.isOutOfStock
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950'
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950'
                   }`}
               >
                 {detailProduct.isOutOfStock

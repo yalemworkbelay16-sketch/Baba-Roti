@@ -116,3 +116,4 @@ export function triggerNewOrderAlert({ orderId, orderNo, tableNo, itemsCount, to
 
   return true;
 }
+
