@@ -158,8 +158,9 @@ export default function DigitalMenu() {
   const [cart, setCart] = useState([]);
   const [viewState, setViewState] = useState('menu'); // 'menu' | 'review' | 'confirmed' | 'status'
 
-  // Service Request Banner: { type: 'bill'|'waiter', time: '08:12', message: '...' }
+  // Service Request Banner & Success Modal
   const [serviceAlert, setServiceAlert] = useState(null);
+  const [serviceSuccessModal, setServiceSuccessModal] = useState(null);
   const [waiterModalOpen, setWaiterModalOpen] = useState(false);
   const [submittingService, setSubmittingService] = useState(false);
 
@@ -399,10 +400,10 @@ export default function DigitalMenu() {
               <div key={st.num} className="flex flex-col items-center text-center z-10 w-16">
                 <div
                   className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${isCurrent
-                      ? 'bg-amber-500 text-slate-950 ring-4 ring-amber-200 animate-pulse scale-110'
-                      : isCompleted
-                        ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
-                        : 'bg-slate-200 text-slate-500'
+                    ? 'bg-amber-500 text-slate-950 ring-4 ring-amber-200 animate-pulse scale-110'
+                    : isCompleted
+                      ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
+                      : 'bg-slate-200 text-slate-500'
                     }`}
                 >
                   {isCompleted ? <Check size={14} className="stroke-[3]" /> : st.icon}
@@ -482,10 +483,16 @@ export default function DigitalMenu() {
         setServiceAlert({
           type: action,
           time: res.data.time,
+          tableNo: res.data.tableNo || tableNo,
           message:
             action === 'request_bill'
               ? `${t.billBanner} (${res.data.time})`
               : `${t.waiterBanner} (${res.data.time})`,
+        });
+        setServiceSuccessModal({
+          type: action,
+          time: res.data.time,
+          tableNo: res.data.tableNo || tableNo,
         });
         setWaiterModalOpen(false);
       }
@@ -777,19 +784,41 @@ export default function DigitalMenu() {
         </div>
       </header>
 
-      {/* ── 2. SERVICE BANNER (Bill Requested / Waiter Coming) ── */}
+      {/* ── 2. SERVICE STATUS BOX UI (Attractive Rounded Box Card) ── */}
       {serviceAlert && (
-        <div className="bg-[#e6f4ea] border-b border-emerald-200 text-emerald-900 px-4 py-2.5 text-xs font-bold flex items-center justify-between animate-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2">
-            <span className="text-emerald-700">✓</span>
-            <span>{serviceAlert.message}</span>
+        <div className="px-3 pt-2.5 pb-1">
+          <div className="relative rounded-2xl border-2 border-emerald-300/90 bg-gradient-to-r from-emerald-50 via-[#f0fbf4] to-teal-50/80 p-3.5 shadow-sm shadow-emerald-500/10 flex items-start justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs shadow-emerald-500/30">
+                <Check size={16} className="stroke-[3]" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-xs text-emerald-950 tracking-tight">
+                    {serviceAlert.type === 'request_bill'
+                      ? (lang === 'am' ? 'የሒሳብ መጠየቂያ ተልኳል' : 'Bill Requested')
+                      : (lang === 'am' ? 'አስተናጋጅ ተጠርቷል' : 'Waiter Called')}
+                  </span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                </div>
+                <p className="text-[11px] font-semibold text-emerald-800 leading-snug">
+                  {serviceAlert.type === 'request_bill'
+                    ? (lang === 'am' ? 'አስተናጋጅ የሒሳብ ደረሰኝ ይዞ ወደ ጠረጴዛዎ እየመጣ ነው' : 'A waiter is coming to your table with the bill')
+                    : (lang === 'am' ? 'አስተናጋጅ ወደ ጠረጴዛዎ እየመጣ ነው' : 'A waiter is on the way to assist your table')}
+                </p>
+                <p className="text-[10px] text-emerald-700/80 font-medium">
+                  {lang === 'am' ? 'የተጠየቀበት ሰዓት' : 'Requested at'} {serviceAlert.time} • <span className="font-bold">{serviceAlert.tableNo || tableNo}</span>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setServiceAlert(null)}
+              className="h-6 w-6 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 flex items-center justify-center text-xs font-bold transition shrink-0"
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={() => setServiceAlert(null)}
-            className="text-emerald-700 hover:text-emerald-900 p-0.5"
-          >
-            ✕
-          </button>
         </div>
       )}
 
@@ -1131,6 +1160,74 @@ export default function DigitalMenu() {
         </div>
       )}
 
+      {/* ── SERVICE SUCCESS POPUP MODAL (BOX) ── */}
+      {serviceSuccessModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-amber-100 text-center space-y-4 animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setServiceSuccessModal(null)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition"
+            >
+              ✕
+            </button>
+            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/30">
+              {serviceSuccessModal.type === 'request_bill' ? '💵' : '🛎️'}
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 font-serif">
+                {serviceSuccessModal.type === 'request_bill'
+                  ? (lang === 'am' ? 'የሒሳብ መጠየቂያ ተልኳል!' : 'Bill Requested Successfully!')
+                  : (lang === 'am' ? 'አስተናጋጅ ተጠርቷል!' : 'Waiter Called Successfully!')}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                {serviceSuccessModal.type === 'request_bill'
+                  ? (lang === 'am'
+                      ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} የሒሳብ ደረሰኝ ይዞ አስተናጋጅ በደቂቃዎች ውስጥ ወደ እርስዎ ይመጣል።`
+                      : `A waiter is on the way with the bill for ${serviceSuccessModal.tableNo || tableNo}.`)
+                  : (lang === 'am'
+                      ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} እርዳታ የሚሰጥ አስተናጋጅ እየመጣ ነው።`
+                      : `Assistance is on the way to ${serviceSuccessModal.tableNo || tableNo}.`)}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-left flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                <Check size={16} className="stroke-[3]" />
+              </div>
+              <div className="text-[11px] leading-tight">
+                <p className="font-extrabold text-emerald-950">
+                  {serviceSuccessModal.type === 'request_bill' ? 'Table Bill Request Dispatched' : 'Staff Notified'}
+                </p>
+                <p className="text-emerald-700 mt-0.5 font-medium">
+                  <strong>{serviceSuccessModal.tableNo || tableNo}</strong> • Requested at <strong>{serviceSuccessModal.time}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              {serviceSuccessModal.type === 'request_bill' && (
+                <button
+                  onClick={() => {
+                    setServiceSuccessModal(null);
+                    setHistoryOpen(true);
+                  }}
+                  className="w-full py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-300/80 text-amber-950 font-black text-xs transition flex items-center justify-center gap-1.5"
+                >
+                  <Receipt size={14} className="text-amber-700" />
+                  <span>{t.orderHistoryTitle}</span>
+                </button>
+              )}
+              <button
+                onClick={() => setServiceSuccessModal(null)}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition active:scale-98"
+              >
+                {lang === 'am' ? 'እሺ (ተረድቻለሁ)' : 'OK, Got It!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── PRODUCT DETAILS MODAL ── */}
       {detailProduct && (
         <div
@@ -1376,15 +1473,22 @@ export default function DigitalMenu() {
                 </div>
               </div>
 
+              {serviceAlert?.type === 'request_bill' && (
+                <div className="rounded-xl bg-emerald-500/20 border border-emerald-400/50 p-2.5 text-center text-xs font-bold text-emerald-200 flex items-center justify-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>{lang === 'am' ? 'የሒሳብ መጠየቂያ ተልኳል (አስተናጋጅ በመምጣት ላይ)' : `Bill requested at ${serviceAlert.time} • Waiter on the way`}</span>
+                </div>
+              )}
+
               <div className="pt-1 flex gap-2">
                 <button
                   onClick={() => {
                     handleServiceRequest('request_bill');
                     setHistoryOpen(false);
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm transition flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-amber-950 font-black text-xs shadow-md transition flex items-center justify-center gap-1.5 active:scale-98"
                 >
-                  <Receipt size={13} />
+                  <Receipt size={14} />
                   <span>{t.requestTotalBillBtn}</span>
                 </button>
                 <button
@@ -1392,9 +1496,9 @@ export default function DigitalMenu() {
                     handleServiceRequest('call_waiter');
                     setHistoryOpen(false);
                   }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center justify-center gap-1"
+                  className="px-3.5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 active:scale-98"
                 >
-                  <PhoneCall size={13} />
+                  <PhoneCall size={14} />
                   <span>{t.callWaiter}</span>
                 </button>
               </div>

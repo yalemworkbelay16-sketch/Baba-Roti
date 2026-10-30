@@ -851,7 +851,7 @@ const uploadProductImageManual = asyncHandler(async (req, res) => {
 // @route  POST /api/products/bulk-ai-images
 // @access Private (Admin, Manager)
 const bulkGenerateAiImages = asyncHandler(async (req, res) => {
-  const { ids, overwrite = false } = req.body;
+  const { ids, overwrite = false, limit = 100 } = req.body;
 
   let query = { isActive: true, deletedAt: null };
   if (Array.isArray(ids) && ids.length > 0) {
@@ -860,7 +860,8 @@ const bulkGenerateAiImages = asyncHandler(async (req, res) => {
     query.$or = [{ imageUrl: { $exists: false } }, { imageUrl: '' }, { imageUrl: null }];
   }
 
-  const productsToProcess = await Product.find(query).limit(50);
+  const maxLimit = Math.min(Number(limit) || 100, 250);
+  const productsToProcess = await Product.find(query).limit(maxLimit);
   if (productsToProcess.length === 0) {
     return res.json({
       success: true,
@@ -882,8 +883,8 @@ const bulkGenerateAiImages = asyncHandler(async (req, res) => {
       await prod.save();
       updatedCount++;
       results.push({ id: prod._id, name: prod.name, imageUrl: result.imageUrl, status: 'success' });
-      // Gentle delay between requests to be kind to rate limits
-      await new Promise((r) => setTimeout(r, 600));
+      // Brief delay between requests
+      await new Promise((r) => setTimeout(r, 120));
     } catch (err) {
       console.warn(`[Bulk AI Image] Failed for ${prod.name}:`, err.message);
       failedCount++;

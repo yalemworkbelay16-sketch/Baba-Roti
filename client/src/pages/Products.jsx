@@ -272,6 +272,7 @@ const Products = () => {
     try {
       const res = await api.post('/products/bulk-ai-images', {
         ids: missingProducts.map((p) => p._id),
+        limit: 250,
       });
 
       setBulkAiProgress({
