@@ -42,8 +42,17 @@ const captainOrderSchema = new mongoose.Schema(
     grandTotal:      { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["open", "held", "sent_to_kitchen", "ready", "billed", "paid", "voided", "cancelled"],
+      enum: ["pending_approval", "open", "held", "sent_to_kitchen", "ready", "billed", "paid", "voided", "cancelled"],
       default: "open",
+    },
+    waiterApproval: {
+      required: { type: Boolean, default: false },
+      status: { type: String, enum: ["pending", "approved", "rejected"], default: "approved" },
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      approvedByName: { type: String, default: "" },
+      approvedAt: { type: Date, default: null },
+      rejectedReason: { type: String, default: "" },
+      rejectedAt: { type: Date, default: null },
     },
     cashSaleRef:  { type: mongoose.Schema.Types.ObjectId, ref: "POSOrder", default: null },
     billedAt:     { type: Date, default: null },

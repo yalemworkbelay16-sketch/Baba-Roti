@@ -13,6 +13,8 @@ const {
   sendToKitchen,
   voidCaptainOrder,
   getActiveTables,
+  approveCustomerOrder,
+  rejectCustomerOrder,
 } = require("../controllers/captainOrderController");
 
 // Public Customer Self-Ordering & Waiter Calling endpoints (No auth required)
@@ -27,6 +29,8 @@ router.use(verifyModuleLicense('subsystem'));
 router.get("/active-tables", getActiveTables);
 router.route("/").get(getCaptainOrders).post(createCaptainOrder);
 router.route("/:id").get(getCaptainOrderById).patch(updateCaptainOrder);
+router.post("/:id/approve-order", approveCustomerOrder);
+router.post("/:id/reject-order", rejectCustomerOrder);
 router.post("/:id/send-to-kitchen", sendToKitchen);
 router.post("/:id/void", voidCaptainOrder);
 module.exports = router;

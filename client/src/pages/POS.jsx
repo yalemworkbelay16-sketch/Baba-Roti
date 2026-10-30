@@ -146,6 +146,8 @@ export default function POS() {
   const [heldOrderId, setHeldOrderId] = useState(null);
   const [heldOrderNo, setHeldOrderNo] = useState("");
   const [heldOrdersList, setHeldOrdersList] = useState([]);
+  const [pendingApprovalOrders, setPendingApprovalOrders] = useState([]);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRefModal, setShowRefModal] = useState(false);
   const [refSearchQ, setRefSearchQ] = useState("");
 
@@ -330,14 +332,16 @@ export default function POS() {
       const today = new Date().toISOString().slice(0, 10);
       const res = await api.get(`/captain-orders?date=${today}&limit=200`);
       const all = res.data || [];
+      const pending = all.filter((o) => o.status === "pending_approval");
+      setPendingApprovalOrders(pending);
       // Only open/held/sent_to_kitchen/ready orders
       const active = all.filter((o) => ["held", "open", "sent_to_kitchen", "ready", "billed"].includes(o.status));
       setHeldOrdersList(active);
 
       // Sound & Voice Alert for Cashier on newly arriving QR orders
       if (knownOrderIdsRef.current !== null) {
-        const newOrders = active.filter((o) => !knownOrderIdsRef.current.has(o._id));
-        newOrders.forEach((o) => {
+        const newPending = pending.filter((o) => !knownOrderIdsRef.current.has(o._id));
+        newPending.forEach((o) => {
           triggerNewOrderAlert({
             orderId: o._id,
             orderNo: o.orderNo,
@@ -346,15 +350,37 @@ export default function POS() {
             totalAmount: o.grandTotal,
           });
           setToast({
-            msg: `🛎️ New Order from ${o.tableNo || 'Table'} (#${o.orderNo})!`,
+            msg: `🛎️ New QR Order at ${o.tableNo || 'Table'} awaiting waiter verification!`,
             type: 'info',
           });
         });
       }
 
-      knownOrderIdsRef.current = new Set(active.map((o) => o._id));
+      knownOrderIdsRef.current = new Set([...active.map((o) => o._id), ...pending.map((o) => o._id)]);
     } catch (_) { }
   }, []);
+
+  const handleApprovePendingOrder = async (orderId) => {
+    try {
+      const res = await api.post(`/captain-orders/${orderId}/approve-order`);
+      setToast({ msg: res.data?.message || "Order approved & sent to kitchen!", type: "success" });
+      loadHeldOrders();
+    } catch (e) {
+      setToast({ msg: e.response?.data?.message || "Failed to approve order", type: "error" });
+    }
+  };
+
+  const handleRejectPendingOrder = async (orderId) => {
+    const reason = window.prompt("Reason for declining order (e.g. Table empty / False order):", "Customer not at table");
+    if (reason === null) return;
+    try {
+      const res = await api.post(`/captain-orders/${orderId}/reject-order`, { reason });
+      setToast({ msg: res.data?.message || "Order declined.", type: "info" });
+      loadHeldOrders();
+    } catch (e) {
+      setToast({ msg: e.response?.data?.message || "Failed to decline order", type: "error" });
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -973,7 +999,31 @@ export default function POS() {
             )}
           </button>
 
-          {/* QR Customer Digital Menu Link */}
+          {/* ── PENDING QR ORDERS BUTTON ── */}
+          {pendingApprovalOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowApprovalModal(true)}
+              title="Click to view and approve customer QR orders awaiting table check"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 13px",
+                borderRadius: 10,
+                border: "1.5px solid #fde68a",
+                background: "#fffbeb",
+                color: "#b45309",
+                fontWeight: 800,
+                fontSize: 12,
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(245,158,11,0.25)",
+              }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} />
+              <span>{pendingApprovalOrders.length} QR Awaiting Approval</span>
+            </button>
+          )}
           <a
             href="/menu"
             target="_blank"
@@ -2444,6 +2494,168 @@ export default function POS() {
                       >
                         <ArrowDownLeft size={13} />
                         Retrieve
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CUSTOMER QR ORDERS WAITING APPROVAL MODAL ───────────── */}
+      {showApprovalModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 510,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setShowApprovalModal(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1.5px solid #fde68a",
+              borderRadius: 22,
+              padding: 24,
+              width: "100%",
+              maxWidth: 620,
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "#fffbeb", border: "1.5px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                  ⏳
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 900, color: "#92400e", margin: 0 }}>
+                    Customer QR Orders Awaiting Verification
+                  </h3>
+                  <p style={{ fontSize: 12, color: "#b45309", margin: "2px 0 0" }}>
+                    Confirm customer presence at the table to prevent prank or remote orders.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowApprovalModal(false)}
+                style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, color: "#64748b", cursor: "pointer", padding: 6 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* List */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+              {pendingApprovalOrders.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
+                  <CheckCircle2 size={36} color="#10b981" style={{ marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>No pending QR orders</p>
+                  <p style={{ fontSize: 12, color: "#94a3b8" }}>All customer orders have been verified and processed.</p>
+                </div>
+              ) : (
+                pendingApprovalOrders.map((o) => (
+                  <div
+                    key={o._id}
+                    style={{
+                      background: "#fffbeb",
+                      border: "1.5px solid #fde68a",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: 6, fontFamily: "monospace" }}>
+                          #{o.orderNo}
+                        </span>
+                        <h4 style={{ margin: "5px 0 2px", fontSize: 15, fontWeight: 900, color: "#0f172a" }}>
+                          🪑 {o.tableNo || "Table"}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: 11.5, color: "#64748b" }}>
+                          👤 {o.customerName || "Walk-in Guest"} {o.customerPhone ? `(${o.customerPhone})` : ""}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: "#059669" }}>
+                          {ETB(o.grandTotal)}
+                        </span>
+                        <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>
+                          {new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ background: "#ffffff", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, color: "#334155", maxHeight: 90, overflowY: "auto" }}>
+                      {(o.items || []).map((it, idx) => (
+                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                          <span>{it.productName}</span>
+                          <strong style={{ color: "#b45309" }}>x{it.quantity} ({ETB(it.totalPrice)})</strong>
+                        </div>
+                      ))}
+                      {o.tableNotes && (
+                        <div style={{ fontSize: 11, color: "#d97706", fontStyle: "italic", marginTop: 4, paddingTop: 4, borderTop: "1px solid #f1f5f9" }}>
+                          Note: {o.tableNotes}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleApprovePendingOrder(o._id)}
+                        style={{
+                          flex: 1,
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                          color: "#ffffff",
+                          fontWeight: 800,
+                          fontSize: 12.5,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
+                        }}
+                      >
+                        <CheckCircle2 size={15} />
+                        Verify & Send to Kitchen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectPendingOrder(o._id)}
+                        style={{
+                          padding: "10px 16px",
+                          borderRadius: 10,
+                          border: "1px solid #fecdd3",
+                          background: "#fff1f2",
+                          color: "#e11d48",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Decline
                       </button>
                     </div>
                   </div>

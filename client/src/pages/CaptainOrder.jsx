@@ -46,6 +46,7 @@ function Toast({ msg, type = "success", onDone }) {
 
 const STATUS_CONFIG = {
   all: { label: "All Orders", bg: "#f1f5f9", border: "#cbd5e1", color: "#475569" },
+  pending_approval: { label: "Awaiting Waiter", bg: "#fff7ed", border: "#fed7aa", color: "#c2410c" },
   held: { label: "Held", bg: "#f5f3ff", border: "#ddd6fe", color: "#7c3aed" },
   open: { label: "Open", bg: "#eff6ff", border: "#bfdbfe", color: "#2563eb" },
   sent_to_kitchen: { label: "In Kitchen", bg: "#fffbeb", border: "#fde68a", color: "#d97706" },
@@ -140,6 +141,36 @@ export default function CaptainOrder() {
       }
     } catch (e) {
       showToast(e.response?.data?.message || "Failed to send to kitchen", "error");
+    }
+  };
+
+  // Waiter Approve customer QR order
+  const handleApproveOrder = async (orderId) => {
+    try {
+      const res = await api.post(`/captain-orders/${orderId}/approve-order`);
+      showToast(res.data?.message || "Order approved & sent to kitchen!", "success");
+      loadOrders();
+      if (refOrder?._id === orderId) {
+        setRefOrder(res.data.order);
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || "Failed to approve order", "error");
+    }
+  };
+
+  // Waiter Reject/Decline customer QR order
+  const handleRejectOrder = async (orderId) => {
+    const reason = window.prompt("Reason for declining order (e.g. Table empty / False order):", "Customer not at table");
+    if (reason === null) return;
+    try {
+      const res = await api.post(`/captain-orders/${orderId}/reject-order`, { reason });
+      showToast(res.data?.message || "Order declined.", "info");
+      loadOrders();
+      if (refOrder?._id === orderId) {
+        setRefOrder(res.data.order);
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || "Failed to decline order", "error");
     }
   };
 
@@ -664,6 +695,7 @@ export default function CaptainOrder() {
           {Object.keys(STATUS_CONFIG).map((s) => {
             const active = statusFilter === s;
             const cfg = STATUS_CONFIG[s];
+            const count = s === "all" ? orders.length : orders.filter((o) => o.status === s).length;
             return (
               <button
                 key={s}
@@ -679,10 +711,27 @@ export default function CaptainOrder() {
                   fontSize: 11.5,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                   boxShadow: active ? "0 4px 12px rgba(37,99,235,0.25)" : "0 1px 2px rgba(0,0,0,0.02)",
                 }}
               >
-                {cfg.label}
+                <span>{cfg.label}</span>
+                {count > 0 && (
+                  <span
+                    style={{
+                      background: active ? "rgba(255,255,255,0.25)" : s === "pending_approval" ? "#fed7aa" : "#f1f5f9",
+                      color: active ? "#ffffff" : s === "pending_approval" ? "#c2410c" : "#64748b",
+                      padding: "1px 6px",
+                      borderRadius: 12,
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -691,6 +740,134 @@ export default function CaptainOrder() {
 
       {/* ── REPORT TABLE ─────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+        {/* ── Awaiting Waiter Table Verification Banner ── */}
+        {orders.filter((o) => o.status === "pending_approval").length > 0 && (
+          <div style={{
+            background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+            border: "2px solid #fde68a",
+            borderRadius: 18,
+            padding: "16px 20px",
+            marginBottom: 16,
+            boxShadow: "0 4px 14px rgba(245,158,11,0.12)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 900, color: "#92400e", margin: 0 }}>
+                    {orders.filter((o) => o.status === "pending_approval").length} Customer QR Order(s) Awaiting Waiter Table Verification
+                  </h3>
+                  <p style={{ fontSize: 11.5, color: "#b45309", margin: "2px 0 0" }}>
+                    Security Check: Please confirm customer presence at the table before approving to prevent remote or prank orders.
+                  </p>
+                </div>
+              </div>
+              <span style={{
+                background: "#fef08a",
+                border: "1px solid #facc15",
+                color: "#854d0e",
+                fontWeight: 800,
+                fontSize: 11,
+                padding: "3px 10px",
+                borderRadius: 20,
+              }}>
+                Action Required
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12, marginTop: 12 }}>
+              {orders.filter((o) => o.status === "pending_approval").map((o) => (
+                <div
+                  key={o._id}
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: 14,
+                    border: "1.5px solid #fde68a",
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1px 6px", borderRadius: 6, fontFamily: "monospace" }}>
+                        #{o.orderNo}
+                      </span>
+                      <h4 style={{ margin: "4px 0 2px", fontSize: 14, fontWeight: 900, color: "#0f172a" }}>
+                        🪑 {o.tableNo || "Table"}
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>
+                        👤 {o.customerName || "Walk-in Guest"} {o.customerPhone ? `(${o.customerPhone})` : ""}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: "#059669" }}>
+                      {ETB(o.grandTotal)}
+                    </span>
+                  </div>
+
+                  <div style={{ background: "#f8fafc", padding: "8px 10px", borderRadius: 8, fontSize: 11.5, color: "#334155", maxHeight: 60, overflowY: "auto" }}>
+                    {(o.items || []).map((it, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>{it.productName}</span>
+                        <strong style={{ color: "#b45309" }}>x{it.quantity}</strong>
+                      </div>
+                    ))}
+                    {o.tableNotes && (
+                      <div style={{ fontSize: 10.5, color: "#d97706", fontStyle: "italic", marginTop: 4 }}>
+                        ↳ {o.tableNotes}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleApproveOrder(o._id)}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "none",
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 5,
+                        boxShadow: "0 2px 6px rgba(16,185,129,0.3)",
+                      }}
+                    >
+                      <CheckCircle2 size={14} />
+                      Approve & Kitchen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectOrder(o._id)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #fecdd3",
+                        background: "#fff1f2",
+                        color: "#e11d48",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {loading ? (
           <div style={{ textAlign: "center", padding: "70px 0" }}>
             <RefreshCw size={34} color="#f59e0b" style={{ animation: "spin 1s linear infinite" }} />
@@ -944,6 +1121,51 @@ export default function CaptainOrder() {
                               <Eye size={13} />
                               Ref
                             </button>
+
+                            {/* Quick Waiter Approval buttons */}
+                            {o.status === "pending_approval" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveOrder(o._id)}
+                                  title="Approve Order & Send to Kitchen"
+                                  style={{
+                                    padding: "6px 12px",
+                                    borderRadius: 8,
+                                    border: "none",
+                                    background: "#059669",
+                                    color: "#ffffff",
+                                    fontWeight: 800,
+                                    fontSize: 11.5,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    boxShadow: "0 2px 6px rgba(5,150,105,0.3)",
+                                  }}
+                                >
+                                  <CheckCircle2 size={13} />
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectOrder(o._id)}
+                                  title="Decline / Reject Order"
+                                  style={{
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #fecdd3",
+                                    background: "#fff1f2",
+                                    color: "#e11d48",
+                                    fontWeight: 700,
+                                    fontSize: 11.5,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Decline
+                                </button>
+                              </>
+                            )}
 
                             {/* Send to Kitchen if Held or Open */}
                             {["held", "open"].includes(o.status) && (

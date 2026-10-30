@@ -368,54 +368,90 @@ export default function DigitalMenu() {
   // ── Status Stepper & Progress Helpers ──────────────────────────────────
   const getStatusStep = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s === 'billed' || s === 'paid') return 4;
-    if (s === 'ready') return 3;
-    if (s === 'sent_to_kitchen') return 2;
+    if (s === 'billed' || s === 'paid') return 5;
+    if (s === 'ready') return 4;
+    if (s === 'sent_to_kitchen' || s === 'preparing' || s === 'open') return 3;
+    if (s === 'pending_approval' || s === 'pending_waiter_approval') return 2;
     return 1;
   };
 
-  const getStatusInfo = (status) => {
+  const getStatusInfo = (status, order = null) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'cancelled' || s === 'voided') {
+      return {
+        label: 'Order Not Confirmed',
+        desc: order?.waiterApproval?.rejectedReason || 'Order was not verified by table waiter. If you are seated at this table, please wave or tap "Call Waiter" below.',
+        badgeColor: 'bg-rose-100 text-rose-800 border-rose-300',
+        icon: '❌',
+      };
+    }
     const step = getStatusStep(status);
     switch (step) {
-      case 4:
+      case 5:
         return {
           label: t.statusBilled,
           desc: t.billedDesc,
           badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
           icon: '💵',
         };
-      case 3:
+      case 4:
         return {
           label: t.statusReady,
           desc: t.readyServingDesc,
           badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
           icon: '🍽️',
         };
-      case 2:
+      case 3:
         return {
-          label: t.statusKitchen,
-          desc: t.preparingKitchenDesc,
+          label: 'Approved • In Kitchen',
+          desc: order?.waiterName && !order.waiterName.toLowerCase().includes('self-order')
+            ? `Verified & approved by Waiter ${order.waiterName}! Our kitchen is now preparing your food.`
+            : 'Verified by table waiter! Our kitchen team is now preparing your delicious food.',
           badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
           icon: '🍳',
         };
+      case 2:
+        return {
+          label: 'Awaiting Waiter Table Verification',
+          desc: 'Your order was received! Our table waiter is checking your table to confirm your order before sending it to the kitchen.',
+          badgeColor: 'bg-orange-100 text-orange-800 border-orange-300',
+          icon: '⏳',
+        };
       default:
         return {
-          label: t.statusSent,
-          desc: t.waitingWaiter,
+          label: 'Order Received',
+          desc: 'Order reached our system. Waiting for table waiter verification.',
           badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
-          icon: '🛎️',
+          icon: '📱',
         };
     }
   };
 
   const renderTrackingStepper = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'cancelled' || s === 'voided') {
+      return (
+        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1">
+          <span className="text-xl">❌</span>
+          <p className="text-xs font-black text-rose-900">Order Declined by Table Waiter</p>
+          <p className="text-[11px] text-rose-600">Please wave or tap "Call Waiter" to order in person.</p>
+        </div>
+      );
+    }
     const step = getStatusStep(status);
     const steps = [
-      { num: 1, label: 'Sent', icon: '🛎️' },
-      { num: 2, label: 'Kitchen', icon: '🍳' },
-      { num: 3, label: 'Ready', icon: '🍽️' },
-      { num: 4, label: 'Billed', icon: '💵' },
+      { num: 1, label: 'Placed', icon: '📱' },
+      { num: 2, label: 'Waiter', icon: '👤' },
+      { num: 3, label: 'Kitchen', icon: '🍳' },
+      { num: 4, label: 'Ready', icon: '🍽️' },
+      { num: 5, label: 'Billed', icon: '💵' },
     ];
+
+    const progressWidth =
+      step === 1 ? '5%' :
+      step === 2 ? '28%' :
+      step === 3 ? '52%' :
+      step === 4 ? '76%' : '100%';
 
     return (
       <div className="py-2.5 px-2">
@@ -423,9 +459,7 @@ export default function DigitalMenu() {
           <div className="absolute top-4 inset-x-6 h-1 bg-slate-200 -z-0">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-amber-500 transition-all duration-500 rounded-full"
-              style={{
-                width: step === 1 ? '5%' : step === 2 ? '36%' : step === 3 ? '68%' : '100%',
-              }}
+              style={{ width: progressWidth }}
             />
           </div>
 
@@ -433,19 +467,19 @@ export default function DigitalMenu() {
             const isCompleted = step > st.num;
             const isCurrent = step === st.num;
             return (
-              <div key={st.num} className="flex flex-col items-center text-center z-10 w-16">
+              <div key={st.num} className="flex flex-col items-center text-center z-10 w-14">
                 <div
-                  className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${isCurrent
+                  className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${isCurrent
                     ? 'bg-amber-500 text-slate-950 ring-4 ring-amber-200 animate-pulse scale-110'
                     : isCompleted
                       ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
                       : 'bg-slate-200 text-slate-500'
                     }`}
                 >
-                  {isCompleted ? <Check size={14} className="stroke-[3]" /> : st.icon}
+                  {isCompleted ? <Check size={13} className="stroke-[3]" /> : st.icon}
                 </div>
                 <span
-                  className={`text-[10px] mt-1.5 font-extrabold ${isCurrent ? 'text-amber-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                  className={`text-[9.5px] mt-1.5 font-extrabold ${isCurrent ? 'text-amber-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
                     }`}
                 >
                   {st.label}
@@ -802,23 +836,39 @@ export default function DigitalMenu() {
               {t.orderSentTitle}
             </h2>
 
-            {/* Pill Box: SENT ••• Waiting for waiter */}
-            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/50 p-3 space-y-1">
-              <div className="flex items-center justify-center gap-2 text-amber-900 font-black text-xs tracking-wider">
-                <span className="h-2 w-2 rounded-full bg-amber-600 animate-ping"></span>
-                <span>{t.statusSent}</span>
-              </div>
-              <p className="text-[11px] font-bold text-amber-800">{t.waitingWaiter}</p>
-            </div>
+            {/* Pill Box: Awaiting Waiter / Sent to Kitchen */}
+            {(() => {
+              const currentStatus = liveTrackingData?.status || confirmedOrder.status || 'pending_approval';
+              const isApproved = ['sent_to_kitchen', 'preparing', 'ready', 'billed', 'paid'].includes(currentStatus);
+              return (
+                <div className={`rounded-2xl border-2 p-3 space-y-1 ${
+                  isApproved
+                    ? 'border-emerald-300 bg-emerald-50/60'
+                    : 'border-amber-300 bg-amber-50/60'
+                }`}>
+                  <div className={`flex items-center justify-center gap-2 font-black text-xs tracking-wider ${
+                    isApproved ? 'text-emerald-900' : 'text-amber-900'
+                  }`}>
+                    <span className={`h-2 w-2 rounded-full animate-ping ${isApproved ? 'bg-emerald-600' : 'bg-amber-600'}`}></span>
+                    <span>{isApproved ? '✓ VERIFIED • IN KITCHEN' : '⏳ RECEIVED • WAITING FOR WAITER'}</span>
+                  </div>
+                  <p className={`text-[11px] font-bold ${isApproved ? 'text-emerald-800' : 'text-amber-800'}`}>
+                    {isApproved
+                      ? 'Approved by waiter and being prepared by our kitchen team!'
+                      : 'Our table waiter is checking your table to approve your order.'}
+                  </p>
+                </div>
+              );
+            })()}
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Order <strong className="text-slate-900 font-mono">{confirmedOrder.orderNo}</strong> for{' '}
-              <strong className="text-slate-900">{confirmedOrder.tableNo}</strong> is sent to the kitchen.
+              Order <strong className="text-slate-900 font-mono">#{confirmedOrder.orderNo}</strong> for{' '}
+              <strong className="text-slate-900">{confirmedOrder.tableNo}</strong>
             </p>
 
-            {/* Live 4-Step Animated Tracking Stepper */}
+            {/* Live 5-Step Animated Tracking Stepper */}
             <div className="py-1">
-              {renderTrackingStepper(liveTrackingData?.status || confirmedOrder.status || 'sent_to_kitchen')}
+              {renderTrackingStepper(liveTrackingData?.status || confirmedOrder.status || 'pending_approval')}
             </div>
 
             {/* Orange Button: CHECK YOUR ORDER STATUS (Opens interactive Live Tracker) */}
@@ -1765,11 +1815,12 @@ export default function DigitalMenu() {
                       Auto-syncing
                     </span>
                   </div>
-                  {renderTrackingStepper(liveTrackingData?.status || activeTrackingOrder.status || 'sent_to_kitchen')}
+                  {renderTrackingStepper(liveTrackingData?.status || activeTrackingOrder.status || 'pending_approval')}
 
                   {/* Step Description Box */}
                   {(() => {
-                    const info = getStatusInfo(liveTrackingData?.status || activeTrackingOrder.status || 'sent_to_kitchen');
+                    const currentOrderObj = liveTrackingData || activeTrackingOrder;
+                    const info = getStatusInfo(currentOrderObj?.status || 'pending_approval', currentOrderObj);
                     return (
                       <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200/90 text-center space-y-1">
                         <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">

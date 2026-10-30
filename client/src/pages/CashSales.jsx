@@ -992,10 +992,10 @@ export default function CashSales() {
                                       ? "#eff6ff"
                                       : "#fffbeb",
                                 border: `1px solid ${s.paymentMethod === "Cash"
-                                    ? "#a7f3d0"
-                                    : s.paymentMethod === "Telebirr"
-                                      ? "#bfdbfe"
-                                      : "#fde68a"
+                                  ? "#a7f3d0"
+                                  : s.paymentMethod === "Telebirr"
+                                    ? "#bfdbfe"
+                                    : "#fde68a"
                                   }`,
                                 color:
                                   s.paymentMethod === "Cash"

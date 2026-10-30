@@ -361,7 +361,7 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     guestCount: Math.max(1, Number(guestCount) || 1),
     orderType,
     waiter: null,
-    waiterName: "Self-Order QR",
+    waiterName: "Self-Order (Pending Approval)",
     createdBy: createdById,
     createdByName: "Customer Digital Menu",
     items: processedItems,
@@ -373,25 +373,29 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     serviceChargePercent: safeServicePct,
     serviceCharge: finalServiceCharge,
     grandTotal,
-    status: "sent_to_kitchen",
+    status: "pending_approval",
+    waiterApproval: {
+      required: true,
+      status: "pending",
+    },
     tableNotes: safeTableNotes,
   });
 
   const tg = require("../utils/telegramNotifier");
   if (tg) {
     try {
-      if (typeof tg.notifyCustomerOrder === "function") {
-        tg.notifyCustomerOrder(order);
-      } else if (typeof tg.sendNotification === "function") {
-        const itemsList = processedItems.map((p) => `${p.productName} x${p.quantity}`).join(", ");
+      const itemsList = processedItems.map((p) => `${p.productName} x${p.quantity}`).join(", ");
+      if (typeof tg.sendNotification === "function") {
         tg.sendNotification(
-          `🛎️ <b>New Customer Digital Menu Order!</b>\n` +
+          `🛎️ <b>NEW CUSTOMER QR ORDER AWAITING WAITER VERIFICATION!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
           `🪑 <b>Table:</b> ${safeTableNo}\n` +
+          `🔢 <b>Order Code:</b> <code>#${orderNo}</code>\n` +
           `👤 <b>Customer:</b> ${safeCustomerName} (${safeCustomerPhone || "No Phone"})\n` +
           `🍴 <b>Items:</b> ${itemsList}\n` +
           `💰 <b>Total:</b> ETB ${grandTotal.toFixed(2)}\n` +
           (safeTableNotes ? `📝 <b>Note:</b> ${safeTableNotes}\n` : "") +
-          `<i>Ready in POS for Kitchen prep & Cashier settlement.</i>`
+          `⚠️ <b>Security Notice:</b> Please have table waiter verify physical presence and approve order in Captain Orders.`
         );
       }
     } catch (_) {}
@@ -401,7 +405,7 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     success: true,
     orderNo: order.orderNo,
     order,
-    message: `Order #${orderNo} sent to kitchen successfully!`,
+    message: `Order #${orderNo} received! Awaiting table waiter verification.`,
   });
 });
 
@@ -469,6 +473,8 @@ const trackCustomerOrder = asyncHandler(async (req, res) => {
       tableNo: order.tableNo,
       customerName: order.customerName,
       status: order.status,
+      waiterName: order.waiterName,
+      waiterApproval: order.waiterApproval,
       items: order.items,
       subtotal: order.subtotal,
       taxAmount: order.taxAmount,
@@ -516,6 +522,117 @@ const getTableOrdersHistory = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Waiter approves customer QR self-order
+// @route  POST /api/captain-orders/:id/approve-order
+// @access Private (Waiter, Cashier, Supervisor, Manager, Admin, Dev)
+const approveCustomerOrder = asyncHandler(async (req, res) => {
+  const order = await CaptainOrder.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Captain order not found");
+  }
+
+  if (order.status !== "pending_approval") {
+    return res.json({
+      success: true,
+      order,
+      message: `Order #${order.orderNo} is already ${order.status}.`,
+    });
+  }
+
+  order.status = "sent_to_kitchen";
+  order.waiterApproval = {
+    required: true,
+    status: "approved",
+    approvedBy: req.user._id,
+    approvedByName: req.user.name || "Waiter",
+    approvedAt: new Date(),
+  };
+
+  // Assign approving waiter if order was self-order
+  if (!order.waiter || (order.waiterName && order.waiterName.toLowerCase().includes("self-order"))) {
+    order.waiter = req.user._id;
+    order.waiterName = req.user.name || "Waiter";
+  }
+
+  await order.save();
+
+  // Telegram alert
+  const tg = require("../utils/telegramNotifier");
+  if (tg) {
+    try {
+      const waiterLabel = req.user.name || "Waiter";
+      const itemsList = (order.items || []).map((p) => `${p.productName} x${p.quantity}`).join(", ");
+      if (typeof tg.sendNotification === "function") {
+        tg.sendNotification(
+          `✅ <b>CUSTOMER QR ORDER VERIFIED & APPROVED!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `🪑 <b>Table:</b> ${order.tableNo}\n` +
+          `🔢 <b>Order Code:</b> <code>#${order.orderNo}</code>\n` +
+          `👤 <b>Approved by Waiter:</b> ${waiterLabel}\n` +
+          `🍴 <b>Items:</b> ${itemsList}\n` +
+          `💰 <b>Amount:</b> ETB ${Number(order.grandTotal || 0).toFixed(2)}\n` +
+          `🍳 <i>Verified & sent to kitchen for preparation!</i>`
+        );
+      }
+    } catch (_) {}
+  }
+
+  res.json({
+    success: true,
+    order,
+    message: `Order #${order.orderNo} for ${order.tableNo} verified & approved! Sent to kitchen.`,
+  });
+});
+
+// @desc   Waiter declines/rejects customer QR self-order (e.g. table empty / fake order)
+// @route  POST /api/captain-orders/:id/reject-order
+// @access Private (Waiter, Cashier, Supervisor, Manager, Admin, Dev)
+const rejectCustomerOrder = asyncHandler(async (req, res) => {
+  const { reason = "Declined by table waiter (Customer not at table)" } = req.body;
+  const order = await CaptainOrder.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Captain order not found");
+  }
+
+  order.status = "cancelled";
+  order.waiterApproval = {
+    required: true,
+    status: "rejected",
+    approvedBy: req.user._id,
+    approvedByName: req.user.name || "Waiter",
+    rejectedReason: reason,
+    rejectedAt: new Date(),
+  };
+
+  await order.save();
+
+  // Telegram alert
+  const tg = require("../utils/telegramNotifier");
+  if (tg) {
+    try {
+      if (typeof tg.sendNotification === "function") {
+        tg.sendNotification(
+          `❌ <b>CUSTOMER QR ORDER DECLINED</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `🪑 <b>Table:</b> ${order.tableNo}\n` +
+          `🔢 <b>Order Code:</b> <code>#${order.orderNo}</code>\n` +
+          `👤 <b>Staff:</b> ${req.user.name || "Waiter"}\n` +
+          `📝 <b>Reason:</b> ${reason}\n` +
+          `⚠️ <i>Order was not sent to kitchen.</i>`
+        );
+      }
+    } catch (_) {}
+  }
+
+  res.json({
+    success: true,
+    order,
+    message: `Order #${order.orderNo} for ${order.tableNo} has been declined.`,
+  });
+});
+
 module.exports = {
   createCaptainOrder,
   createCustomerOrder,
@@ -528,4 +645,6 @@ module.exports = {
   sendToKitchen,
   voidCaptainOrder,
   getActiveTables,
+  approveCustomerOrder,
+  rejectCustomerOrder,
 };
