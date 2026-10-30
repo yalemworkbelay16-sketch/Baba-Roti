@@ -35,6 +35,9 @@ import {
   Clock,
   ClipboardList,
   Scale,
+  Utensils,
+  QrCode,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../api/axios';
 import Card from '../components/ui/Card';
@@ -331,6 +334,15 @@ export default function Dashboard() {
           >
             <Scale size={14} /> Stock Balance
           </button>
+          <a
+            href="/menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-700 hover:from-emerald-900 hover:to-emerald-800 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition"
+            title="Open Customer Digital QR Menu"
+          >
+            <Utensils size={14} /> 📱 Digital Menu (QR)
+          </a>
           <button
             onClick={() => fetchSummary(true)}
             disabled={refreshing}
@@ -338,6 +350,50 @@ export default function Dashboard() {
             title="Refresh statistics"
           >
             <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Customer Digital Menu & QR Hub ── */}
+      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 p-4 sm:p-5 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="h-12 w-12 rounded-2xl bg-emerald-800/80 border border-emerald-500/40 flex items-center justify-center text-2xl shadow-inner shrink-0">
+            🥐
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-sm sm:text-base text-white">
+                Baba Roti Customer Digital Menu
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400 text-emerald-950">
+                Live &bull; Self-Ordering Active
+              </span>
+            </div>
+            <p className="text-xs text-emerald-200/90 mt-0.5 max-w-2xl leading-relaxed">
+              Customers can scan table QR codes (<span className="font-mono text-emerald-300">/menu?table=05</span>), customize orders, and place them directly to the POS and Kitchen screens with automatic stock deduction.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+          <a
+            href="/menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs shadow-md transition flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <span>Open Menu</span>
+            <ExternalLink size={13} />
+          </a>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/menu`;
+              navigator.clipboard?.writeText(url);
+              alert(`Copied Customer Digital Menu Link:\n${url}\n\nPrint this as a QR code or share it with guests!`);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-600/50 text-emerald-100 font-bold text-xs transition whitespace-nowrap"
+          >
+            📋 Copy QR Link
           </button>
         </div>
       </div>

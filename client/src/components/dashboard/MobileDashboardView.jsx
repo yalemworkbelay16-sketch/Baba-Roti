@@ -203,6 +203,29 @@ export default function MobileDashboardView({ data, user }) {
 
       {/* ── MAIN CONTENT CONTAINER ── */}
       <div className="px-3.5 pt-3.5 space-y-3.5">
+        {/* ── 0. CUSTOMER DIGITAL MENU QUICK ACCESS (QR & ORDERING) ── */}
+        <div className="rounded-3xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 p-3.5 text-white shadow-md flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-9 w-9 rounded-2xl bg-emerald-800 border border-emerald-500/40 flex items-center justify-center text-lg shadow-inner">
+              🥐
+            </span>
+            <div>
+              <p className="text-xs font-black text-white">Customer Digital Menu</p>
+              <p className="text-[10px] text-emerald-200">Table QR Self-Ordering Active</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <a
+              href="/menu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-emerald-400 text-slate-950 text-[11px] font-black shadow-sm active:scale-95 transition"
+            >
+              Open Menu
+            </a>
+          </div>
+        </div>
+
         {/* ── 1. MAIN HERO CARD: TODAY'S SALES ── */}
         <div className="relative rounded-3xl bg-white border border-slate-100 p-4 shadow-[0_8px_25px_rgba(0,0,0,0.04)] overflow-hidden">
           {/* Header Row */}
