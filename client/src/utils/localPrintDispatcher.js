@@ -136,9 +136,10 @@ export async function dispatchPrint(type, order, opts = {}) {
     const results = res.data?.results || [];
     const anySuccess = results.some((r) => r.ok);
 
-    if (anySuccess || results.length > 0) {
-      return { ok: anySuccess, method: 'server_network', results };
+    if (anySuccess) {
+      return { ok: true, method: 'server_network', results };
     }
+    console.warn(`[PRINT] Server network dispatch returned no active printers, falling back to browser print`);
   } catch (err) {
     console.warn(`[PRINT] Server network dispatch failed:`, err.message);
   }

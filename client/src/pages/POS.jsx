@@ -121,13 +121,13 @@ export default function POS() {
       return cached
         ? JSON.parse(cached)
         : {
-            taxRate: 15,
-            currency: "ETB",
-            enableServiceCharge: false,
-            serviceChargeRate: 10,
-            serviceChargePresets: [5, 10, 15],
-            autoApplyServiceChargeDineIn: false,
-          };
+          taxRate: 15,
+          currency: "ETB",
+          enableServiceCharge: false,
+          serviceChargeRate: 10,
+          serviceChargePresets: [5, 10, 15],
+          autoApplyServiceChargeDineIn: false,
+        };
     } catch (_) {
       return {
         taxRate: 15,
@@ -385,8 +385,96 @@ export default function POS() {
   useEffect(() => {
     loadData();
     loadHeldOrders();
-    const interval = setInterval(loadHeldOrders, 10000); // 10s auto-refresh for held orders & customer QR orders
-    return () => clearInterval(interval);
+    const interval = setInterval(loadHeldOrders, 10000); // 10s fallback auto-refresh
+
+    // Instant Real-Time SSE listener for customer order submissions & waiter calls
+    let es = null;
+    let reconnectTimeout = null;
+
+    const connectSSE = () => {
+      try {
+        const streamUrl = `/api/captain-orders/stream`;
+        es = new EventSource(streamUrl);
+
+        es.addEventListener("new_order", (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            const o = parsed.data;
+            if (o) {
+              triggerNewOrderAlert({
+                orderId: o._id,
+                orderNo: o.orderNo,
+                tableNo: o.tableNo,
+                itemsCount: o.items?.length,
+                totalAmount: o.grandTotal,
+              });
+              setToast({
+                msg: `🛎️ New QR Order at ${o.tableNo || 'Table'}!`,
+                type: 'info',
+              });
+              loadHeldOrders();
+            }
+          } catch (_) {}
+        });
+
+        es.addEventListener("call_waiter", (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            const d = parsed.data;
+            if (d) {
+              triggerNewOrderAlert({
+                orderId: Date.now(),
+                orderNo: d.action === 'request_bill' ? 'BILL' : 'ASSIST',
+                tableNo: d.tableNo,
+                itemsCount: 0,
+                totalAmount: 0,
+              });
+              setToast({
+                msg: d.action === 'request_bill'
+                  ? `💵 Bill requested by ${d.tableNo}!`
+                  : `🛎️ Waiter called to ${d.tableNo}!`,
+                type: 'info',
+              });
+            }
+          } catch (_) {}
+        });
+
+        es.onerror = () => {
+          if (es) es.close();
+          reconnectTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch (_) {}
+    };
+
+    connectSSE();
+
+    // BroadcastChannel for instant zero-latency cross-tab notification
+    let channel = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('baba_roti_orders_channel');
+      channel.onmessage = (msg) => {
+        if (msg.data?.type === 'new_order') {
+          const o = msg.data.order;
+          if (o) {
+            triggerNewOrderAlert({
+              orderId: o._id,
+              orderNo: o.orderNo,
+              tableNo: o.tableNo,
+              itemsCount: o.items?.length,
+              totalAmount: o.grandTotal,
+            });
+            loadHeldOrders();
+          }
+        }
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (es) es.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (channel) channel.close();
+    };
   }, [loadData, loadHeldOrders]);
 
   // Computed

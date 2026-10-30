@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { protect, verifyModuleLicense } = require("../middleware/authMiddleware");
 const {
+  streamOrderEvents,
   createCaptainOrder,
   createCustomerOrder,
   callWaiter,
@@ -17,7 +18,8 @@ const {
   rejectCustomerOrder,
 } = require("../controllers/captainOrderController");
 
-// Public Customer Self-Ordering & Waiter Calling endpoints (No auth required)
+// Public Live SSE Stream & Customer Self-Ordering endpoints
+router.get("/stream",          streamOrderEvents);
 router.post("/customer-order", createCustomerOrder);
 router.post("/call-waiter",    callWaiter);
 router.get("/track/:orderNo",  trackCustomerOrder);

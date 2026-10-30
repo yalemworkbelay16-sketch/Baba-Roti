@@ -64,9 +64,42 @@ export default function CashSales() {
   const [toast, setToast] = useState(null);
   const [clock, setClock] = useState(new Date());
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [reprintingReceipt, setRepprintingReceipt] = useState(false);
   const exportRef = useRef(null);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
+
+  const handleReprintReceipt = async (order) => {
+    if (!order) return;
+    setRepprintingReceipt(true);
+    showToast(`Dispatching receipt reprint for #${order.orderNo}...`, "info");
+    try {
+      const res = await dispatchPrint('receipt', order, {
+        hotelName: "Baba Roti Café",
+        taxRate: order.taxPercent || 15,
+        isReprint: true,
+      });
+      if (res?.ok) {
+        showToast(`Receipt #${order.orderNo} printed successfully!`);
+      } else {
+        posPrint.printReceipt(order, {
+          hotelName: "Baba Roti Café",
+          taxRate: order.taxPercent || 15,
+          isReprint: true,
+        });
+        showToast(`Receipt #${order.orderNo} opened in browser print dialog`);
+      }
+    } catch (_) {
+      posPrint.printReceipt(order, {
+        hotelName: "Baba Roti Café",
+        taxRate: order.taxPercent || 15,
+        isReprint: true,
+      });
+      showToast(`Receipt #${order.orderNo} opened in browser print dialog`);
+    } finally {
+      setRepprintingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     const handleOutside = (e) => {
@@ -154,9 +187,12 @@ export default function CashSales() {
       const res = await api.post("/pos/orders", payload);
       const posOrder = res.data.order;
 
-      // Mark captain order as billed / paid
+      // Mark captain order as paid and link to cash sale
       try {
-        await api.patch(`/captain-orders/${o._id}`, { status: "billed" });
+        await api.patch(`/captain-orders/${o._id}`, {
+          status: "paid",
+          cashSaleRef: posOrder._id,
+        });
       } catch (_) { }
 
       // Print thermal receipt via network dispatcher + browser fallback
@@ -1410,30 +1446,26 @@ export default function CashSales() {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
                 type="button"
-                onClick={() =>
-                  dispatchPrint('receipt', refOrder, {
-                    hotelName: "Baba Roti Café",
-                    taxRate: refOrder.taxPercent || 15,
-                    isReprint: true,
-                  })
-                }
+                disabled={reprintingReceipt}
+                onClick={() => handleReprintReceipt(refOrder)}
                 style={{
                   padding: "9px 16px",
                   borderRadius: 10,
                   border: "none",
-                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  background: reprintingReceipt ? "#d1d5db" : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                   color: "#ffffff",
                   fontWeight: 700,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: reprintingReceipt ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
                   boxShadow: "0 2px 6px rgba(16,185,129,0.3)",
+                  transition: "all 0.15s ease",
                 }}
               >
-                <Printer size={14} />
-                Reprint Receipt
+                {reprintingReceipt ? <RefreshCw size={14} className="animate-spin" /> : <Printer size={14} />}
+                <span>{reprintingReceipt ? "Printing..." : "Reprint Receipt"}</span>
               </button>
 
               <button

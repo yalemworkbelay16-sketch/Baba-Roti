@@ -4,6 +4,48 @@ const CaptainOrder = require("../models/CaptainOrder");
 const Product = require("../models/Product");
 const Setting = require("../models/Setting");
 
+// Active SSE client connections for instant sub-second order push
+const sseSubscribers = new Set();
+
+function broadcastOrderEvent(eventType, payload) {
+  const data = JSON.stringify({ type: eventType, data: payload, timestamp: Date.now() });
+  for (const client of sseSubscribers) {
+    try {
+      client.write(`event: ${eventType}\ndata: ${data}\n\n`);
+    } catch (_) {
+      sseSubscribers.delete(client);
+    }
+  }
+}
+
+// @desc Stream live order events (SSE)
+// @route GET /api/captain-orders/stream
+// @access Public / Staff
+const streamOrderEvents = (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  res.write(`event: connected\ndata: ${JSON.stringify({ time: Date.now() })}\n\n`);
+  sseSubscribers.add(res);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": keepalive\n\n");
+    } catch (_) {
+      clearInterval(heartbeat);
+      sseSubscribers.delete(res);
+    }
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    sseSubscribers.delete(res);
+  });
+};
+
 function determineStation(category = "", parentCategory = "", name = "") {
   const text = `${category} ${parentCategory} ${name}`.toLowerCase();
   const baristaKeywords = [
@@ -116,6 +158,8 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
     status: req.body.status || "open",
   });
 
+  broadcastOrderEvent("new_order", order);
+
   res.status(201).json({ success: true, order, message: `Captain Order #${orderNo} created!` });
 });
 
@@ -168,10 +212,15 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
   if (["paid", "billed", "voided", "cancelled"].includes(order.status)) {
     if (status === "paid" || status === "billed") {
       order.status = status;
-      if (status === "billed" && !order.billedAt) {
+      if (!order.billedAt) {
         order.billedAt = new Date();
       }
+      if (req.body.cashSaleRef) order.cashSaleRef = req.body.cashSaleRef;
       await order.save();
+      return res.json(order);
+    }
+    // Idempotent return if order is already paid or billed
+    if (order.status === "paid" || order.status === "billed") {
       return res.json(order);
     }
     res.status(400); throw new Error(`Cannot edit an order with status: ${order.status}`);
@@ -401,6 +450,8 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     } catch (_) {}
   }
 
+  broadcastOrderEvent("new_order", order);
+
   res.status(201).json({
     success: true,
     orderNo: order.orderNo,
@@ -441,6 +492,8 @@ const callWaiter = asyncHandler(async (req, res) => {
       }
     } catch (_) {}
   }
+
+  broadcastOrderEvent("call_waiter", { tableNo, action, customerName });
 
   res.json({
     success: true,
@@ -578,6 +631,8 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
     } catch (_) {}
   }
 
+  broadcastOrderEvent("order_approved", order);
+
   res.json({
     success: true,
     order,
@@ -634,6 +689,7 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  streamOrderEvents,
   createCaptainOrder,
   createCustomerOrder,
   callWaiter,

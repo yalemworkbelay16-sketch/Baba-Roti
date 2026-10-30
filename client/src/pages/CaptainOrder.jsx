@@ -69,9 +69,30 @@ export default function CaptainOrder() {
   const [toast, setToast] = useState(null);
   const [clock, setClock] = useState(new Date());
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [reprintingKOT, setReprintingKOT] = useState(false);
   const exportRef = useRef(null);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
+
+  const handleReprintKOT = async (order) => {
+    if (!order) return;
+    setReprintingKOT(true);
+    showToast(`Dispatching KOT reprint for #${order.orderNo}...`, "info");
+    try {
+      const res = await dispatchPrint('kot', order, { businessName: "Baba Roti Café", isReprint: true });
+      if (res?.ok) {
+        showToast(`KOT #${order.orderNo} sent to printer!`);
+      } else {
+        posPrint.printKOT(order, { businessName: "Baba Roti Café", isReprint: true });
+        showToast(`KOT #${order.orderNo} opened in browser print dialog`);
+      }
+    } catch (_) {
+      posPrint.printKOT(order, { businessName: "Baba Roti Café", isReprint: true });
+      showToast(`KOT #${order.orderNo} opened in browser print dialog`);
+    } finally {
+      setReprintingKOT(false);
+    }
+  };
 
   useEffect(() => {
     const handleOutside = (e) => {
@@ -124,9 +145,93 @@ export default function CaptainOrder() {
 
   useEffect(() => {
     loadOrders();
-    // Auto-poll every 10 seconds for incoming customer QR orders & sound alert
-    const interval = setInterval(loadOrders, 10000);
-    return () => clearInterval(interval);
+    const interval = setInterval(loadOrders, 10000); // 10s fallback auto-poll
+
+    // Instant Real-Time SSE listener for incoming orders and table waiter assistance calls
+    let es = null;
+    let reconnectTimeout = null;
+
+    const connectSSE = () => {
+      try {
+        const streamUrl = `/api/captain-orders/stream`;
+        es = new EventSource(streamUrl);
+
+        es.addEventListener("new_order", (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            const o = parsed.data;
+            if (o) {
+              triggerNewOrderAlert({
+                orderId: o._id,
+                orderNo: o.orderNo,
+                tableNo: o.tableNo,
+                itemsCount: o.items?.length,
+                totalAmount: o.grandTotal,
+              });
+              showToast(`🛎️ New Order #${o.orderNo} at ${o.tableNo || 'Table'}!`, "info");
+              loadOrders();
+            }
+          } catch (_) {}
+        });
+
+        es.addEventListener("call_waiter", (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            const d = parsed.data;
+            if (d) {
+              triggerNewOrderAlert({
+                orderId: Date.now(),
+                orderNo: d.action === 'request_bill' ? 'BILL' : 'ASSIST',
+                tableNo: d.tableNo,
+                itemsCount: 0,
+                totalAmount: 0,
+              });
+              showToast(
+                d.action === 'request_bill'
+                  ? `💵 Bill requested by ${d.tableNo}!`
+                  : `🛎️ Assistance called to ${d.tableNo}!`,
+                "info"
+              );
+            }
+          } catch (_) {}
+        });
+
+        es.onerror = () => {
+          if (es) es.close();
+          reconnectTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch (_) {}
+    };
+
+    connectSSE();
+
+    // BroadcastChannel for instant cross-tab notification
+    let channel = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('baba_roti_orders_channel');
+      channel.onmessage = (msg) => {
+        if (msg.data?.type === 'new_order') {
+          const o = msg.data.order;
+          if (o) {
+            triggerNewOrderAlert({
+              orderId: o._id,
+              orderNo: o.orderNo,
+              tableNo: o.tableNo,
+              itemsCount: o.items?.length,
+              totalAmount: o.grandTotal,
+            });
+            loadOrders();
+          }
+        }
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (es) es.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (channel) channel.close();
+    };
   }, [loadOrders]);
 
   // Send to kitchen
@@ -1392,24 +1497,26 @@ export default function CaptainOrder() {
               {/* Print KOT */}
               <button
                 type="button"
-                onClick={() => dispatchPrint('kot', refOrder, { businessName: "Baba Roti Café", isReprint: true })}
+                disabled={reprintingKOT}
+                onClick={() => handleReprintKOT(refOrder)}
                 style={{
                   padding: "9px 16px",
                   borderRadius: 10,
                   border: "none",
-                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  background: reprintingKOT ? "#d1d5db" : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
                   color: "#ffffff",
                   fontWeight: 700,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: reprintingKOT ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
                   boxShadow: "0 2px 6px rgba(217,119,6,0.3)",
+                  transition: "all 0.15s ease",
                 }}
               >
-                <Printer size={14} />
-                Reprint KOT
+                {reprintingKOT ? <RefreshCw size={14} className="animate-spin" /> : <Printer size={14} />}
+                <span>{reprintingKOT ? "Printing..." : "Reprint KOT"}</span>
               </button>
 
               <button

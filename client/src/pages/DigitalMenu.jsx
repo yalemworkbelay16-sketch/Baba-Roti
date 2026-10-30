@@ -90,6 +90,7 @@ const TRANSLATIONS = {
     ratingSuccess: 'Thank you for your rating!',
     ratingSuccessSub: 'Your feedback inspires our chef & barista team.',
     leaveComment: 'Share your thoughts or compliments for our team...',
+    optionalName: 'Your Name (Optional)',
   },
   am: {
     callWaiter: 'አስተናጋጅ',
@@ -145,6 +146,7 @@ const TRANSLATIONS = {
     ratingSuccess: 'ስለ ግምገማዎ እናመሰግናለን!',
     ratingSuccessSub: 'አስተያየትዎ አገልግሎታችንን ይበልጥ ለማሻሻል ይረዳናል።',
     leaveComment: 'አስተያየትዎን ወይም ምስጋናዎን እዚህ ያካፍሉን...',
+    optionalName: 'ስምዎ (አማራጭ)',
   },
 };
 
@@ -206,6 +208,7 @@ export default function DigitalMenu() {
   // Customer Review & Subsystem Licensing States
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewCustomerName, setReviewCustomerName] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewTags, setReviewTags] = useState([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -449,9 +452,9 @@ export default function DigitalMenu() {
 
     const progressWidth =
       step === 1 ? '5%' :
-      step === 2 ? '28%' :
-      step === 3 ? '52%' :
-      step === 4 ? '76%' : '100%';
+        step === 2 ? '28%' :
+          step === 3 ? '52%' :
+            step === 4 ? '76%' : '100%';
 
     return (
       <div className="py-2.5 px-2">
@@ -531,6 +534,36 @@ export default function DigitalMenu() {
         setViewState('confirmed');
         // Refresh table orders history
         fetchTableHistory();
+
+        // Broadcast immediately for instant 0ms tab-to-tab notification
+        if (typeof BroadcastChannel !== 'undefined') {
+          try {
+            const bc = new BroadcastChannel('baba_roti_orders_channel');
+            bc.postMessage({ type: 'new_order', order: res.data.order });
+            setTimeout(() => bc.close(), 1000);
+          } catch (_) {}
+        }
+
+        // Play instant joyful confirmation chime
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            const actx = new AudioCtx();
+            const now = actx.currentTime;
+            [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+              const osc = actx.createOscillator();
+              const gain = actx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+              gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+              osc.connect(gain);
+              gain.connect(actx.destination);
+              osc.start(now + idx * 0.1);
+              osc.stop(now + idx * 0.1 + 0.45);
+            });
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.error('Order error:', err);
@@ -565,6 +598,8 @@ export default function DigitalMenu() {
           tableNo: res.data.tableNo || tableNo,
         });
         setWaiterModalOpen(false);
+        // Auto-dismiss top banner alert after 6 seconds so it doesn't linger
+        setTimeout(() => setServiceAlert(null), 6000);
       }
     } catch (err) {
       alert('Could not notify waiter. Please try again.');
@@ -585,7 +620,7 @@ export default function DigitalMenu() {
     setReviewSubmitting(true);
     try {
       await axios.post(`${API_BASE}/settings/menu-reviews`, {
-        customerName: customerName || 'Valued Guest',
+        customerName: reviewCustomerName.trim() || customerName || 'Valued Guest',
         tableNo: tableNo || '',
         rating: reviewRating,
         comment: reviewComment,
@@ -841,14 +876,12 @@ export default function DigitalMenu() {
               const currentStatus = liveTrackingData?.status || confirmedOrder.status || 'pending_approval';
               const isApproved = ['sent_to_kitchen', 'preparing', 'ready', 'billed', 'paid'].includes(currentStatus);
               return (
-                <div className={`rounded-2xl border-2 p-3 space-y-1 ${
-                  isApproved
+                <div className={`rounded-2xl border-2 p-3 space-y-1 ${isApproved
                     ? 'border-emerald-300 bg-emerald-50/60'
                     : 'border-amber-300 bg-amber-50/60'
-                }`}>
-                  <div className={`flex items-center justify-center gap-2 font-black text-xs tracking-wider ${
-                    isApproved ? 'text-emerald-900' : 'text-amber-900'
                   }`}>
+                  <div className={`flex items-center justify-center gap-2 font-black text-xs tracking-wider ${isApproved ? 'text-emerald-900' : 'text-amber-900'
+                    }`}>
                     <span className={`h-2 w-2 rounded-full animate-ping ${isApproved ? 'bg-emerald-600' : 'bg-amber-600'}`}></span>
                     <span>{isApproved ? '✓ VERIFIED • IN KITCHEN' : '⏳ RECEIVED • WAITING FOR WAITER'}</span>
                   </div>
@@ -1203,18 +1236,18 @@ export default function DigitalMenu() {
                     {t.soldOut}
                   </span>
                 ) : qtyInCart > 0 ? (
-                  <div className="flex items-center rounded-xl bg-slate-50 border border-emerald-500/40 p-0.5 shadow-2xs">
+                  <div className="flex items-center rounded-xl bg-emerald-50/70 border border-emerald-500/50 p-0.5 shadow-2xs">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         updateQuantity(p._id, -1);
                       }}
-                      className="h-6 w-6 rounded-lg bg-white text-slate-700 hover:bg-slate-100 flex items-center justify-center font-black text-xs shadow-2xs border border-slate-200/80 active:scale-90 transition"
+                      className="h-7 w-7 rounded-lg bg-white text-rose-600 hover:bg-rose-50 flex items-center justify-center font-black text-xs shadow-2xs border border-emerald-200 active:scale-90 transition"
                       title="Decrease"
                     >
-                      <Minus size={11} className="stroke-[3]" />
+                      <Minus size={12} className="stroke-[3]" />
                     </button>
-                    <span className="w-5 text-center font-black text-xs text-slate-950 tabular-nums">
+                    <span className="w-6 text-center font-black text-xs text-slate-950 tabular-nums">
                       {qtyInCart}
                     </span>
                     <button
@@ -1222,10 +1255,10 @@ export default function DigitalMenu() {
                         e.stopPropagation();
                         addToCart(p);
                       }}
-                      className="h-6 w-6 rounded-lg bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center font-black text-xs shadow-2xs active:scale-90 transition"
+                      className="h-7 w-7 rounded-lg bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center font-black text-xs shadow-2xs active:scale-90 transition"
                       title="Increase"
                     >
-                      <Plus size={11} className="stroke-[3]" />
+                      <Plus size={12} className="stroke-[3]" />
                     </button>
                   </div>
                 ) : (
@@ -1444,11 +1477,10 @@ export default function DigitalMenu() {
                   >
                     <Star
                       size={28}
-                      className={`transition-colors duration-200 ${
-                        s <= (reviewHoverRating || reviewRating)
+                      className={`transition-colors duration-200 ${s <= (reviewHoverRating || reviewRating)
                           ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
                           : 'text-slate-300'
-                      }`}
+                        }`}
                     />
                   </button>
                 ))}
@@ -1473,17 +1505,25 @@ export default function DigitalMenu() {
                           selected ? prev.filter((t) => t !== tag.label) : [...prev, tag.label]
                         )
                       }
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all ${
-                        selected
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all ${selected
                           ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-2xs'
                           : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
-                      }`}
+                        }`}
                     >
                       {tag.label}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Optional Customer Name */}
+              <input
+                type="text"
+                value={reviewCustomerName}
+                onChange={(e) => setReviewCustomerName(e.target.value)}
+                placeholder={t.optionalName || 'Your Name (Optional)'}
+                className="w-full rounded-2xl border border-amber-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+              />
 
               {/* Comment Textarea */}
               <textarea
@@ -1645,11 +1685,11 @@ export default function DigitalMenu() {
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
                 {serviceSuccessModal.type === 'request_bill'
                   ? (lang === 'am'
-                      ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} የሒሳብ ደረሰኝ ይዞ አስተናጋጅ በደቂቃዎች ውስጥ ወደ እርስዎ ይመጣል።`
-                      : `A waiter is on the way with the bill for ${serviceSuccessModal.tableNo || tableNo}.`)
+                    ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} የሒሳብ ደረሰኝ ይዞ አስተናጋጅ በደቂቃዎች ውስጥ ወደ እርስዎ ይመጣል።`
+                    : `A waiter is on the way with the bill for ${serviceSuccessModal.tableNo || tableNo}.`)
                   : (lang === 'am'
-                      ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} እርዳታ የሚሰጥ አስተናጋጅ እየመጣ ነው።`
-                      : `Assistance is on the way to ${serviceSuccessModal.tableNo || tableNo}.`)}
+                    ? `ለጠረጴዛ ${serviceSuccessModal.tableNo || tableNo} እርዳታ የሚሰጥ አስተናጋጅ እየመጣ ነው።`
+                    : `Assistance is on the way to ${serviceSuccessModal.tableNo || tableNo}.`)}
               </p>
             </div>
 
