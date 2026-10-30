@@ -17,10 +17,17 @@ const {
   getPublicMenu,
   toggleMenuVisibility,
   bulkMenuVisibility,
+  generateProductAiImage,
+  uploadProductImageManual,
+  bulkGenerateAiImages,
+  deleteProductImage,
 } = require('../controllers/productController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 // Public menu for customer self-ordering (No auth required)
 router.get('/public-menu', getPublicMenu);
@@ -30,6 +37,9 @@ router.use(protect);
 // Menu management (Admin, Manager, Supervisor)
 router.post('/bulk-menu-visibility', authorize('admin', 'manager'), bulkMenuVisibility);
 router.put('/:id/menu-visibility',   authorize('admin', 'manager', 'supervisor'), toggleMenuVisibility);
+
+// Image management — bulk generation before /:id
+router.post('/bulk-ai-images', authorize('admin', 'manager'), bulkGenerateAiImages);
 
 // Excel import/export — must be before /:id
 router.get('/export/excel',           authorize('admin', 'manager'), exportProductsExcel);
@@ -41,6 +51,11 @@ router.post('/import/recipes',        authorize('admin', 'manager'), upload.sing
 router.delete('/bulk',          authorize('admin', 'manager'), bulkDeleteProducts);
 router.post('/:id/restore',     authorize('admin', 'manager'), restoreProduct);
 router.delete('/:id/permanent', authorize('admin'), permanentDeleteProduct);
+
+// Product Image routes (AI & Manual)
+router.post('/:id/ai-image', authorize('admin', 'manager', 'supervisor'), generateProductAiImage);
+router.post('/:id/image',    authorize('admin', 'manager', 'supervisor'), upload.single('image'), uploadProductImageManual);
+router.delete('/:id/image',  authorize('admin', 'manager', 'supervisor'), deleteProductImage);
 
 router.get('/', getProducts);
 router.get('/:id', getProductById);

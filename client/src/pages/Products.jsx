@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
@@ -7,6 +7,7 @@ import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import ProductImageModal from '../components/products/ProductImageModal';
 
 const emptyForm = {
   code: '',
@@ -16,6 +17,7 @@ const emptyForm = {
   uom: 'Pcs',
   description: '',
   sellingPrice: 0,
+  imageUrl: '',
   ingredients: [],
 };
 
@@ -37,8 +39,15 @@ const Products = () => {
   const [importProgress, setImportProgress] = useState(null); // { percent, current, total, created, updated, skipped }
   const [recipeImportResult, setRecipeImportResult] = useState(null);
   const [recipeImportProgress, setRecipeImportProgress] = useState(null);
+  const [imageModalProduct, setImageModalProduct] = useState(null);
+  const [generatingAiRowId, setGeneratingAiRowId] = useState(null);
+  const [bulkAiProgress, setBulkAiProgress] = useState(null);
+  const [quickUploadProductId, setQuickUploadProductId] = useState(null);
+  const [formAiGenerating, setFormAiGenerating] = useState(false);
   const importRef = useRef();
   const recipeImportRef = useRef();
+  const quickUploadInputRef = useRef();
+  const formImageInputRef = useRef();
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('products', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('products', 'delete') : hasRole('admin');
@@ -102,7 +111,7 @@ const Products = () => {
     setEditing(null);
     setFormError('');
     const autoCode = getNextProductCode();
-    setForm({ ...emptyForm, code: autoCode });
+    setForm({ ...emptyForm, code: autoCode, imageUrl: '' });
     setModalOpen(true);
   };
 
@@ -121,6 +130,7 @@ const Products = () => {
       uom: p.uom || 'Pcs',
       description: p.description,
       sellingPrice: p.sellingPrice,
+      imageUrl: p.imageUrl || '',
       ingredients: (p.ingredients || []).map((ing) => ({
         material: ing.material?._id ?? ing.material,
         materialName: ing.material?.name ?? '',
@@ -132,6 +142,156 @@ const Products = () => {
   };
 
   const openDetail = (p) => { setSelectedProduct(p); setDetailOpen(true); };
+
+  // ── Single Product AI Image Generation (1-Click) ──
+  const handleQuickGenerateAi = async (p) => {
+    try {
+      setGeneratingAiRowId(p._id);
+      const res = await api.post(`/products/${p._id}/ai-image`, {});
+      if (res.data?.success) {
+        setProducts((prev) =>
+          prev.map((item) => (item._id === p._id ? { ...item, imageUrl: res.data.imageUrl } : item))
+        );
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate AI image.');
+    } finally {
+      setGeneratingAiRowId(null);
+    }
+  };
+
+  // ── Quick 1-Click Upload from Computer from Table Row ──
+  const handleTriggerQuickUpload = (p) => {
+    setQuickUploadProductId(p._id);
+    if (quickUploadInputRef.current) {
+      quickUploadInputRef.current.value = '';
+      quickUploadInputRef.current.click();
+    }
+  };
+
+  const handleQuickFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !quickUploadProductId) return;
+    try {
+      setGeneratingAiRowId(quickUploadProductId);
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await api.post(`/products/${quickUploadProductId}/image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.success) {
+        setProducts((prev) =>
+          prev.map((item) =>
+            item._id === quickUploadProductId ? { ...item, imageUrl: res.data.imageUrl } : item
+          )
+        );
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload image.');
+    } finally {
+      setGeneratingAiRowId(null);
+      setQuickUploadProductId(null);
+    }
+  };
+
+  // ── Form-level Manual Upload & AI Generation (in Add/Edit Modal) ──
+  const handleFormImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setFormAiGenerating(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.files?.[0]?.url) {
+        setForm((f) => ({ ...f, imageUrl: res.data.files[0].url }));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload image.');
+    } finally {
+      setFormAiGenerating(false);
+    }
+  };
+
+  const handleFormAiGenerate = async () => {
+    if (!form.name?.trim()) {
+      alert('Please enter a product name first so AI knows what food image to detect and create.');
+      return;
+    }
+    try {
+      setFormAiGenerating(true);
+      if (editing?._id) {
+        const res = await api.post(`/products/${editing._id}/ai-image`, {
+          prompt: `Appetizing professional restaurant food photography of freshly prepared ${form.name} (${form.category || 'FOOD'}), beautifully plated on a rustic dining table, warm ambient café lighting, commercial culinary photo`,
+        });
+        if (res.data?.success) {
+          setForm((f) => ({ ...f, imageUrl: res.data.imageUrl }));
+          setProducts((prev) =>
+            prev.map((item) => (item._id === editing._id ? { ...item, imageUrl: res.data.imageUrl } : item))
+          );
+        }
+      } else {
+        // Temporary mock preview or fallback for unsaved item
+        const encoded = encodeURIComponent(`Delicious restaurant food photo of ${form.name}, food photography`);
+        setForm((f) => ({ ...f, imageUrl: `https://image.pollinations.ai/prompt/${encoded}?width=600&height=600&nologo=true` }));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate AI image.');
+    } finally {
+      setFormAiGenerating(false);
+    }
+  };
+
+  // ── Bulk AI Image Generator for all missing products ──
+  const handleBulkAiImages = async () => {
+    const missingProducts = products.filter((p) => !p.imageUrl);
+    if (missingProducts.length === 0) {
+      alert('All products already have photos!');
+      return;
+    }
+
+    if (
+      !confirm(
+        `Detect food names and generate authentic AI dish photos for ${missingProducts.length} product(s) missing images?`
+      )
+    ) {
+      return;
+    }
+
+    setBulkAiProgress({
+      running: true,
+      total: missingProducts.length,
+      current: 0,
+      updated: 0,
+      failed: 0,
+      percent: 15,
+    });
+
+    try {
+      const res = await api.post('/products/bulk-ai-images', {
+        ids: missingProducts.map((p) => p._id),
+      });
+
+      setBulkAiProgress({
+        running: false,
+        total: missingProducts.length,
+        current: missingProducts.length,
+        updated: res.data?.updated || 0,
+        failed: res.data?.failed || 0,
+        percent: 100,
+        message: res.data?.message,
+      });
+
+      load();
+    } catch (err) {
+      setBulkAiProgress({
+        running: false,
+        error: err.response?.data?.message || 'Bulk AI image generation failed.',
+      });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -174,6 +334,7 @@ const Products = () => {
       uom: form.uom,
       description: form.description,
       sellingPrice: form.sellingPrice,
+      imageUrl: form.imageUrl || '',
       ingredients: form.ingredients.map(({ material, quantity }) => ({ material, quantity })),
     };
     try {
@@ -467,6 +628,26 @@ const Products = () => {
                 <Upload size={14} /> Import Recipes
               </button>
               <input ref={recipeImportRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleRecipeImport} />
+
+              {/* Bulk AI Images Generator Button */}
+              <button
+                onClick={handleBulkAiImages}
+                disabled={bulkAiProgress?.running}
+                title="Automatically detect food names and generate authentic dish photos with AI"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:from-indigo-100 hover:to-purple-100 transition shadow-2xs"
+              >
+                {bulkAiProgress?.running ? (
+                  <Loader2 size={14} className="animate-spin text-indigo-600" />
+                ) : (
+                  <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                )}
+                Auto AI Images
+                {products.filter((p) => !p.imageUrl).length > 0 && (
+                  <span className="rounded-full bg-indigo-200/80 px-1.5 py-0.2 text-[10px] font-bold text-indigo-900">
+                    {products.filter((p) => !p.imageUrl).length}
+                  </span>
+                )}
+              </button>
             </div>
           )}
 
@@ -477,6 +658,49 @@ const Products = () => {
           )}
         </div>
       </div>
+
+      {/* Bulk AI Images progress bar */}
+      {bulkAiProgress?.running && (
+        <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2 font-semibold text-indigo-900">
+              <Sparkles size={15} className="animate-pulse text-indigo-600" />
+              Generating photorealistic AI food photos for menu items…
+            </span>
+            <span className="tabular text-indigo-700 font-bold">In progress</span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-indigo-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-300 animate-pulse"
+              style={{ width: `${Math.max(bulkAiProgress.percent, 35)}%` }}
+            />
+          </div>
+          <p className="text-xs text-indigo-700">
+            AI is analyzing dish names, generating culinary food photography, and saving permanently into MongoDB Atlas GridFS…
+          </p>
+        </div>
+      )}
+
+      {bulkAiProgress?.message && !bulkAiProgress.running && (
+        <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-indigo-600" />
+            <span className="font-semibold">{bulkAiProgress.message}</span>
+          </div>
+          <button onClick={() => setBulkAiProgress(null)} className="ml-4 text-indigo-400 hover:text-indigo-700">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {bulkAiProgress?.error && (
+        <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          <span className="font-semibold">{bulkAiProgress.error}</span>
+          <button onClick={() => setBulkAiProgress(null)} className="ml-4 text-rose-400 hover:text-rose-700">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Import progress bar */}
       {importProgress && (
@@ -575,13 +799,14 @@ const Products = () => {
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>UOM</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Ingredients</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Selling Price</th>
-                {(canEdit || canDelete) && <th className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }} />}
+                <th className="whitespace-nowrap px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Photo / Image</th>
+                {(canEdit || canDelete) && <th className="whitespace-nowrap px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>}
               </tr>
             </thead>
             <tbody style={{ borderTop: 'none' }}>
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={(canDelete ? 1 : 0) + 6 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={(canDelete ? 1 : 0) + 7 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
                     No products yet. Add your first product or import from Excel.
                   </td>
                 </tr>
@@ -618,9 +843,79 @@ const Products = () => {
                   <td className="whitespace-nowrap px-4 py-3 font-medium tabular">
                     ETB {p.sellingPrice?.toFixed(2) ?? '0.00'}
                   </td>
+                  {/* Photo / Image column */}
+                  <td className="whitespace-nowrap px-4 py-2 text-center">
+                    {p.imageUrl ? (
+                      <div className="relative group inline-flex items-center justify-center">
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          onClick={() => setImageModalProduct(p)}
+                          className="h-10 w-10 rounded-lg object-cover border border-slate-200 shadow-2xs cursor-pointer transition hover:scale-105 hover:ring-2 hover:ring-blue-500"
+                          title="Click to view or edit image"
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                          }}
+                        />
+                        {canEdit && (
+                          <button
+                            onClick={() => setImageModalProduct(p)}
+                            className="absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 shadow-sm border border-slate-200 text-slate-500 hover:text-blue-600 transition"
+                            title="Change image"
+                          >
+                            <Pencil size={10} />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        {canEdit ? (
+                          <>
+                            <button
+                              onClick={() => handleQuickGenerateAi(p)}
+                              disabled={generatingAiRowId === p._id}
+                              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/90 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:from-indigo-100 hover:to-purple-100 shadow-2xs transition disabled:opacity-50"
+                              title="Detect food name and generate image with AI"
+                            >
+                              {generatingAiRowId === p._id ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin text-indigo-600" />
+                                  <span className="text-[10px]">AI...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles size={12} className="text-amber-500 animate-pulse" />
+                                  <span>AI Photo</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleTriggerQuickUpload(p)}
+                              disabled={generatingAiRowId === p._id}
+                              className="rounded-lg bg-slate-50 border border-slate-200 p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition"
+                              title="Upload image from computer"
+                            >
+                              <Upload size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">No image</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   {(canEdit || canDelete) && (
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex gap-1">
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {canEdit && (
+                          <button
+                            onClick={() => setImageModalProduct(p)}
+                            className="rounded-md p-1.5 text-ink-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                            title="Import / Edit Image (Upload or AI)"
+                          >
+                            <Camera size={15} />
+                          </button>
+                        )}
                         {canEdit && (
                           <button onClick={() => openEdit(p)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Edit">
                             <Pencil size={15} />
@@ -708,6 +1003,83 @@ const Products = () => {
               <label className="mb-1 block text-sm font-medium text-ink-600">Description</label>
               <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            </div>
+
+            {/* Product Image (Manual & AI) */}
+            <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
+                  <Camera size={14} className="text-blue-600" />
+                  Product Image (Menu Photo)
+                </label>
+                {form.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, imageUrl: '' }))}
+                    className="text-xs text-rose-600 hover:text-rose-700 hover:underline"
+                  >
+                    Remove Image
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs">
+                  {form.imageUrl ? (
+                    <img
+                      src={form.imageUrl}
+                      alt={form.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center text-slate-300">
+                      <Camera size={20} />
+                      <span className="text-[9px] text-slate-400 font-medium">No Image</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <input
+                    ref={formImageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleFormImageUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => formImageInputRef.current?.click()}
+                    disabled={formAiGenerating}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-50"
+                  >
+                    <Upload size={13} className="text-blue-600" />
+                    📁 Upload from Computer
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFormAiGenerate}
+                    disabled={formAiGenerating}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] transition disabled:opacity-50"
+                  >
+                    {formAiGenerating ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin text-white" />
+                        <span>AI Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={13} className="text-amber-300 animate-pulse" />
+                        <span>✨ Generate with AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -890,6 +1262,12 @@ const Products = () => {
             {canEdit && (
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
+                <Button
+                  style={{ background: 'linear-gradient(135deg,#4f46e5,#3730a3)', color: 'white' }}
+                  onClick={() => { setDetailOpen(false); setImageModalProduct(selectedProduct); }}
+                >
+                  <Camera size={14} /> Manage Image
+                </Button>
                 <Button style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}
                   onClick={() => { setDetailOpen(false); openEdit(selectedProduct); }}>
                   <Pencil size={14} /> Edit
@@ -899,6 +1277,27 @@ const Products = () => {
           </div>
         )}
       </Modal>
+
+      {/* Hidden file input for table quick 1-click manual upload */}
+      <input
+        ref={quickUploadInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleQuickFileChange}
+      />
+
+      {/* Product Image Modal (AI Detection & Generation + Manual Upload from Computer) */}
+      <ProductImageModal
+        open={Boolean(imageModalProduct)}
+        onClose={() => setImageModalProduct(null)}
+        product={imageModalProduct}
+        onImageUpdated={(updated) => {
+          setProducts((prev) =>
+            prev.map((p) => (p._id === updated._id ? { ...p, ...updated } : p))
+          );
+        }}
+      />
     </div>
   );
 };
