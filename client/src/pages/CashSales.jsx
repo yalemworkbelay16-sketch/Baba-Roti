@@ -113,10 +113,10 @@ export default function CashSales() {
     loadPaidOrders();
     loadPendingOrders();
 
-    // Auto-refresh pending table orders every 4.5s so new incoming table orders show up immediately
+    // Auto-refresh pending table orders every 10s so new incoming table orders show up smoothly
     const pollInterval = setInterval(() => {
       loadPendingOrders();
-    }, 4500);
+    }, 10000);
     return () => clearInterval(pollInterval);
   }, [loadPaidOrders, loadPendingOrders]);
 

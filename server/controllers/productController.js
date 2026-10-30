@@ -105,7 +105,7 @@ const getProducts = asyncHandler(async (req, res) => {
   // Fast POS Mode: lightweight query, no deep populate/cost calculation needed for cashier terminal
   if (pos === 'true' || pos === '1') {
     const products = await Product.find(filter)
-      .select('name code category parentCategory sellingPrice ingredients isActive uom')
+      .select('name code category parentCategory sellingPrice ingredients isActive uom imageUrl isAvailableOnMenu')
       .sort({ name: 1 })
       .lean();
     return res.json(products);

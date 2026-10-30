@@ -11,6 +11,7 @@ import {
   History, ArrowRight, CheckCircle2, FileText, ArrowDownLeft,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { normalizeFileUrl } from "../utils/fileUrl";
 
 const ETB = (n) => `ETB ${Number(n || 0).toFixed(2)}`;
 
@@ -55,7 +56,7 @@ export default function POS() {
   // Instant Cache Restoration (0ms initial load)
   const [products, setProducts] = useState(() => {
     try {
-      const cached = localStorage.getItem("baba_roti_pos_products_cache");
+      const cached = localStorage.getItem("baba_roti_pos_products_cache_v2");
       return cached ? JSON.parse(cached) : [];
     } catch (_) {
       return [];
@@ -107,7 +108,7 @@ export default function POS() {
   // If we have cached products, start with loading=false so the UI appears instantly
   const [loading, setLoading] = useState(() => {
     try {
-      const cached = localStorage.getItem("baba_roti_pos_products_cache");
+      const cached = localStorage.getItem("baba_roti_pos_products_cache_v2");
       return !cached || JSON.parse(cached).length === 0;
     } catch (_) {
       return true;
@@ -278,7 +279,7 @@ export default function POS() {
         const cats = ["All", ...new Set(prods.map((p) => p.category || "General").filter(Boolean))];
         setCategories(cats);
         try {
-          localStorage.setItem("baba_roti_pos_products_cache", JSON.stringify(prods));
+          localStorage.setItem("baba_roti_pos_products_cache_v2", JSON.stringify(prods));
           localStorage.setItem("baba_roti_pos_categories_cache", JSON.stringify(cats));
         } catch (_) { }
       }
@@ -358,7 +359,7 @@ export default function POS() {
   useEffect(() => {
     loadData();
     loadHeldOrders();
-    const interval = setInterval(loadHeldOrders, 3000); // 3s fast refresh for instant customer QR order sound notification
+    const interval = setInterval(loadHeldOrders, 10000); // 10s auto-refresh for held orders & customer QR orders
     return () => clearInterval(interval);
   }, [loadData, loadHeldOrders]);
 
@@ -2025,30 +2026,62 @@ export default function POS() {
                       borderRadius: "18px 18px 0 0",
                     }} />
 
-                    {/* Category icon header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexShrink: 0 }}>
+                    {/* Product Photo & Category Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexShrink: 0 }}>
                       <div style={{
-                        width: 34, height: 34, borderRadius: 10,
+                        width: 46, height: 46, borderRadius: 12,
                         background: cc.bg,
-                        border: `1px solid ${cc.border}`,
+                        border: `1.5px solid ${cc.border}`,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 17, flexShrink: 0,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        position: "relative",
+                        boxShadow: "0 2px 5px rgba(0,0,0,0.06)",
                       }}>
-                        {cc.emoji}
+                        {p.imageUrl ? (
+                          <img
+                            src={normalizeFileUrl(p.imageUrl)}
+                            alt={p.name}
+                            loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.nextElementSibling) {
+                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div style={{
+                          display: p.imageUrl ? 'none' : 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          height: '100%',
+                          fontSize: 20,
+                        }}>
+                          {cc.emoji}
+                        </div>
                       </div>
-                      <span style={{
-                        fontSize: 9.5, fontWeight: 800, textTransform: "uppercase",
-                        color: cc.color, letterSpacing: 0.5,
-                        background: cc.bg, border: `1px solid ${cc.border}`,
-                        padding: "2.5px 8px", borderRadius: 20,
-                        maxWidth: "105px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {p.category || "General"}
-                      </span>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
+                        <span style={{
+                          fontSize: 9.5, fontWeight: 800, textTransform: "uppercase",
+                          color: cc.color, letterSpacing: 0.5,
+                          background: cc.bg, border: `1px solid ${cc.border}`,
+                          padding: "2px 7.5px", borderRadius: 20,
+                          maxWidth: "105px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {p.category || "General"}
+                        </span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", fontWeight: 700 }}>
+                          #{p.code || "—"}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Product Name & Code Area */}
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start", marginBottom: 8, minHeight: 44, flexShrink: 0 }}>
+                    {/* Product Name Area */}
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start", marginBottom: 6, minHeight: 38, flexShrink: 0 }}>
                       <div
                         style={{
                           fontWeight: 800, fontSize: 13.5, color: "#0f172a",
@@ -2062,9 +2095,6 @@ export default function POS() {
                         title={p.name}
                       >
                         {p.name}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, fontFamily: "monospace", fontWeight: 600 }}>
-                        #{p.code || "—"}
                       </div>
                     </div>
 

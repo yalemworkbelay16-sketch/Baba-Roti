@@ -123,8 +123,8 @@ export default function CaptainOrder() {
 
   useEffect(() => {
     loadOrders();
-    // Auto-poll every 3 seconds for instant incoming customer QR orders & sound alert
-    const interval = setInterval(loadOrders, 3000);
+    // Auto-poll every 10 seconds for incoming customer QR orders & sound alert
+    const interval = setInterval(loadOrders, 10000);
     return () => clearInterval(interval);
   }, [loadOrders]);
 
