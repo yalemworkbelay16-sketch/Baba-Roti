@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
 import { dispatchPrint } from "../utils/localPrintDispatcher";
+import { triggerNewOrderAlert } from "../utils/audioAlert";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
   UtensilsCrossed, ReceiptText, Printer, Check, CreditCard,
@@ -319,6 +320,9 @@ export default function POS() {
     }
   }, [parseWaitersFromEmployees]);
 
+  // Track known orders to alert cashier when a new customer order arrives
+  const knownOrderIdsRef = useRef(null);
+
   // Load active held orders
   const loadHeldOrders = useCallback(async () => {
     try {
@@ -328,6 +332,26 @@ export default function POS() {
       // Only open/held/sent_to_kitchen/ready orders
       const active = all.filter((o) => ["held", "open", "sent_to_kitchen", "ready", "billed"].includes(o.status));
       setHeldOrdersList(active);
+
+      // Sound & Voice Alert for Cashier on newly arriving QR orders
+      if (knownOrderIdsRef.current !== null) {
+        const newOrders = active.filter((o) => !knownOrderIdsRef.current.has(o._id));
+        newOrders.forEach((o) => {
+          triggerNewOrderAlert({
+            orderId: o._id,
+            orderNo: o.orderNo,
+            tableNo: o.tableNo,
+            itemsCount: o.items?.length,
+            totalAmount: o.grandTotal,
+          });
+          setToast({
+            msg: `🛎️ New Order from ${o.tableNo || 'Table'} (#${o.orderNo})!`,
+            type: 'info',
+          });
+        });
+      }
+
+      knownOrderIdsRef.current = new Set(active.map((o) => o._id));
     } catch (_) { }
   }, []);
 

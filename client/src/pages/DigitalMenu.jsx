@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -19,6 +19,11 @@ import {
   Check,
   ShoppingBag,
   Info,
+  ChefHat,
+  UtensilsCrossed,
+  ArrowRight,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { normalizeFileUrl } from '../utils/fileUrl';
 
@@ -53,6 +58,24 @@ const TRANSLATIONS = {
     nowAvailable: 'Now Available',
     items: 'ITEM(S)',
     switchLang: 'አማርኛ ⇄',
+    orderHistoryTitle: 'Table Orders & Bill',
+    runningBill: 'Running Bill',
+    activeOrders: 'Active Orders',
+    totalItems: 'Total Items',
+    trackLive: 'Track Live',
+    noOrdersYet: 'No previous orders yet for this table today.',
+    statusKitchen: 'PREPARING IN KITCHEN',
+    statusReady: 'READY • SERVING TO TABLE',
+    statusBilled: 'BILLED • READY TO SETTLE',
+    statusPaid: 'PAID & COMPLETED',
+    preparingKitchenDesc: 'Our chefs and barista are preparing your food with fresh ingredients.',
+    readyServingDesc: 'Your dishes are prepared and our waiter is bringing them to your table.',
+    billedDesc: 'Your bill is prepared. Settle with your waiter or at the cashier counter.',
+    paidDesc: 'Thank you for dining with us! Have a wonderful day.',
+    orderMoreBtn: '+ Add More Food & Drinks',
+    requestTotalBillBtn: 'Request Total Table Bill',
+    orderPlacedAt: 'Placed at',
+    liveKitchenBadge: 'Live Kitchen Tracking',
   },
   am: {
     callWaiter: 'አስተናጋጅ',
@@ -80,6 +103,24 @@ const TRANSLATIONS = {
     nowAvailable: 'አሁን ዝግጁ ነው',
     items: 'እቃዎች',
     switchLang: 'English ⇄',
+    orderHistoryTitle: 'የጠረጴዛው ትዕዛዞች እና ሂሳብ',
+    runningBill: 'ወቅታዊ ሂሳብ',
+    activeOrders: 'ወቅታዊ ትዕዛዞች',
+    totalItems: 'ጠቅላላ እቃዎች',
+    trackLive: 'በቀጥታ ተከታተል',
+    noOrdersYet: 'ለዚህ ጠረጴዛ ዛሬ የተላለፈ ትዕዛዝ የለም።',
+    statusKitchen: 'ወጥ ቤት እየተዘጋጀ ነው',
+    statusReady: 'ዝግጁ ነው • እየቀረበ ነው',
+    statusBilled: 'ሂሳብ ተዘጋጅቷል',
+    statusPaid: 'ተከፍሏል • ተጠናቋል',
+    preparingKitchenDesc: 'ሼፎቻችን እና ባሪስታችን ትኩስ ምግቦችን በማዘጋጀት ላይ ናቸው።',
+    readyServingDesc: 'ምግቦችዎ ተዘጋጅተዋል፤ አስተናጋጅ ወደ ጠረጴዛዎ እያመጣቸው ነው።',
+    billedDesc: 'ሂሳብዎ ዝግጁ ነው፤ ከአስተናጋጅ ወይም በካሸር ጋር መክፈል ይችላሉ።',
+    paidDesc: 'ስለመረጡን እናመሰግናለን! መልካም ቀን።',
+    orderMoreBtn: '+ ተጨማሪ ምግብ እና መጠጥ እዘዝ',
+    requestTotalBillBtn: 'የጠቅላላ ጠረጴዛ ሂሳብ ጥራ',
+    orderPlacedAt: 'የታዘዘበት ሰዓት',
+    liveKitchenBadge: 'የቀጥታ ወጥ ቤት ክትትል',
   },
 };
 
@@ -128,6 +169,51 @@ export default function DigitalMenu() {
   // Confirmed Order Info
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [submittingOrder, setSubmittingOrder] = useState(false);
+
+  // Table Order History & Live Tracking States
+  const [tableOrdersHistory, setTableOrdersHistory] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
+  const [liveTrackingData, setLiveTrackingData] = useState(null);
+
+  // ── Fetch Table History (Orders today for this table) ──────────────────
+  const fetchTableHistory = useCallback(async () => {
+    if (!tableNo) return;
+    try {
+      const res = await axios.get(`${API_BASE}/captain-orders/table-history?tableNo=${encodeURIComponent(tableNo)}`);
+      if (res.data?.success) {
+        setTableOrdersHistory(res.data.orders || []);
+      }
+    } catch (_) {}
+  }, [tableNo]);
+
+  useEffect(() => {
+    fetchTableHistory();
+  }, [fetchTableHistory]);
+
+  // ── Fetch Live Tracking for Active Order ────────────────────────────────
+  const fetchLiveTracking = useCallback(async (orderNo) => {
+    if (!orderNo) return;
+    try {
+      const res = await axios.get(`${API_BASE}/captain-orders/track/${encodeURIComponent(orderNo)}`);
+      if (res.data?.success && res.data.order) {
+        setLiveTrackingData(res.data.order);
+      }
+    } catch (_) {}
+  }, []);
+
+  // Poll live tracking when tracker is open or on confirmed screen
+  useEffect(() => {
+    const targetOrderNo = activeTrackingOrder?.orderNo || confirmedOrder?.orderNo;
+    if (!targetOrderNo) return;
+
+    fetchLiveTracking(targetOrderNo);
+    const interval = setInterval(() => {
+      fetchLiveTracking(targetOrderNo);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [activeTrackingOrder, confirmedOrder, fetchLiveTracking]);
 
   // ── Fetch Public Menu ──────────────────────────────────────────────────
   const fetchMenu = async () => {
@@ -241,6 +327,101 @@ export default function DigitalMenu() {
     return cart.reduce((sum, item) => sum + item.quantity, 0);
   }, [cart]);
 
+  // ── Status Stepper & Progress Helpers ──────────────────────────────────
+  const getStatusStep = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'billed' || s === 'paid') return 4;
+    if (s === 'ready') return 3;
+    if (s === 'sent_to_kitchen') return 2;
+    return 1;
+  };
+
+  const getStatusInfo = (status) => {
+    const step = getStatusStep(status);
+    switch (step) {
+      case 4:
+        return {
+          label: t.statusBilled,
+          desc: t.billedDesc,
+          badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          icon: '💵',
+        };
+      case 3:
+        return {
+          label: t.statusReady,
+          desc: t.readyServingDesc,
+          badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
+          icon: '🍽️',
+        };
+      case 2:
+        return {
+          label: t.statusKitchen,
+          desc: t.preparingKitchenDesc,
+          badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+          icon: '🍳',
+        };
+      default:
+        return {
+          label: t.statusSent,
+          desc: t.waitingWaiter,
+          badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
+          icon: '🛎️',
+        };
+    }
+  };
+
+  const renderTrackingStepper = (status) => {
+    const step = getStatusStep(status);
+    const steps = [
+      { num: 1, label: 'Sent', icon: '🛎️' },
+      { num: 2, label: 'Kitchen', icon: '🍳' },
+      { num: 3, label: 'Ready', icon: '🍽️' },
+      { num: 4, label: 'Billed', icon: '💵' },
+    ];
+
+    return (
+      <div className="py-2.5 px-2">
+        <div className="relative flex items-center justify-between">
+          <div className="absolute top-4 inset-x-6 h-1 bg-slate-200 -z-0">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-amber-500 transition-all duration-500 rounded-full"
+              style={{
+                width: step === 1 ? '5%' : step === 2 ? '36%' : step === 3 ? '68%' : '100%',
+              }}
+            />
+          </div>
+
+          {steps.map((st) => {
+            const isCompleted = step > st.num;
+            const isCurrent = step === st.num;
+            return (
+              <div key={st.num} className="flex flex-col items-center text-center z-10 w-16">
+                <div
+                  className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-xs ${
+                    isCurrent
+                      ? 'bg-amber-500 text-slate-950 ring-4 ring-amber-200 animate-pulse scale-110'
+                      : isCompleted
+                      ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
+                      : 'bg-slate-200 text-slate-500'
+                  }`}
+                >
+                  {isCompleted ? <Check size={14} className="stroke-[3]" /> : st.icon}
+                </div>
+                <span
+                  className={`text-[10px] mt-1.5 font-extrabold ${
+                    isCurrent ? 'text-amber-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                  }`}
+                >
+                  {st.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ── Submit Order ───────────────────────────────────────────────────────
   const handleSubmitOrder = async () => {
     if (!cart.length) return;
@@ -265,15 +446,21 @@ export default function DigitalMenu() {
 
       const res = await axios.post(`${API_BASE}/captain-orders/customer-order`, payload);
       if (res.data?.success) {
-        setConfirmedOrder({
+        const orderData = {
           orderNo: res.data.orderNo,
           tableNo,
           itemsCount: cartTotalCount,
           totalAmount: res.data.order?.grandTotal || cartTotalAmount,
           orderedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+          status: res.data.order?.status || 'sent_to_kitchen',
+          order: res.data.order,
+        };
+        setConfirmedOrder(orderData);
+        setActiveTrackingOrder(orderData);
         setCart([]);
         setViewState('confirmed');
+        // Refresh table orders history
+        fetchTableHistory();
       }
     } catch (err) {
       console.error('Order error:', err);
@@ -478,14 +665,30 @@ export default function DigitalMenu() {
               <strong className="text-slate-900">{confirmedOrder.tableNo}</strong> is sent to the kitchen.
             </p>
 
-            {/* Orange Button: CHECK YOUR ORDER STATUS */}
+            {/* Live 4-Step Animated Tracking Stepper */}
+            <div className="py-1">
+              {renderTrackingStepper(liveOrderData?.status || confirmedOrder.status || 'sent_to_kitchen')}
+            </div>
+
+            {/* Orange Button: CHECK YOUR ORDER STATUS (Opens interactive Live Tracker) */}
             <button
               onClick={() => {
-                alert(`Order #${confirmedOrder.orderNo} for ${confirmedOrder.tableNo} is received by the kitchen.\nTotal: ${confirmedOrder.totalAmount} ETB\nTime: ${confirmedOrder.orderedAt}`);
+                setActiveTrackingOrder(confirmedOrder);
+                setStatusSheetOpen(true);
               }}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98"
             >
-              {t.checkStatus}
+              <Clock size={15} />
+              <span>{t.checkStatus}</span>
+            </button>
+
+            {/* View Table History & Running Bill Button */}
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="w-full py-2.5 rounded-2xl bg-amber-50 border border-amber-300/80 hover:bg-amber-100 text-amber-950 font-extrabold text-xs transition flex items-center justify-center gap-1.5"
+            >
+              <Receipt size={14} className="text-amber-700" />
+              <span>{t.orderHistoryTitle}</span>
             </button>
 
             {/* Sub-notice */}
@@ -530,23 +733,49 @@ export default function DigitalMenu() {
             <h1 className="text-xs font-black text-white leading-tight uppercase tracking-tight">
               {menuData.cafeName}
             </h1>
-            <p className="text-[10px] font-bold text-amber-300">
-              MENU &bull; <span className="underline cursor-pointer" onClick={() => {
-                const newT = prompt('Change Table Number:', tableNo);
-                if (newT) setTableNo(newT);
-              }}>{tableNo}</span>
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold text-amber-300">
+                MENU &bull; <span className="underline cursor-pointer" onClick={() => {
+                  const newT = prompt('Change Table Number:', tableNo);
+                  if (newT) setTableNo(newT);
+                }}>{tableNo}</span>
+              </p>
+              {tableOrdersHistory.length > 0 && (
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  className="rounded-full bg-amber-500/25 hover:bg-amber-500/40 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 text-[9px] font-black flex items-center gap-0.5 transition"
+                  title="View active orders for this table"
+                >
+                  <Receipt size={9} />
+                  <span>{tableOrdersHistory.length}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Call Waiter Button (Exact Match) */}
-        <button
-          onClick={() => setWaiterModalOpen(true)}
-          className="px-3 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm flex items-center gap-1 transition active:scale-95"
-        >
-          <PhoneCall size={12} className="stroke-[2.5]" />
-          <span>{t.callWaiter}</span>
-        </button>
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-1.5">
+          {tableOrdersHistory.length > 0 && (
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-amber-200 font-bold text-xs flex items-center gap-1 transition border border-white/10"
+              title="Table Orders & Bill"
+            >
+              <Receipt size={12} className="text-amber-300" />
+              <span>Bill</span>
+            </button>
+          )}
+
+          {/* Call Waiter Button (Exact Match) */}
+          <button
+            onClick={() => setWaiterModalOpen(true)}
+            className="px-3 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm flex items-center gap-1 transition active:scale-95"
+          >
+            <PhoneCall size={12} className="stroke-[2.5]" />
+            <span>{t.callWaiter}</span>
+          </button>
+        </div>
       </header>
 
       {/* ── 2. SERVICE BANNER (Bill Requested / Waiter Coming) ── */}
@@ -692,6 +921,8 @@ export default function DigitalMenu() {
           const displayName = lang === 'am' && p.nameAmharic ? p.nameAmharic : p.name;
           const displayDesc =
             lang === 'am' && p.descriptionAmharic ? p.descriptionAmharic : p.description;
+          const cartItem = cart.find((item) => item.productId === p._id);
+          const qtyInCart = cartItem ? cartItem.quantity : 0;
 
           return (
             <div
@@ -738,31 +969,59 @@ export default function DigitalMenu() {
                 </div>
               </div>
 
-              {/* Price & Add Button Row */}
+              {/* Price & Add Button Row (Interactive +/- Stepper from User Sketch) */}
               <div className="px-2.5 pb-2.5 pt-1 flex items-center justify-between">
                 <span className="font-black text-xs text-slate-900">
                   {price.toFixed(0)} ETB
                 </span>
 
-                <button
-                  disabled={isOut}
-                  onClick={() => addToCart(p)}
-                  className={`px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 ${isOut
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-[#d97706] hover:bg-[#b45309] text-white'
-                    }`}
-                >
-                  <span>+</span>
-                  <span>{t.add}</span>
-                </button>
+                {isOut ? (
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200">
+                    {t.soldOut}
+                  </span>
+                ) : qtyInCart > 0 ? (
+                  <div className="flex items-center rounded-xl bg-slate-50 border border-emerald-500/40 p-0.5 shadow-2xs">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateQuantity(p._id, -1);
+                      }}
+                      className="h-6 w-6 rounded-lg bg-white text-slate-700 hover:bg-slate-100 flex items-center justify-center font-black text-xs shadow-2xs border border-slate-200/80 active:scale-90 transition"
+                      title="Decrease"
+                    >
+                      <Minus size={11} className="stroke-[3]" />
+                    </button>
+                    <span className="w-5 text-center font-black text-xs text-slate-950 tabular-nums">
+                      {qtyInCart}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(p);
+                      }}
+                      className="h-6 w-6 rounded-lg bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center font-black text-xs shadow-2xs active:scale-90 transition"
+                      title="Increase"
+                    >
+                      <Plus size={11} className="stroke-[3]" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => addToCart(p)}
+                    className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 bg-[#d97706] hover:bg-[#b45309] text-white"
+                  >
+                    <span>+</span>
+                    <span>{t.add}</span>
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* ── 7. FLOATING ORDER STATUS BAR (Exact match to reference screenshots) ── */}
-      {cart.length > 0 && (
+      {/* ── 7. FLOATING ORDER STATUS BAR (Dynamic: Review Cart OR Track Active Order) ── */}
+      {cart.length > 0 ? (
         <div className="fixed bottom-3 inset-x-3 max-w-md mx-auto z-40">
           <div
             onClick={() => setViewState('review')}
@@ -771,7 +1030,7 @@ export default function DigitalMenu() {
             <div className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-950 animate-pulse"></span>
               <span>
-                {t.orderStatus} &bull; {cartTotalCount}
+                {t.orderStatus} &bull; {cartTotalCount} {t.items}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs">
@@ -780,7 +1039,36 @@ export default function DigitalMenu() {
             </div>
           </div>
         </div>
-      )}
+      ) : tableOrdersHistory.length > 0 ? (
+        <div className="fixed bottom-3 inset-x-3 max-w-md mx-auto z-40">
+          <div
+            onClick={() => {
+              setActiveTrackingOrder(tableOrdersHistory[0]);
+              setStatusSheetOpen(true);
+            }}
+            className="bg-[#271406] hover:bg-[#3b2219] border-2 border-amber-500/50 text-amber-200 font-black rounded-2xl p-3 shadow-2xl flex items-center justify-between cursor-pointer active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-2 text-xs">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="font-mono text-amber-300">#{tableOrdersHistory[0]?.orderNo}</span>
+              <span className="text-white/60">•</span>
+              <span className="text-white font-extrabold">
+                {tableOrdersHistory[0]?.status === 'sent_to_kitchen'
+                  ? '🍳 In Kitchen'
+                  : tableOrdersHistory[0]?.status === 'ready'
+                  ? '🍽️ Ready & Serving'
+                  : tableOrdersHistory[0]?.status === 'billed'
+                  ? '💵 Billed'
+                  : '🛎️ Sent'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-amber-400">
+              <span className="font-extrabold">{t.trackLive}</span>
+              <span className="text-sm">^</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── 8. FLOATING AMHARIC/ENGLISH SWITCHER (Exact match to reference screenshots) ── */}
       <div className="fixed bottom-16 right-3 z-30">
@@ -900,6 +1188,301 @@ export default function DigitalMenu() {
                 {detailProduct.isOutOfStock
                   ? t.soldOut
                   : `${t.add} • ${Number(detailProduct.sellingPrice || 0).toFixed(0)} ETB`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIVE ORDER STATUS MODAL / SHEET ── */}
+      {statusSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setStatusSheetOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-h-[90vh] w-full max-w-md overflow-y-auto no-scrollbar shadow-2xl p-5 space-y-4 animate-in slide-in-from-bottom duration-200"
+          >
+            {/* Top Close & Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <h3 className="font-black text-sm text-slate-900 font-serif">
+                  {t.liveStatusTitle}
+                </h3>
+              </div>
+              <button
+                onClick={() => setStatusSheetOpen(false)}
+                className="text-slate-400 hover:text-slate-700 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Current Active Order Card */}
+            {activeTrackingOrder && (
+              <div className="space-y-4">
+                {/* Order Meta Header */}
+                <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+                      Order Reference
+                    </span>
+                    <h4 className="font-black text-base font-mono text-slate-900">
+                      #{activeTrackingOrder.orderNo}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {activeTrackingOrder.tableNo} &bull; {activeTrackingOrder.orderedAt || (activeTrackingOrder.createdAt ? new Date(activeTrackingOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Total</span>
+                    <span className="text-base font-black text-amber-900 font-serif">
+                      {Number(activeTrackingOrder.totalAmount || activeTrackingOrder.grandTotal || 0).toFixed(0)} ETB
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4-Step Animated Stepper */}
+                <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 mb-2 px-1">
+                    <span className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      {t.liveKitchenBadge}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Auto-syncing
+                    </span>
+                  </div>
+                  {renderTrackingStepper(liveTrackingData?.status || activeTrackingOrder.status || 'sent_to_kitchen')}
+
+                  {/* Step Description Box */}
+                  {(() => {
+                    const info = getStatusInfo(liveTrackingData?.status || activeTrackingOrder.status || 'sent_to_kitchen');
+                    return (
+                      <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200/90 text-center space-y-1">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">
+                          <span>{info.icon}</span>
+                          <span>{info.label}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          {info.desc}
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Items in this order */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider px-1">
+                    Ordered Dishes
+                  </h5>
+                  <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+                    {(liveTrackingData?.items || activeTrackingOrder.items || activeTrackingOrder.order?.items || []).map((it, idx) => (
+                      <div key={idx} className="p-3 flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-extrabold text-slate-900">
+                            {it.productName || it.name}
+                          </span>
+                          <span className="text-amber-800 font-bold ml-1.5 text-[11px]">
+                            x{it.quantity}
+                          </span>
+                          {it.notes && (
+                            <p className="text-[10px] text-amber-700 italic">
+                              Note: {it.notes}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-black text-slate-900">
+                          {Number(it.totalPrice || (it.unitPrice * it.quantity) || 0).toFixed(0)} ETB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setStatusSheetOpen(false);
+                      setHistoryOpen(true);
+                    }}
+                    className="w-full py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-300/80 text-amber-950 font-black text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <Receipt size={14} className="text-amber-700" />
+                    <span>{t.orderHistoryTitle}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setStatusSheetOpen(false)}
+                    className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-extrabold text-xs transition"
+                  >
+                    {t.backToMenu}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TABLE ORDER HISTORY & RUNNING BILL DRAWER ── */}
+      {historyOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-h-[88vh] w-full max-w-md overflow-y-auto no-scrollbar shadow-2xl p-5 space-y-4 animate-in slide-in-from-bottom duration-200"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Receipt size={17} className="text-amber-700" />
+                <h3 className="font-black text-sm text-slate-900 font-serif">
+                  {t.orderHistoryTitle} &bull; {tableNo}
+                </h3>
+              </div>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-slate-400 hover:text-slate-700 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Running Bill Card */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#271406] to-[#451e0e] text-white p-4 shadow-md space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block">
+                    {t.runningBill} ({tableNo})
+                  </span>
+                  <strong className="text-2xl font-black text-amber-200 font-serif">
+                    {tableOrdersHistory.reduce((s, o) => s + (o.grandTotal || 0), 0).toFixed(0)} ETB
+                  </strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-amber-300/80 block uppercase font-bold">
+                    {t.totalItems}
+                  </span>
+                  <span className="text-sm font-black text-white">
+                    {tableOrdersHistory.reduce((s, o) => s + (o.items?.reduce((cnt, i) => cnt + (i.quantity || 0), 0) || 0), 0)} items
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-1 flex gap-2">
+                <button
+                  onClick={() => {
+                    handleServiceRequest('request_bill');
+                    setHistoryOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm transition flex items-center justify-center gap-1.5"
+                >
+                  <Receipt size={13} />
+                  <span>{t.requestTotalBillBtn}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleServiceRequest('call_waiter');
+                    setHistoryOpen(false);
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center justify-center gap-1"
+                >
+                  <PhoneCall size={13} />
+                  <span>{t.callWaiter}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Order History Rounds */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+                Order History (Today)
+              </h4>
+
+              {tableOrdersHistory.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <ShoppingBag size={36} className="mx-auto text-slate-300" />
+                  <p className="text-xs font-bold text-slate-600">{t.noOrdersYet}</p>
+                </div>
+              ) : (
+                tableOrdersHistory.map((o) => {
+                  const info = getStatusInfo(o.status);
+                  const orderDate = new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                  return (
+                    <div
+                      key={o._id}
+                      className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs space-y-2.5 hover:border-amber-300 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-black text-xs text-slate-900">
+                            #{o.orderNo}
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-[11px] text-slate-500 font-semibold">{orderDate}</span>
+                        </div>
+
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${info.badgeColor} flex items-center gap-1`}>
+                          <span>{info.icon}</span>
+                          <span>{info.label.split('•')[0].trim()}</span>
+                        </span>
+                      </div>
+
+                      {/* Items */}
+                      <div className="space-y-1 bg-slate-50/70 rounded-xl p-2.5 text-xs text-slate-800">
+                        {o.items?.map((it, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-[11px]">
+                            <span>
+                              {it.productName} <strong className="text-amber-800">x{it.quantity}</strong>
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {(it.totalPrice || it.unitPrice * it.quantity || 0).toFixed(0)} ETB
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                        <span className="font-bold text-slate-500">Order Total</span>
+                        <div className="flex items-center gap-3">
+                          <strong className="font-black text-slate-950 font-serif">
+                            {Number(o.grandTotal || 0).toFixed(0)} ETB
+                          </strong>
+                          <button
+                            onClick={() => {
+                              setActiveTrackingOrder(o);
+                              setHistoryOpen(false);
+                              setStatusSheetOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 font-bold text-[10px] flex items-center gap-1 transition"
+                          >
+                            <span>{t.trackLive}</span>
+                            <ArrowRight size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bottom Back Button */}
+            <div className="pt-2">
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-black text-xs transition"
+              >
+                {t.orderMoreBtn}
               </button>
             </div>
           </div>

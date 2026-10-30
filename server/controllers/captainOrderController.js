@@ -427,10 +427,79 @@ const callWaiter = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Live track single customer order status by orderNo
+// @route  GET /api/captain-orders/track/:orderNo
+// @access Public
+const trackCustomerOrder = asyncHandler(async (req, res) => {
+  const { orderNo } = req.params;
+  const order = await CaptainOrder.findOne({
+    orderNo: { $regex: `^${orderNo.trim()}$`, $options: 'i' },
+  }).lean();
+
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  res.json({
+    success: true,
+    order: {
+      orderNo: order.orderNo,
+      tableNo: order.tableNo,
+      customerName: order.customerName,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      taxAmount: order.taxAmount,
+      serviceCharge: order.serviceCharge,
+      grandTotal: order.grandTotal,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    },
+  });
+});
+
+// @desc   Get all active orders today for a table so customer can view running bill & past items
+// @route  GET /api/captain-orders/table-history
+// @access Public
+const getTableOrdersHistory = asyncHandler(async (req, res) => {
+  const { tableNo } = req.query;
+  if (!tableNo) {
+    return res.status(400).json({ success: false, message: 'Table number is required' });
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const cleanTable = String(tableNo).trim();
+  const orders = await CaptainOrder.find({
+    tableNo: { $regex: `^${cleanTable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    status: { $ne: 'voided' },
+    createdAt: { $gte: today },
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const totalBill = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+  const totalItemsCount = orders.reduce(
+    (sum, o) => sum + (o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0),
+    0
+  );
+
+  res.json({
+    success: true,
+    tableNo: cleanTable,
+    orders,
+    totalBill,
+    totalItemsCount,
+  });
+});
+
 module.exports = {
   createCaptainOrder,
   createCustomerOrder,
   callWaiter,
+  trackCustomerOrder,
+  getTableOrdersHistory,
   getCaptainOrders,
   getCaptainOrderById,
   updateCaptainOrder,

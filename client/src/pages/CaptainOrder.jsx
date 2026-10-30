@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
 import { dispatchPrint } from "../utils/localPrintDispatcher";
 import { exportToExcel, exportToCSV, exportToPDF } from "../utils/exportUtils";
+import { triggerNewOrderAlert } from "../utils/audioAlert";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
   UtensilsCrossed, ShoppingBag, Printer, User, TableProperties,
@@ -86,6 +87,8 @@ export default function CaptainOrder() {
     return () => clearInterval(t);
   }, []);
 
+  const knownOrderIdsRef = useRef(null);
+
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
@@ -93,7 +96,24 @@ export default function CaptainOrder() {
       if (dateVal) url += `&date=${dateVal}`;
       if (statusFilter && statusFilter !== "all") url += `&status=${statusFilter}`;
       const res = await api.get(url);
-      setOrders(res.data || []);
+      const data = res.data || [];
+      setOrders(data);
+
+      // Sound & Voice Alert on newly arriving orders
+      if (knownOrderIdsRef.current !== null) {
+        const newOrders = data.filter((o) => !knownOrderIdsRef.current.has(o._id));
+        newOrders.forEach((o) => {
+          triggerNewOrderAlert({
+            orderId: o._id,
+            orderNo: o.orderNo,
+            tableNo: o.tableNo,
+            itemsCount: o.items?.length,
+            totalAmount: o.grandTotal,
+          });
+        });
+      }
+
+      knownOrderIdsRef.current = new Set(data.map((o) => o._id));
     } catch (e) {
       showToast("Failed to load captain orders", "error");
     } finally {
@@ -103,6 +123,9 @@ export default function CaptainOrder() {
 
   useEffect(() => {
     loadOrders();
+    // Auto-poll every 10 seconds for incoming customer QR orders
+    const interval = setInterval(loadOrders, 10000);
+    return () => clearInterval(interval);
   }, [loadOrders]);
 
   // Send to kitchen

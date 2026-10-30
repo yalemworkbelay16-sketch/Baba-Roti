@@ -190,11 +190,10 @@ const ProductImageModal = ({ open, onClose, product, onImageUpdated }) => {
           <button
             type="button"
             onClick={() => setActiveTab('ai')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition ${
-              activeTab === 'ai'
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition ${activeTab === 'ai'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Sparkles size={14} className={activeTab === 'ai' ? 'text-amber-200' : 'text-indigo-500'} />
             ✨ AI Food Image Generator
@@ -202,11 +201,10 @@ const ProductImageModal = ({ open, onClose, product, onImageUpdated }) => {
           <button
             type="button"
             onClick={() => setActiveTab('upload')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition ${
-              activeTab === 'upload'
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition ${activeTab === 'upload'
                 ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Upload size={14} className="text-blue-600" />
             📁 Upload from Computer
@@ -377,3 +375,4 @@ const ProductImageModal = ({ open, onClose, product, onImageUpdated }) => {
 };
 
 export default ProductImageModal;
+
