@@ -414,7 +414,7 @@ export default function POS() {
               });
               loadHeldOrders();
             }
-          } catch (_) {}
+          } catch (_) { }
         });
 
         es.addEventListener("call_waiter", (event) => {
@@ -436,14 +436,14 @@ export default function POS() {
                 type: 'info',
               });
             }
-          } catch (_) {}
+          } catch (_) { }
         });
 
         es.onerror = () => {
           if (es) es.close();
           reconnectTimeout = setTimeout(connectSSE, 5000);
         };
-      } catch (_) {}
+      } catch (_) { }
     };
 
     connectSSE();

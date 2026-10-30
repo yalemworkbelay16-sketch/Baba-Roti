@@ -7,6 +7,7 @@ const {
   createCustomerOrder,
   callWaiter,
   trackCustomerOrder,
+  getTableStatus,
   getTableOrdersHistory,
   getCaptainOrders,
   getCaptainOrderById,
@@ -23,6 +24,7 @@ router.get("/stream",          streamOrderEvents);
 router.post("/customer-order", createCustomerOrder);
 router.post("/call-waiter",    callWaiter);
 router.get("/track/:orderNo",  trackCustomerOrder);
+router.get("/table-status",    getTableStatus);
 router.get("/table-history",   getTableOrdersHistory);
 
 router.use(protect);

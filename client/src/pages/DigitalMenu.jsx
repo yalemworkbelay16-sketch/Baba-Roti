@@ -91,6 +91,13 @@ const TRANSLATIONS = {
     ratingSuccessSub: 'Your feedback inspires our chef & barista team.',
     leaveComment: 'Share your thoughts or compliments for our team...',
     optionalName: 'Your Name (Optional)',
+    tableOccupiedTitle: 'Table Already Has an Active Order',
+    tableOccupiedDesc: 'This table currently has an active order in progress that has not been billed yet. If you are sitting here, you can continue, or please select your own table.',
+    tableOccupiedBanner: 'This table has an active order in progress (#ORDER_NO).',
+    changeTableBtn: 'Change Table',
+    contactWaiterBtn: 'Contact Waiter',
+    joinTableBtn: 'I am at this table (Continue)',
+    tableInUseNotice: 'Table is in use. Try another table or call a waiter.',
   },
   am: {
     callWaiter: 'አስተናጋጅ',
@@ -147,6 +154,13 @@ const TRANSLATIONS = {
     ratingSuccessSub: 'አስተያየትዎ አገልግሎታችንን ይበልጥ ለማሻሻል ይረዳናል።',
     leaveComment: 'አስተያየትዎን ወይም ምስጋናዎን እዚህ ያካፍሉን...',
     optionalName: 'ስምዎ (አማራጭ)',
+    tableOccupiedTitle: 'ይህ ጠረጴዛ ቀደም ሲል ተይዟል',
+    tableOccupiedDesc: 'ይህ ጠረጴዛ በአሁኑ ወቅት ንቁ እና ያልተከፈለ ትዕዛዝ አለው። እባክዎ ትክክለኛውን ጠረጴዛዎን ይምረጡ ወይም አስተናጋጅ ያነጋግሩ።',
+    tableOccupiedBanner: 'ይህ ጠረጴዛ ንቁ ትዕዛዝ አለው (#ORDER_NO)።',
+    changeTableBtn: 'ጠረጴዛ ቀይር',
+    contactWaiterBtn: 'አስተናጋጅ ጥራ',
+    joinTableBtn: 'እኔ በዚህ ጠረጴዛ ላይ ነኝ (ቀጥል)',
+    tableInUseNotice: 'ጠረጴዛው ተይዟል፤ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።',
   },
 };
 
@@ -204,6 +218,31 @@ export default function DigitalMenu() {
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
   const [liveTrackingData, setLiveTrackingData] = useState(null);
   const liveOrderData = liveTrackingData;
+
+  // Table Occupancy & Table Change Validation States
+  const [tableOccupiedModal, setTableOccupiedModal] = useState(null);
+  const [changeTableModalOpen, setChangeTableModalOpen] = useState(false);
+  const [newTableInput, setNewTableInput] = useState('');
+  const [userJoinedTable, setUserJoinedTable] = useState(false);
+
+  // Helper: check if an order was placed from this device/browser
+  const isMyOrder = useCallback((orderNo) => {
+    if (!orderNo) return false;
+    if (confirmedOrder?.orderNo === orderNo) return true;
+    if (activeTrackingOrder?.orderNo === orderNo) return true;
+    try {
+      const myOrders = JSON.parse(localStorage.getItem('baba_roti_my_orders') || '[]');
+      return myOrders.includes(orderNo);
+    } catch (_) {
+      return false;
+    }
+  }, [confirmedOrder, activeTrackingOrder]);
+
+  // Active unbilled order on this table (if placed by another customer)
+  const activeUnbilledOrder = tableOrdersHistory.find((o) =>
+    ['pending_approval', 'open', 'held', 'sent_to_kitchen', 'preparing', 'ready'].includes(o.status)
+  );
+  const isOtherCustomerOccupied = Boolean(activeUnbilledOrder && !isMyOrder(activeUnbilledOrder.orderNo) && !userJoinedTable);
 
   // Customer Review & Subsystem Licensing States
   const [reviewRating, setReviewRating] = useState(5);
@@ -498,6 +537,19 @@ export default function DigitalMenu() {
   // ── Submit Order ───────────────────────────────────────────────────────
   const handleSubmitOrder = async () => {
     if (!cart.length) return;
+
+    // Table Validation: If table is already occupied with an active unbilled order by another guest
+    if (isOtherCustomerOccupied) {
+      setTableOccupiedModal({
+        tableNo,
+        orderNo: activeUnbilledOrder?.orderNo,
+        message: lang === 'am'
+          ? `ጠረጴዛ ${tableNo} ቀደም ሲል ንቁ ትዕዛዝ አለው (${activeUnbilledOrder?.orderNo || ''})። እባክዎ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።`
+          : `Table ${tableNo} already has an active order in progress (${activeUnbilledOrder?.orderNo || ''}) that has not been billed yet. Please select another table or contact our waiter.`,
+      });
+      return;
+    }
+
     setSubmittingOrder(true);
     try {
       const itemsPayload = cart.map((item) => ({
@@ -515,10 +567,18 @@ export default function DigitalMenu() {
         orderType: 'dine_in',
         items: itemsPayload,
         tableNotes: '',
+        existingOrderNo: confirmedOrder?.orderNo || activeTrackingOrder?.orderNo || (userJoinedTable ? activeUnbilledOrder?.orderNo : ''),
+        allowTableSharing: userJoinedTable,
       };
 
       const res = await axios.post(`${API_BASE}/captain-orders/customer-order`, payload);
       if (res.data?.success) {
+        // Record this order on this browser device
+        try {
+          const prev = JSON.parse(localStorage.getItem('baba_roti_my_orders') || '[]');
+          localStorage.setItem('baba_roti_my_orders', JSON.stringify([...prev, res.data.orderNo]));
+        } catch (_) {}
+
         const orderData = {
           orderNo: res.data.orderNo,
           tableNo,
@@ -567,7 +627,17 @@ export default function DigitalMenu() {
       }
     } catch (err) {
       console.error('Order error:', err);
-      alert(err.response?.data?.message || 'Could not place order. Please try again.');
+      if (err.response?.status === 409) {
+        setTableOccupiedModal({
+          tableNo,
+          orderNo: activeUnbilledOrder?.orderNo,
+          message: err.response.data?.message || (lang === 'am'
+            ? `ጠረጴዛ ${tableNo} ቀደም ሲል ንቁ ትዕዛዝ አለው። እባክዎ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።`
+            : `Table ${tableNo} already has an active order in progress. Please choose another table or contact a waiter.`),
+        });
+      } else {
+        alert(err.response?.data?.message || 'Could not place order. Please try again.');
+      }
     } finally {
       setSubmittingOrder(false);
     }
@@ -967,13 +1037,40 @@ export default function DigitalMenu() {
             <h1 className="text-xs font-black text-white leading-tight uppercase tracking-tight">
               {menuData.cafeName}
             </h1>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-[10px] font-bold text-amber-300">
-                MENU &bull; <span className="underline cursor-pointer" onClick={() => {
-                  const newT = prompt('Change Table Number:', tableNo);
-                  if (newT) setTableNo(newT);
-                }}>{tableNo}</span>
+                MENU &bull;{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewTableInput(tableNo);
+                    setChangeTableModalOpen(true);
+                  }}
+                  className="underline hover:text-white cursor-pointer font-extrabold"
+                  title="Click to change table"
+                >
+                  {tableNo}
+                </button>
               </p>
+              {isOtherCustomerOccupied && (
+                <span
+                  onClick={() =>
+                    setTableOccupiedModal({
+                      tableNo,
+                      orderNo: activeUnbilledOrder?.orderNo,
+                      message:
+                        lang === 'am'
+                          ? `ጠረጴዛ ${tableNo} ቀደም ሲል ንቁ ትዕዛዝ አለው (${activeUnbilledOrder?.orderNo || ''})። እባክዎ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።`
+                          : `Table ${tableNo} already has an active order in progress (${activeUnbilledOrder?.orderNo || ''}) that has not been billed yet. Please select another table or contact our waiter.`,
+                    })
+                  }
+                  className="rounded-full bg-rose-500/30 text-rose-300 border border-rose-400/50 px-1.5 py-0.5 text-[8.5px] font-black cursor-pointer flex items-center gap-0.5 animate-pulse"
+                  title="Table currently occupied"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                  <span>Occupied</span>
+                </span>
+              )}
               {tableOrdersHistory.length > 0 && (
                 <button
                   onClick={() => setHistoryOpen(true)}
@@ -1011,6 +1108,29 @@ export default function DigitalMenu() {
           </button>
         </div>
       </header>
+
+      {/* Table Occupied Warning Banner if another guest already ordered here */}
+      {isOtherCustomerOccupied && (
+        <div className="bg-amber-50 border-b border-amber-200/90 px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-base shrink-0">⚠️</span>
+            <div className="text-[11px] leading-tight text-amber-950 font-medium">
+              <span className="font-extrabold">{tableNo}</span>{' '}
+              {lang === 'am' ? 'ቀደም ሲል ንቁ ትዕዛዝ አለው' : 'has an active order in progress'}{' '}
+              (<strong className="font-mono text-amber-800">#{activeUnbilledOrder.orderNo}</strong>)
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setNewTableInput('');
+              setChangeTableModalOpen(true);
+            }}
+            className="shrink-0 px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] shadow-2xs transition active:scale-95"
+          >
+            {t.changeTableBtn}
+          </button>
+        </div>
+      )}
 
       {/* ── 2. SERVICE STATUS BOX UI (Attractive Rounded Box Card) ── */}
       {serviceAlert && (
@@ -2090,6 +2210,180 @@ export default function DigitalMenu() {
                 className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-black text-xs transition"
               >
                 {t.orderMoreBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TABLE OCCUPIED VALIDATION MODAL ── */}
+      {tableOccupiedModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-amber-200 text-center space-y-4 animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setTableOccupiedModal(null)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition"
+            >
+              ✕
+            </button>
+
+            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-amber-500/30">
+              ⚠️
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-slate-900 font-serif">
+                {t.tableOccupiedTitle || 'Table Already Has an Active Order'}
+              </h3>
+              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
+                {tableOccupiedModal.message ||
+                  (lang === 'am'
+                    ? `ጠረጴዛ ${tableOccupiedModal.tableNo || tableNo} ቀደም ሲል ንቁ እና ያልተከፈለ ትዕዛዝ አለው። እባክዎ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።`
+                    : `Table ${tableOccupiedModal.tableNo || tableNo} already has an active order in progress that has not been billed yet. Please select your table or contact a waiter.`)}
+              </p>
+            </div>
+
+            {tableOccupiedModal.orderNo && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 text-left flex items-center justify-between text-xs font-bold text-amber-900">
+                <span>Active Table Order</span>
+                <span className="font-mono text-amber-700 bg-white px-2 py-0.5 rounded-lg border border-amber-200">
+                  #{tableOccupiedModal.orderNo}
+                </span>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1 text-xs font-black">
+              {/* Option 1: Change Table */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTableOccupiedModal(null);
+                  setNewTableInput('');
+                  setChangeTableModalOpen(true);
+                }}
+                className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 shadow-sm transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>🪑</span>
+                <span>{t.changeTableBtn}</span>
+              </button>
+
+              {/* Option 2: Call Waiter */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTableOccupiedModal(null);
+                  handleServiceRequest('call_waiter');
+                }}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-sm transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <PhoneCall size={14} />
+                <span>{t.contactWaiterBtn}</span>
+              </button>
+
+              {/* Option 3: I am sitting here / Dining with this table */}
+              <button
+                type="button"
+                onClick={() => {
+                  setUserJoinedTable(true);
+                  setTableOccupiedModal(null);
+                }}
+                className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] transition cursor-pointer"
+              >
+                {t.joinTableBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CHANGE TABLE MODAL ── */}
+      {changeTableModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 text-center space-y-4 animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setChangeTableModalOpen(false)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center text-2xl shadow-inner">
+              🪑
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-slate-900">
+                {lang === 'am' ? 'ጠረጴዛዎን ይምረጡ' : 'Select Your Table'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {lang === 'am'
+                  ? 'የተቀመጡበትን ጠረጴዛ ቁጥር ይምረጡ ወይም ያስገቡ'
+                  : 'Choose or enter the table number where you are seated'}
+              </p>
+            </div>
+
+            {/* Quick table choices */}
+            <div className="grid grid-cols-4 gap-2 pt-1">
+              {[
+                'Table 01',
+                'Table 02',
+                'Table 03',
+                'Table 04',
+                'Table 05',
+                'Table 06',
+                'Table 07',
+                'Table 08',
+              ].map((tbl) => {
+                const isSelected = (newTableInput || tableNo).toLowerCase() === tbl.toLowerCase();
+                return (
+                  <button
+                    key={tbl}
+                    type="button"
+                    onClick={() => setNewTableInput(tbl)}
+                    className={`py-2 px-1 rounded-xl text-xs font-black transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                        : 'bg-slate-100 text-slate-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    {tbl.replace('Table ', 'T-')}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom input */}
+            <div className="pt-1">
+              <input
+                type="text"
+                value={newTableInput}
+                onChange={(e) => setNewTableInput(e.target.value)}
+                placeholder={
+                  lang === 'am'
+                    ? 'ወይም ሌላ ጠረጴዛ (ምሳሌ፡ Table 12)'
+                    : 'Or enter table name (e.g. Table 12)'
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-bold text-center"
+              />
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = (newTableInput || '').trim();
+                  if (target) {
+                    const formatted = target.toLowerCase().startsWith('table')
+                      ? target
+                      : `Table ${target}`;
+                    setTableNo(formatted);
+                    setUserJoinedTable(false);
+                  }
+                  setChangeTableModalOpen(false);
+                }}
+                className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-black text-xs shadow-md transition active:scale-98 cursor-pointer"
+              >
+                {lang === 'am' ? 'ጠረጴዛ ቀይር እና ቀጥል' : 'Update Table & Continue'}
               </button>
             </div>
           </div>

@@ -17,7 +17,6 @@ function broadcastOrderEvent(eventType, payload) {
     }
   }
 }
-
 // @desc Stream live order events (SSE)
 // @route GET /api/captain-orders/stream
 // @access Public / Staff
@@ -49,9 +48,9 @@ const streamOrderEvents = (req, res) => {
 function determineStation(category = "", parentCategory = "", name = "") {
   const text = `${category} ${parentCategory} ${name}`.toLowerCase();
   const baristaKeywords = [
-    "beverage","drink","coffee","tea","latte","espresso","cappuccino",
-    "juice","smoothie","water","soda","cocktail","mocktail","beer",
-    "wine","shake","cold drink","bar","macchiato",
+    "beverage", "drink", "coffee", "tea", "latte", "espresso", "cappuccino",
+    "juice", "smoothie", "water", "soda", "cocktail", "mocktail", "beer",
+    "wine", "shake", "cold drink", "bar", "macchiato",
   ];
   return baristaKeywords.some((k) => text.includes(k)) ? "barista" : "kitchen";
 }
@@ -252,7 +251,7 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
     const finalDiscount = dp > 0 ? Math.round(subtotal * dp / 100 * 100) / 100 : 0;
     const taxableSubtotal = Math.max(0, subtotal - finalDiscount);
     const taxAmount = Math.round(taxableSubtotal * taxRate / 100 * 100) / 100;
-    
+
     let sc = Math.max(0, Number(serviceCharge !== undefined ? serviceCharge : order.serviceCharge) || 0);
     if (scPct > 0) {
       sc = Math.round(subtotal * scPct / 100 * 100) / 100;
@@ -346,6 +345,41 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
   const safeTableNo = String(tableNo || "Counter / Takeaway").trim().slice(0, 50);
   const safeTableLabel = String(tableLabel || tableNo || "Table").trim().slice(0, 50);
   const safeTableNotes = String(tableNotes || "").trim().slice(0, 500);
+
+  const cleanTable = safeTableNo.trim();
+  const isTakeaway = cleanTable.toLowerCase().includes("counter") || cleanTable.toLowerCase().includes("takeaway");
+
+  // Validate Table: If this table already has an active unbilled order, require authorization or contact waiter
+  if (!isTakeaway && cleanTable) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const num = cleanTable.replace(/^table\s*0*/i, '');
+    const tableRegex = num ? new RegExp(`^(table\\s*0*${num}|0*${num})$`, 'i') : new RegExp(`^${cleanTable}$`, 'i');
+
+    const activeOrderOnTable = await CaptainOrder.findOne({
+      tableNo: tableRegex,
+      status: { $in: ["pending_approval", "open", "held", "sent_to_kitchen", "preparing", "ready"] },
+      createdAt: { $gte: today },
+    }).sort({ createdAt: -1 }).lean();
+
+    if (activeOrderOnTable) {
+      const clientOrderNo = String(req.body.existingOrderNo || '').trim().toUpperCase();
+      const clientOrderId = String(req.body.existingOrderId || '').trim();
+      const isSameCustomer = (
+        (clientOrderNo && clientOrderNo === activeOrderOnTable.orderNo.toUpperCase()) ||
+        (clientOrderId && clientOrderId === String(activeOrderOnTable._id)) ||
+        req.body.allowTableSharing === true
+      );
+
+      if (!isSameCustomer) {
+        res.status(409);
+        throw new Error(
+          `Table "${cleanTable}" already has an active order (#${activeOrderOnTable.orderNo}) that has not been billed yet. Please select another table or contact a waiter for assistance.`
+        );
+      }
+    }
+  }
 
   const settings = await Setting.findOne().lean();
   const taxRate = Number(settings?.taxRate ?? 15);
@@ -447,7 +481,7 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
           `⚠️ <b>Security Notice:</b> Please have table waiter verify physical presence and approve order in Captain Orders.`
         );
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   broadcastOrderEvent("new_order", order);
@@ -490,7 +524,7 @@ const callWaiter = asyncHandler(async (req, res) => {
       } else if (typeof tg.sendNotification === "function") {
         tg.sendNotification(`<b>${title}</b>\n${message}`);
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   broadcastOrderEvent("call_waiter", { tableNo, action, customerName });
@@ -539,6 +573,41 @@ const trackCustomerOrder = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Check if a table currently has an active unbilled order
+// @route  GET /api/captain-orders/table-status
+// @access Public
+const getTableStatus = asyncHandler(async (req, res) => {
+  const { tableNo } = req.query;
+  if (!tableNo) {
+    return res.status(400).json({ success: false, message: 'Table number required' });
+  }
+
+  const cleanTable = String(tableNo).trim();
+  const isTakeaway = cleanTable.toLowerCase().includes("counter") || cleanTable.toLowerCase().includes("takeaway");
+  if (isTakeaway) {
+    return res.json({ success: true, tableNo: cleanTable, isOccupied: false, activeOrder: null });
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const num = cleanTable.replace(/^table\s*0*/i, '');
+  const tableRegex = num ? new RegExp(`^(table\\s*0*${num}|0*${num})$`, 'i') : new RegExp(`^${cleanTable}$`, 'i');
+
+  const activeOrder = await CaptainOrder.findOne({
+    tableNo: tableRegex,
+    status: { $in: ["pending_approval", "open", "held", "sent_to_kitchen", "preparing", "ready"] },
+    createdAt: { $gte: today },
+  }).select("orderNo tableNo status grandTotal items createdAt customerName").sort({ createdAt: -1 }).lean();
+
+  res.json({
+    success: true,
+    tableNo: cleanTable,
+    isOccupied: !!activeOrder,
+    activeOrder: activeOrder || null,
+  });
+});
+
 // @desc   Get all active orders today for a table so customer can view running bill & past items
 // @route  GET /api/captain-orders/table-history
 // @access Public
@@ -552,8 +621,11 @@ const getTableOrdersHistory = asyncHandler(async (req, res) => {
   today.setHours(0, 0, 0, 0);
 
   const cleanTable = String(tableNo).trim();
+  const num = cleanTable.replace(/^table\s*0*/i, '');
+  const tableRegex = num ? new RegExp(`^(table\\s*0*${num}|0*${num})$`, 'i') : new RegExp(`^${cleanTable}$`, 'i');
+
   const orders = await CaptainOrder.find({
-    tableNo: { $regex: `^${cleanTable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    tableNo: tableRegex,
     status: { $ne: 'voided' },
     createdAt: { $gte: today },
   })
@@ -628,7 +700,7 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
           `🍳 <i>Verified & sent to kitchen for preparation!</i>`
         );
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   broadcastOrderEvent("order_approved", order);
@@ -678,7 +750,7 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
           `⚠️ <i>Order was not sent to kitchen.</i>`
         );
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   res.json({
@@ -694,6 +766,7 @@ module.exports = {
   createCustomerOrder,
   callWaiter,
   trackCustomerOrder,
+  getTableStatus,
   getTableOrdersHistory,
   getCaptainOrders,
   getCaptainOrderById,
