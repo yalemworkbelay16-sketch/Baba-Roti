@@ -659,26 +659,101 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
 // @route  GET /api/products/public-menu
 // @access Public
 const getPublicMenu = asyncHandler(async (req, res) => {
-  const [products, settings] = await Promise.all([
-    Product.find({ isActive: true, deletedAt: null })
-      .select('name code category parentCategory sellingPrice description uom imageUrl')
-      .sort({ category: 1, name: 1 })
+  const [products, rawMaterials, settings] = await Promise.all([
+    Product.find({ isActive: true, deletedAt: null, isAvailableOnMenu: { $ne: false } })
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
       .lean(),
+    RawMaterial.find({ isActive: true, deletedAt: null }).select('_id currentStock unit').lean(),
     Setting.findOne().lean(),
   ]);
 
-  const categories = Array.from(new Set(products.map(p => p.category || 'General')));
+  const stockMap = new Map(rawMaterials.map((m) => [String(m._id), Number(m.currentStock || 0)]));
+
+  // Determine real-time stock shortage for each product
+  const enrichedProducts = products.map((p) => {
+    let isOutOfStock = !!p.manualOutOfStock;
+    let shortageIngredient = '';
+
+    if (!isOutOfStock && p.ingredients && p.ingredients.length > 0) {
+      for (const ing of p.ingredients) {
+        const matId = String(ing.material?._id || ing.material);
+        const available = stockMap.get(matId);
+        if (available !== undefined && available <= 0) {
+          isOutOfStock = true;
+          shortageIngredient = 'Stock Depleted';
+          break;
+        }
+      }
+    }
+
+    return {
+      _id: p._id,
+      name: p.name,
+      nameAmharic: p.nameAmharic || '',
+      code: p.code,
+      category: p.category || 'General',
+      parentCategory: p.parentCategory || 'FOOD',
+      sellingPrice: p.sellingPrice || 0,
+      description: p.description || '',
+      descriptionAmharic: p.descriptionAmharic || '',
+      uom: p.uom || 'Pcs',
+      imageUrl: p.imageUrl || '',
+      isFeatured: !!p.isFeatured,
+      isOutOfStock,
+      shortageIngredient,
+    };
+  });
+
+  const categories = Array.from(new Set(enrichedProducts.map((p) => p.category || 'General')));
 
   res.json({
     success: true,
-    cafeName: 'Baba Roti Café',
+    cafeName: settings?.hotelName || 'Baba Roti Café',
     tagline: 'Good Food • Good Mood',
-    currency: 'ETB',
+    currency: settings?.currency || 'ETB',
     taxRate: Number(settings?.taxRate ?? 15),
     enableServiceCharge: !!settings?.enableServiceCharge,
     serviceChargeRate: Number(settings?.serviceChargeRate ?? 10),
+    digitalMenuSettings: settings?.digitalMenuSettings || {},
     categories,
-    products,
+    products: enrichedProducts,
+  });
+});
+
+// @desc   Update single product menu visibility / stock availability
+// @route  PUT /api/products/:id/menu-visibility
+// @access Private
+const toggleMenuVisibility = asyncHandler(async (req, res) => {
+  const { isAvailableOnMenu, manualOutOfStock, isFeatured } = req.body;
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  if (isAvailableOnMenu !== undefined) product.isAvailableOnMenu = !!isAvailableOnMenu;
+  if (manualOutOfStock !== undefined) product.manualOutOfStock = !!manualOutOfStock;
+  if (isFeatured !== undefined) product.isFeatured = !!isFeatured;
+
+  await product.save();
+  invalidateDashboardCache();
+  res.json({ success: true, product, message: 'Menu display status updated.' });
+});
+
+// @desc   Bulk update all products menu visibility (turn all ON or all OFF)
+// @route  POST /api/products/bulk-menu-visibility
+// @access Private (Admin, Manager)
+const bulkMenuVisibility = asyncHandler(async (req, res) => {
+  const { isAvailableOnMenu } = req.body;
+  await Product.updateMany(
+    { isActive: true, deletedAt: null },
+    { $set: { isAvailableOnMenu: !!isAvailableOnMenu } }
+  );
+  invalidateDashboardCache();
+  res.json({
+    success: true,
+    message: `All food items ${isAvailableOnMenu ? 'displayed on' : 'hidden from'} Customer Digital Menu.`,
   });
 });
 
@@ -696,4 +771,6 @@ module.exports = {
   exportRecipeTemplate,
   importRecipesExcel,
   getPublicMenu,
+  toggleMenuVisibility,
+  bulkMenuVisibility,
 };

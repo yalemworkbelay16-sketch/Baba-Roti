@@ -387,9 +387,50 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Customer requests waiter or bill from table digital menu
+// @route  POST /api/captain-orders/call-waiter
+// @access Public
+const callWaiter = asyncHandler(async (req, res) => {
+  const { tableNo = "Table", action = "call_waiter", customerName = "" } = req.body;
+  const Notification = require("../models/Notification");
+  const tg = require("../utils/telegramNotifier");
+
+  const isBill = action === "request_bill";
+  const title = isBill ? `💵 Bill Requested: ${tableNo}` : `🛎️ Waiter Called: ${tableNo}`;
+  const message = isBill
+    ? `${customerName ? customerName + " at " : ""}${tableNo} has requested their bill.`
+    : `${customerName ? customerName + " at " : ""}${tableNo} has called for waiter assistance.`;
+
+  await Notification.create({
+    type: "system",
+    title,
+    message,
+    icon: isBill ? "💵" : "🛎️",
+    link: "/captain-order",
+    severity: isBill ? "info" : "warning",
+  });
+
+  if (tg && typeof tg.sendNotification === "function") {
+    try {
+      tg.sendNotification(`<b>${title}</b>\n${message}`);
+    } catch (_) {}
+  }
+
+  res.json({
+    success: true,
+    action,
+    tableNo,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    message: isBill
+      ? `Bill requested • a waiter is coming to ${tableNo}`
+      : `Waiter called • assistance is on the way to ${tableNo}`,
+  });
+});
+
 module.exports = {
   createCaptainOrder,
   createCustomerOrder,
+  callWaiter,
   getCaptainOrders,
   getCaptainOrderById,
   updateCaptainOrder,

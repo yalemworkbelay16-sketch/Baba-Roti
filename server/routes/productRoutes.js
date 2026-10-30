@@ -15,6 +15,8 @@ const {
   exportRecipeTemplate,
   importRecipesExcel,
   getPublicMenu,
+  toggleMenuVisibility,
+  bulkMenuVisibility,
 } = require('../controllers/productController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -24,6 +26,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get('/public-menu', getPublicMenu);
 
 router.use(protect);
+
+// Menu management (Admin, Manager, Supervisor)
+router.post('/bulk-menu-visibility', authorize('admin', 'manager'), bulkMenuVisibility);
+router.put('/:id/menu-visibility',   authorize('admin', 'manager', 'supervisor'), toggleMenuVisibility);
 
 // Excel import/export — must be before /:id
 router.get('/export/excel',           authorize('admin', 'manager'), exportProductsExcel);

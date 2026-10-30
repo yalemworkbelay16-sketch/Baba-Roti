@@ -109,6 +109,24 @@ const settingSchema = new mongoose.Schema(
     rawMaterialPriceAdjustValue: { type: Number, default: 0, min: 0 },
     // Product Selling Price Bulk Adjustment — percentage to add to ALL product selling prices
     productSellingPriceAdjustPercent: { type: Number, default: 0, min: 0, max: 500 },
+
+    // ── Customer Digital Menu & QR Settings ───────────────────────
+    digitalMenuSettings: {
+      type: Object,
+      default: {
+        enabled: true,
+        allowOrdering: true,
+        bannerText: 'Delicious Food Freshly Made',
+        bannerSubtitle: 'Fresh Buns, Hot Specialty Coffee & Savory Meals',
+        tables: [
+          'Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05',
+          'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
+          'Table 12', 'Table 15', 'Table 20', 'Table 36', 'VIP 01', 'Patio 01', 'Patio 02'
+        ],
+        enableCallWaiter: true,
+        enableBillRequest: true,
+      },
+    },
   },
   { timestamps: true }
 );

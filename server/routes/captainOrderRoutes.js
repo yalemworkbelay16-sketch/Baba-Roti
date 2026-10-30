@@ -4,6 +4,7 @@ const { protect, verifyModuleLicense } = require("../middleware/authMiddleware")
 const {
   createCaptainOrder,
   createCustomerOrder,
+  callWaiter,
   getCaptainOrders,
   getCaptainOrderById,
   updateCaptainOrder,
@@ -12,8 +13,9 @@ const {
   getActiveTables,
 } = require("../controllers/captainOrderController");
 
-// Public Customer Self-Ordering endpoint (No auth required)
+// Public Customer Self-Ordering & Waiter Calling endpoints (No auth required)
 router.post("/customer-order", createCustomerOrder);
+router.post("/call-waiter",    callWaiter);
 
 router.use(protect);
 router.use(verifyModuleLicense('subsystem'));
@@ -23,5 +25,4 @@ router.route("/").get(getCaptainOrders).post(createCaptainOrder);
 router.route("/:id").get(getCaptainOrderById).patch(updateCaptainOrder);
 router.post("/:id/send-to-kitchen", sendToKitchen);
 router.post("/:id/void", voidCaptainOrder);
-
 module.exports = router;

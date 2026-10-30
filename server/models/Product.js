@@ -18,6 +18,11 @@ const productSchema = new mongoose.Schema(
     description: { type: String, trim: true, default: '' },
     sellingPrice: { type: Number, default: 0 },                      // Default Value
     imageUrl: { type: String, trim: true, default: '' },             // Food image photo
+    isAvailableOnMenu: { type: Boolean, default: true },             // Show/hide in customer digital menu
+    isFeatured: { type: Boolean, default: false },                   // Highlight in top carousel
+    nameAmharic: { type: String, trim: true, default: '' },          // Amharic food title
+    descriptionAmharic: { type: String, trim: true, default: '' },   // Amharic food description
+    manualOutOfStock: { type: Boolean, default: false },             // Manual "Sold Out / Shortage" override
     ingredients: [ingredientSchema],
     isActive: { type: Boolean, default: true },
     deletedAt:   { type: Date, default: null },

@@ -35,7 +35,10 @@ import {
   Percent,
   Palette,
   Sparkles,
+  QrCode,
+  Utensils,
 } from 'lucide-react';
+import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
 import api from '../api/axios';
 import posPrint from '../utils/posPrint';
 import { checkLocalBridge, checkRelayStatus } from '../utils/localPrintDispatcher';
@@ -801,6 +804,18 @@ export default function Settings() {
               }`}
           >
             <Percent size={16} /> Service Charge
+          </button>
+        )}
+
+        {hasRole('admin', 'manager', 'supervisor') && (
+          <button
+            onClick={() => setTab('digitalMenu')}
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'digitalMenu'
+              ? 'border-amber-700 text-amber-900 font-bold'
+              : 'border-transparent text-ink-400 hover:text-ink-700'
+              }`}
+          >
+            <QrCode size={16} /> Digital Menu &amp; QR
           </button>
         )}
 
@@ -3763,6 +3778,8 @@ export default function Settings() {
           </div>
         );
       })()}
+
+      {currentTab === 'digitalMenu' && <DigitalMenuSettings />}
 
     </div>
   );
