@@ -766,29 +766,9 @@ export default function CaptainOrder() {
                 <tbody>
                   {filteredOrders.map((o) => {
                     const sc = STATUS_CONFIG[o.status] || STATUS_CONFIG.open;
-                    const itemsSummary = (o.items || []).map((it) => (
-                      <span
-                        key={it.product + it.productName}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          background: "#f8fafc",
-                          border: "1px solid #e2e8f0",
-                          padding: "3px 9px",
-                          borderRadius: 8,
-                          marginRight: 6,
-                          marginBottom: 4,
-                          fontSize: 11.5,
-                        }}
-                      >
-                        {it.productCode && (
-                          <span style={{ color: "#2563eb", fontWeight: 700 }}>#{it.productCode}</span>
-                        )}
-                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{it.productName}</span>
-                        <span style={{ color: "#b45309", fontWeight: 800 }}>x{it.quantity}</span>
-                      </span>
-                    ));
+                    const items = o.items || [];
+                    const totalQty = items.reduce((sum, it) => sum + (Number(it.quantity) || 1), 0);
+                    const itemsTooltip = items.map((it) => `• ${it.productCode ? `[#${it.productCode}] ` : ''}${it.productName} x${it.quantity}`).join('\n');
 
                     return (
                       <tr
@@ -800,12 +780,12 @@ export default function CaptainOrder() {
                         }}
                       >
                         {/* Reference Button */}
-                        <td style={{ padding: "13px 16px", verticalAlign: "middle" }}>
+                        <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
                           <button
                             type="button"
                             className="ref-btn"
                             onClick={() => setRefOrder(o)}
-                            title="Click to view all ordered products and order details"
+                            title="Click code to view all products and order details"
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -826,9 +806,57 @@ export default function CaptainOrder() {
                           </button>
                         </td>
 
-                        {/* Ordered Products (Code & Name) */}
-                        <td style={{ padding: "13px 16px", verticalAlign: "middle", maxWidth: 360 }}>
-                          <div style={{ display: "flex", flexWrap: "wrap" }}>{itemsSummary}</div>
+                        {/* Ordered Products - Clean Single-Line with Click to Expand */}
+                        <td style={{ padding: "12px 16px", verticalAlign: "middle", maxWidth: 320 }}>
+                          {items.length === 0 ? (
+                            <span style={{ color: "#94a3b8", fontSize: 12, fontStyle: "italic" }}>No items</span>
+                          ) : (
+                            <div
+                              onClick={() => setRefOrder(o)}
+                              title={`Click to view breakdown:\n${itemsTooltip}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  color: "#0f172a",
+                                  fontSize: 12,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  maxWidth: 180,
+                                }}
+                              >
+                                {items[0].productName}
+                                <span style={{ color: "#b45309", fontWeight: 800, marginLeft: 4 }}>
+                                  x{items[0].quantity}
+                                </span>
+                              </span>
+                              {items.length > 1 && (
+                                <span
+                                  style={{
+                                    background: "#eff6ff",
+                                    border: "1px solid #bfdbfe",
+                                    color: "#1d4ed8",
+                                    fontWeight: 800,
+                                    fontSize: 11,
+                                    padding: "1.5px 7px",
+                                    borderRadius: 12,
+                                    whiteSpace: "nowrap",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  +{items.length - 1} more ({totalQty} items)
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Table */}

@@ -1107,10 +1107,61 @@ function notifyExpenseDeleted(expense, user) {
   );
 }
 
+// ── Customer Digital Menu & Table Orders ─────────────────────────
+function notifyCustomerOrder(order) {
+  if (!order) return;
+  const items = Array.isArray(order.items) ? order.items : [];
+  const itemsList = items
+    .map(p => `  • <b>${escapeHtml(p.productName || p.name || 'Item')}</b> x${p.quantity} (${Number(p.unitPrice || 0).toFixed(2)} ETB)`)
+    .join('\n');
+  const table = escapeHtml(order.tableLabel || order.tableNo || 'Table');
+  const custName = escapeHtml(order.customerName || 'Walk-in Guest');
+  const custPhone = escapeHtml(order.customerPhone || '');
+  const orderCode = escapeHtml(order.orderNo || '');
+  const total = Number(order.grandTotal || order.totalAmount || 0).toFixed(2);
+  const notes = escapeHtml(order.tableNotes || '');
+
+  sendTelegram(
+    `🛎️ <b>NEW CUSTOMER ORDER RECEIVED!</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🪑 <b>Table:</b> ${table}\n` +
+    `🔢 <b>Order Code:</b> <code>#${orderCode}</code>\n` +
+    `👤 <b>Customer:</b> ${custName}${custPhone ? ` (📞 ${custPhone})` : ''}\n` +
+    `💰 <b>Grand Total:</b> <b>ETB ${total}</b>\n` +
+    `📋 <b>Ordered Items (${items.length}):</b>\n${itemsList || '  • (No items listed)'}\n` +
+    (notes ? `📝 <b>Special Instructions:</b> ${notes}\n` : '') +
+    `🕐 <b>Time:</b> ${now()}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>⚡ Transmitted instantly to Kitchen & Cashier POS for settlement.</i>`
+  );
+}
+
+function notifyWaiterCall({ tableNo, action, customerName }) {
+  const isBill = action === 'request_bill';
+  const icon = isBill ? '💵' : '🛎️';
+  const title = isBill ? 'CUSTOMER BILL REQUESTED' : 'CUSTOMER CALLED WAITER';
+  const table = escapeHtml(tableNo || 'Table');
+  const cust = escapeHtml(customerName || '');
+
+  sendTelegram(
+    `${icon} <b>${title}!</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🪑 <b>Table:</b> ${table}\n` +
+    (cust ? `👤 <b>Customer:</b> ${cust}\n` : '') +
+    `⚠️ <b>Alert:</b> ${isBill ? 'Customer has requested their bill for payment.' : 'Customer has called for waiter table assistance.'}\n` +
+    `🕐 <b>Time:</b> ${now()}\n` +
+    `━━━━━━━━━━━━━━━━━━━━`
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 module.exports = {
   HOTEL,
   sendToOne,
+  sendTelegram,
+  sendNotification: sendTelegram,
+  notifyCustomerOrder,
+  notifyWaiterCall,
   notifyLogin,
   notifyUserCreated,
   notifyUserStatusChanged,

@@ -379,18 +379,22 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
   });
 
   const tg = require("../utils/telegramNotifier");
-  if (tg && typeof tg.sendNotification === "function") {
+  if (tg) {
     try {
-      const itemsList = processedItems.map((p) => `${p.productName} x${p.quantity}`).join(", ");
-      tg.sendNotification(
-        `🛎️ <b>New Customer Digital Menu Order!</b>\n` +
-        `🪑 <b>Table:</b> ${safeTableNo}\n` +
-        `👤 <b>Customer:</b> ${safeCustomerName} (${safeCustomerPhone || "No Phone"})\n` +
-        `🍴 <b>Items:</b> ${itemsList}\n` +
-        `💰 <b>Total:</b> ETB ${grandTotal.toFixed(2)}\n` +
-        (safeTableNotes ? `📝 <b>Note:</b> ${safeTableNotes}\n` : "") +
-        `<i>Ready in POS for Kitchen prep & Cashier settlement.</i>`
-      );
+      if (typeof tg.notifyCustomerOrder === "function") {
+        tg.notifyCustomerOrder(order);
+      } else if (typeof tg.sendNotification === "function") {
+        const itemsList = processedItems.map((p) => `${p.productName} x${p.quantity}`).join(", ");
+        tg.sendNotification(
+          `🛎️ <b>New Customer Digital Menu Order!</b>\n` +
+          `🪑 <b>Table:</b> ${safeTableNo}\n` +
+          `👤 <b>Customer:</b> ${safeCustomerName} (${safeCustomerPhone || "No Phone"})\n` +
+          `🍴 <b>Items:</b> ${itemsList}\n` +
+          `💰 <b>Total:</b> ETB ${grandTotal.toFixed(2)}\n` +
+          (safeTableNotes ? `📝 <b>Note:</b> ${safeTableNotes}\n` : "") +
+          `<i>Ready in POS for Kitchen prep & Cashier settlement.</i>`
+        );
+      }
     } catch (_) {}
   }
 
@@ -425,9 +429,13 @@ const callWaiter = asyncHandler(async (req, res) => {
     severity: isBill ? "info" : "warning",
   });
 
-  if (tg && typeof tg.sendNotification === "function") {
+  if (tg) {
     try {
-      tg.sendNotification(`<b>${title}</b>\n${message}`);
+      if (typeof tg.notifyWaiterCall === "function") {
+        tg.notifyWaiterCall({ tableNo, action, customerName });
+      } else if (typeof tg.sendNotification === "function") {
+        tg.sendNotification(`<b>${title}</b>\n${message}`);
+      }
     } catch (_) {}
   }
 

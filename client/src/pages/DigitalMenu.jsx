@@ -567,20 +567,87 @@ export default function DigitalMenu() {
 
   if (menuLicensed === false) {
     return (
-      <div className="min-h-screen bg-[#fbf9f4] flex flex-col items-center justify-center p-6 text-center space-y-4 max-w-md mx-auto shadow-2xl">
-        <div className="h-16 w-16 rounded-3xl bg-amber-100 border-2 border-amber-300 text-amber-900 flex items-center justify-center text-3xl shadow-lg">
-          🔒
+      <div className="min-h-screen bg-[#fdfbf7] flex flex-col justify-between max-w-md mx-auto shadow-2xl relative text-slate-800">
+        {/* Café Top Brand Bar */}
+        <div className="bg-[#271406] text-white px-5 py-4 flex items-center justify-between border-b border-amber-900/30">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-xl shadow-inner">
+              🥐
+            </div>
+            <div>
+              <h1 className="font-serif font-black text-sm tracking-wide text-amber-100 uppercase">
+                Baba Roti Café
+              </h1>
+              <p className="text-[10px] text-amber-300 font-bold tracking-wider">
+                Fresh Buns &bull; Specialty Coffee
+              </p>
+            </div>
+          </div>
+          {tableNo && (
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-400 text-stone-950 shadow-sm border border-amber-300">
+              {tableNo}
+            </span>
+          )}
         </div>
-        <div>
-          <h2 className="font-serif text-xl font-black text-slate-900">
-            Digital Menu License Required
-          </h2>
-          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-            The Customer Digital Menu &amp; QR Self-Ordering Suite is currently locked or inactive for this installation. Please contact the administrator or developer to activate the license.
+
+        {/* Positive Hospitality Card */}
+        <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-5">
+          <div className="relative">
+            <div className="h-24 w-24 rounded-3xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-200 text-stone-950 flex items-center justify-center text-5xl shadow-xl shadow-amber-900/10 border-4 border-white">
+              ✨
+            </div>
+            <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-[#271406] text-white flex items-center justify-center text-lg border-2 border-amber-300 shadow">
+              ☕
+            </div>
+          </div>
+
+          <div className="space-y-2 max-w-xs">
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+              A Warm Welcome to Our Café!
+            </span>
+            <h2 className="font-serif text-2xl font-black text-stone-900 leading-tight">
+              We're Delighted You're Here!
+            </h2>
+            <p className="text-xs text-stone-600 leading-relaxed pt-1">
+              Our digital self-ordering is taking a brief rest while our chefs prepare today's fresh delicacies.
+            </p>
+            <p className="text-xs font-semibold text-amber-900 bg-amber-50/80 p-3 rounded-2xl border border-amber-200/80 leading-relaxed">
+              👋 Our friendly waiter will be right at your table in just a moment to present our menu and take your order in person!
+            </p>
+          </div>
+
+          {/* Quick Waiter Call Button */}
+          <div className="w-full max-w-xs pt-2 space-y-2">
+            <button
+              onClick={() => handleServiceRequest('call_waiter')}
+              disabled={submittingService}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+            >
+              <Bell size={16} />
+              <span>{submittingService ? 'Calling Waiter...' : `Call Waiter to ${tableNo || 'My Table'}`}</span>
+            </button>
+            <p className="text-[10px] text-stone-400 font-medium">
+              Tap above to notify our team immediately &bull; Table alert is instant
+            </p>
+          </div>
+
+          {/* Service Alert Toast if called */}
+          {serviceAlert && (
+            <div className="w-full max-w-xs p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold shadow-sm flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{serviceAlert.message}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Location & Hospitality Footer */}
+        <div className="p-4 bg-white border-t border-stone-200/80 text-center space-y-1">
+          <p className="text-[11px] font-bold text-stone-700">
+            📍 Bole, Around Alem Cinema &bull; Addis Ababa
           </p>
-        </div>
-        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-bold">
-          Subsystem Suite &bull; Digital Menu QR Add-on
+          <p className="text-[10px] text-stone-400">
+            Enjoy our world-famous freshly baked coffee buns &amp; handcrafted beverages
+          </p>
         </div>
       </div>
     );
