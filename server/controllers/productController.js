@@ -673,7 +673,7 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
 // @route  GET /api/products/public-menu
 // @access Public
 const getPublicMenu = asyncHandler(async (req, res) => {
-  const [products, rawMaterials, settings] = await Promise.all([
+  let [products, rawMaterials, settings] = await Promise.all([
     Product.find({ isActive: true, deletedAt: null, isAvailableOnMenu: { $ne: false } })
       .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
       .sort({ isFeatured: -1, category: 1, name: 1 })
@@ -681,6 +681,33 @@ const getPublicMenu = asyncHandler(async (req, res) => {
     RawMaterial.find({ isActive: true, deletedAt: null }).select('_id currentStock unit').lean(),
     Setting.findOne().lean(),
   ]);
+
+  // Robust fallback 1: If strict active filter yields 0 products, fetch active non-deleted products
+  if (!products || products.length === 0) {
+    products = await Product.find({
+      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+      isAvailableOnMenu: { $ne: false },
+    })
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
+      .lean();
+  }
+
+  // Robust fallback 2: If still 0 products, fetch any products with isAvailableOnMenu !== false so menu is never blank
+  if (!products || products.length === 0) {
+    products = await Product.find({ isAvailableOnMenu: { $ne: false } })
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
+      .lean();
+  }
+
+  // Robust fallback 3: Final safety net: return all products in collection
+  if (!products || products.length === 0) {
+    products = await Product.find({})
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
+      .lean();
+  }
 
   const stockMap = new Map(rawMaterials.map((m) => [String(m._id), Number(m.currentStock || 0)]));
 

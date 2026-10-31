@@ -1333,112 +1333,139 @@ export default function DigitalMenu() {
       </div>
 
       {/* ── 6. 2-COLUMN PRODUCT GRID (Exact match to reference screenshots) ── */}
-      <div className="px-3 grid grid-cols-2 gap-2.5">
-        {filteredProducts.map((p) => {
-          const isOut = !!p.isOutOfStock;
-          const price = Number(p.sellingPrice || 0);
-          const safeImg = p.imageUrl ? normalizeFileUrl(p.imageUrl) : null;
-          const displayName = lang === 'am' && p.nameAmharic ? p.nameAmharic : p.name;
-          const displayDesc =
-            lang === 'am' && p.descriptionAmharic ? p.descriptionAmharic : p.description;
-          const cartItem = cart.find((item) => item.productId === p._id);
-          const qtyInCart = cartItem ? cartItem.quantity : 0;
-
-          return (
-            <div
-              key={p._id}
-              className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col justify-between relative group hover:border-amber-300 transition"
+      {filteredProducts.length === 0 ? (
+        <div className="mx-3 my-4 p-6 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-center">
+          <div className="w-14 h-14 mx-auto rounded-full bg-amber-100 flex items-center justify-center text-2xl shadow-inner mb-3">
+            🥐
+          </div>
+          <h4 className="font-extrabold text-stone-900 text-sm">
+            {searchQuery ? 'No dishes match your search' : 'No items found in this category'}
+          </h4>
+          <p className="text-xs text-stone-600 mt-1 max-w-xs mx-auto">
+            {searchQuery
+              ? 'Try searching with a different keyword or view all items.'
+              : 'Our chefs are constantly baking and preparing fresh meals. Tap below to browse all items.'}
+          </p>
+          {(activeCategory !== 'All Items' || searchQuery) && (
+            <button
+              onClick={() => {
+                setActiveCategory('All Items');
+                setSearchQuery('');
+              }}
+              className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#3b2219] text-amber-200 text-xs font-bold shadow-md hover:bg-[#2b170e] transition cursor-pointer"
             >
-              <div>
-                {/* Photo with Overlaid "🔍 Details" button */}
-                <div className="relative h-32 w-full bg-[#f4ece1] flex items-center justify-center overflow-hidden">
-                  {safeImg ? (
-                    <img src={safeImg} alt={displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-4xl select-none">🥐</span>
-                  )}
+              <span>View All Menu Items</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="px-3 grid grid-cols-2 gap-2.5">
+          {filteredProducts.map((p) => {
+            const isOut = !!p.isOutOfStock;
+            const price = Number(p.sellingPrice || 0);
+            const safeImg = p.imageUrl ? normalizeFileUrl(p.imageUrl) : null;
+            const displayName = lang === 'am' && p.nameAmharic ? p.nameAmharic : p.name;
+            const displayDesc =
+              lang === 'am' && p.descriptionAmharic ? p.descriptionAmharic : p.description;
+            const cartItem = cart.find((item) => item.productId === p._id);
+            const qtyInCart = cartItem ? cartItem.quantity : 0;
 
-                  {/* Overlaid Details button on bottom right of photo */}
-                  <button
-                    onClick={() => setDetailProduct(p)}
-                    className="absolute bottom-1.5 right-1.5 bg-black/70 hover:bg-black/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-xs transition"
-                  >
-                    <span>🔍</span> {t.details}
-                  </button>
+            return (
+              <div
+                key={p._id}
+                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col justify-between relative group hover:border-amber-300 transition"
+              >
+                <div>
+                  {/* Photo with Overlaid "🔍 Details" button */}
+                  <div className="relative h-32 w-full bg-[#f4ece1] flex items-center justify-center overflow-hidden">
+                    {safeImg ? (
+                      <img src={safeImg} alt={displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-4xl select-none">🥐</span>
+                    )}
 
-                  {/* Shortage / Out of Stock Banner */}
-                  {isOut && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center">
-                      <span className="bg-red-600 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                        {t.soldOut}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Details Section */}
-                <div className="p-2.5">
-                  <h3 className="font-extrabold text-slate-900 text-xs leading-tight line-clamp-1">
-                    {displayName}
-                  </h3>
-                  {displayDesc && (
-                    <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                      {displayDesc}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Price & Add Button Row (Interactive +/- Stepper from User Sketch) */}
-              <div className="px-2.5 pb-2.5 pt-1 flex items-center justify-between">
-                <span className="font-black text-xs text-slate-900">
-                  {price.toFixed(0)} ETB
-                </span>
-
-                {isOut ? (
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200">
-                    {t.soldOut}
-                  </span>
-                ) : qtyInCart > 0 ? (
-                  <div className="flex items-center rounded-xl bg-emerald-50/70 border border-emerald-500/50 p-0.5 shadow-2xs">
+                    {/* Overlaid Details button on bottom right of photo */}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateQuantity(p._id, -1);
-                      }}
-                      className="h-7 w-7 rounded-lg bg-white text-rose-600 hover:bg-rose-50 flex items-center justify-center font-black text-xs shadow-2xs border border-emerald-200 active:scale-90 transition"
-                      title="Decrease"
+                      onClick={() => setDetailProduct(p)}
+                      className="absolute bottom-1.5 right-1.5 bg-black/70 hover:bg-black/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-xs transition"
                     >
-                      <Minus size={12} className="stroke-[3]" />
+                      <span>🔍</span> {t.details}
                     </button>
-                    <span className="w-6 text-center font-black text-xs text-slate-950 tabular-nums">
-                      {qtyInCart}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(p);
-                      }}
-                      className="h-7 w-7 rounded-lg bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center font-black text-xs shadow-2xs active:scale-90 transition"
-                      title="Increase"
-                    >
-                      <Plus size={12} className="stroke-[3]" />
-                    </button>
+
+                    {/* Shortage / Out of Stock Banner */}
+                    {isOut && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center">
+                        <span className="bg-red-600 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                          {t.soldOut}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => addToCart(p)}
-                    className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 bg-[#d97706] hover:bg-[#b45309] text-white"
-                  >
-                    <span>+</span>
-                    <span>{t.add}</span>
-                  </button>
-                )}
+
+                  {/* Details Section */}
+                  <div className="p-2.5">
+                    <h3 className="font-extrabold text-slate-900 text-xs leading-tight line-clamp-1">
+                      {displayName}
+                    </h3>
+                    {displayDesc && (
+                      <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {displayDesc}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price & Add Button Row (Interactive +/- Stepper from User Sketch) */}
+                <div className="px-2.5 pb-2.5 pt-1 flex items-center justify-between">
+                  <span className="font-black text-xs text-slate-900">
+                    {price.toFixed(0)} ETB
+                  </span>
+
+                  {isOut ? (
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200">
+                      {t.soldOut}
+                    </span>
+                  ) : qtyInCart > 0 ? (
+                    <div className="flex items-center rounded-xl bg-emerald-50/70 border border-emerald-500/50 p-0.5 shadow-2xs">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateQuantity(p._id, -1);
+                        }}
+                        className="h-7 w-7 rounded-lg bg-white text-rose-600 hover:bg-rose-50 flex items-center justify-center font-black text-xs shadow-2xs border border-emerald-200 active:scale-90 transition"
+                        title="Decrease"
+                      >
+                        <Minus size={12} className="stroke-[3]" />
+                      </button>
+                      <span className="w-6 text-center font-black text-xs text-slate-950 tabular-nums">
+                        {qtyInCart}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(p);
+                        }}
+                        className="h-7 w-7 rounded-lg bg-[#059669] hover:bg-[#047857] text-white flex items-center justify-center font-black text-xs shadow-2xs active:scale-90 transition"
+                        title="Increase"
+                      >
+                        <Plus size={12} className="stroke-[3]" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => addToCart(p)}
+                      className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 bg-[#d97706] hover:bg-[#b45309] text-white"
+                    >
+                      <span>+</span>
+                      <span>{t.add}</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── 6. ABOUT US, LOCATION (BOLE ALEM CINEMA) & EXPERIENCE SECTION ── */}
       <div className="px-3 pt-6 pb-28 space-y-5">

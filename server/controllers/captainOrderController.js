@@ -660,7 +660,6 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
       message: `Order #${order.orderNo} is already ${order.status}.`,
     });
   }
-
   order.status = "sent_to_kitchen";
   order.waiterApproval = {
     required: true,
@@ -675,9 +674,7 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
     order.waiter = req.user._id;
     order.waiterName = req.user.name || "Waiter";
   }
-
   await order.save();
-
   // Telegram alert
   const tg = require("../utils/telegramNotifier");
   if (tg) {
@@ -698,9 +695,7 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
       }
     } catch (_) { }
   }
-
   broadcastOrderEvent("order_approved", order);
-
   res.json({
     success: true,
     order,
@@ -718,7 +713,6 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Captain order not found");
   }
-
   order.status = "cancelled";
   order.waiterApproval = {
     required: true,
@@ -728,9 +722,7 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
     rejectedReason: reason,
     rejectedAt: new Date(),
   };
-
   await order.save();
-
   // Telegram alert
   const tg = require("../utils/telegramNotifier");
   if (tg) {
@@ -748,14 +740,12 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
       }
     } catch (_) { }
   }
-
   res.json({
     success: true,
     order,
     message: `Order #${order.orderNo} for ${order.tableNo} has been declined.`,
   });
 });
-
 module.exports = {
   streamOrderEvents,
   createCaptainOrder,

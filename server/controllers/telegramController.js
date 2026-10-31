@@ -166,10 +166,14 @@ Available commands:
   );
 });
 
-// ── POST /api/telegram/subscribers (admin only) ──────────────────
+// ── POST /api/telegram/subscribers (admin/dev only) ──────────────
 // Manually add a subscriber with name + phone (no bot interaction needed).
 // chatId is optional — if provided, they also get bot notifications.
 const addSubscriber = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Roles below Administrator cannot add or configure Telegram OTP subscribers.');
+  }
   const { name, phone, username, chatId } = req.body;
   if (!name || !phone) { res.status(400); throw new Error('Name and phone are required'); }
 
@@ -232,10 +236,14 @@ const getSubscribers = asyncHandler(async (req, res) => {
   res.json(subscribers);
 });
 
-// ── PUT /api/telegram/subscribers/:chatId/phone (admin only) ─────
+// ── PUT /api/telegram/subscribers/:chatId/phone (admin/dev only) ──
 // Register or update the phone number for a subscriber.
 // This is what links a Telegram account to an allowed OTP phone number.
 const updateSubscriberPhone = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Roles below Administrator cannot modify or register Telegram OTP phone numbers.');
+  }
   const { phone } = req.body;
   if (!phone) { res.status(400); throw new Error('Phone number is required'); }
 
@@ -271,8 +279,12 @@ const updateSubscriberPhone = asyncHandler(async (req, res) => {
   res.json({ message: 'Phone registered.', subscriber: subscribers[idx] });
 });
 
-// ── DELETE /api/telegram/subscribers/:chatId (admin only) ────────
+// ── DELETE /api/telegram/subscribers/:chatId (admin/dev only) ─────
 const removeSubscriber = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Roles below Administrator cannot delete or remove Telegram OTP subscribers.');
+  }
   const settings = await Setting.findOne();
   if (!settings) return res.json({ message: 'No settings found' });
 
