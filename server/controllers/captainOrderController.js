@@ -157,7 +157,7 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
     status: req.body.status || "open",
   });
 
-  broadcastOrderEvent("new_order", order);
+  broadcastOrderEvent("pos_order_updated", order);
 
   res.status(201).json({ success: true, order, message: `Captain Order #${orderNo} created!` });
 });
@@ -193,7 +193,6 @@ const getCaptainOrderById = asyncHandler(async (req, res) => {
   if (!order) { res.status(404); throw new Error("Captain order not found"); }
   res.json(order);
 });
-
 // @route PATCH /api/captain-orders/:id
 const updateCaptainOrder = asyncHandler(async (req, res) => {
   const { items, tableNotes, guestCount, customerName, waiter, waiterName,
@@ -207,20 +206,20 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
     return res.json(order);
   }
 
-  // If order is already closed/settled, allow confirming status to 'billed' or 'paid'
+  // If order is already closed/settled, allow confirming status to 'billed' or 'paid', or idempotent return
   if (["paid", "billed", "voided", "cancelled"].includes(order.status)) {
-    if (status === "paid" || status === "billed") {
-      order.status = status;
+    if (status === "paid" || status === "billed" || order.status === "paid") {
+      if (status) order.status = status;
       if (!order.billedAt) {
         order.billedAt = new Date();
       }
       if (req.body.cashSaleRef) order.cashSaleRef = req.body.cashSaleRef;
       await order.save();
-      return res.json(order);
+      return res.json({ success: true, order, message: `Order #${order.orderNo} is settled.` });
     }
     // Idempotent return if order is already paid or billed
     if (order.status === "paid" || order.status === "billed") {
-      return res.json(order);
+      return res.json({ success: true, order, message: `Order #${order.orderNo} is already finalized.` });
     }
     res.status(400); throw new Error(`Cannot edit an order with status: ${order.status}`);
   }
@@ -424,7 +423,6 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
       addedRound: 1,
     });
   }
-
   const taxAmount = Math.round(subtotal * taxRate / 100 * 100) / 100;
   const finalServiceCharge = safeServicePct > 0 ? Math.round(subtotal * safeServicePct / 100 * 100) / 100 : 0;
   const grandTotal = Math.round((subtotal + taxAmount + finalServiceCharge) * 100) / 100;
@@ -484,7 +482,7 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     } catch (_) { }
   }
 
-  broadcastOrderEvent("new_order", order);
+  broadcastOrderEvent("customer_qr_order", order);
 
   res.status(201).json({
     success: true,
@@ -607,7 +605,6 @@ const getTableStatus = asyncHandler(async (req, res) => {
     activeOrder: activeOrder || null,
   });
 });
-
 // @desc   Get all active orders today for a table so customer can view running bill & past items
 // @route  GET /api/captain-orders/table-history
 // @access Public
@@ -616,7 +613,6 @@ const getTableOrdersHistory = asyncHandler(async (req, res) => {
   if (!tableNo) {
     return res.status(400).json({ success: false, message: 'Table number is required' });
   }
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

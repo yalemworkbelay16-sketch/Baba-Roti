@@ -156,7 +156,8 @@ export default function CaptainOrder() {
         const streamUrl = `/api/captain-orders/stream`;
         es = new EventSource(streamUrl);
 
-        es.addEventListener("new_order", (event) => {
+        // Real-time audio/voice/toast alert on customer QR orders
+        es.addEventListener("customer_qr_order", (event) => {
           try {
             const parsed = JSON.parse(event.data);
             const o = parsed.data;
@@ -168,10 +169,15 @@ export default function CaptainOrder() {
                 itemsCount: o.items?.length,
                 totalAmount: o.grandTotal,
               });
-              showToast(`🛎️ New Order #${o.orderNo} at ${o.tableNo || 'Table'}!`, "info");
+              showToast(`🛎️ New Customer QR Order #${o.orderNo} at ${o.tableNo || 'Table'}!`, "info");
               loadOrders();
             }
           } catch (_) {}
+        });
+
+        // Silent reload for POS staff updates
+        es.addEventListener("pos_order_updated", () => {
+          loadOrders();
         });
 
         es.addEventListener("call_waiter", (event) => {
@@ -210,7 +216,7 @@ export default function CaptainOrder() {
     if (typeof BroadcastChannel !== 'undefined') {
       channel = new BroadcastChannel('baba_roti_orders_channel');
       channel.onmessage = (msg) => {
-        if (msg.data?.type === 'new_order') {
+        if (msg.data?.type === 'new_customer_qr_order') {
           const o = msg.data.order;
           if (o) {
             triggerNewOrderAlert({
@@ -222,6 +228,8 @@ export default function CaptainOrder() {
             });
             loadOrders();
           }
+        } else if (msg.data?.type === 'pos_order_updated') {
+          loadOrders();
         }
       };
     }

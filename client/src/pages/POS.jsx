@@ -15,12 +15,39 @@ import { normalizeFileUrl } from "../utils/fileUrl";
 
 const ETB = (n) => `ETB ${Number(n || 0).toFixed(2)}`;
 
-// Built-in tables
-const ALL_TABLES = [
-  ...Array.from({ length: 20 }, (_, i) => ({ id: `T-${i + 1}`, label: `Table ${i + 1}`, section: "Main Hall" })),
-  ...Array.from({ length: 4 }, (_, i) => ({ id: `VIP-${i + 1}`, label: `VIP ${i + 1}`, section: "VIP Lounge" })),
-  ...Array.from({ length: 4 }, (_, i) => ({ id: `P-${i + 1}`, label: `Patio ${i + 1}`, section: "Outdoor Patio" })),
+// Default table roster matching Digital Menu Settings
+const DEFAULT_DIGITAL_TABLES = [
+  'Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05',
+  'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
+  'Table 12', 'Table 15', 'Table 20', 'Table 36', 'VIP 01', 'Patio 01', 'Patio 02'
 ];
+
+export function parseDiningTablesFromSettings(tablesArray = DEFAULT_DIGITAL_TABLES) {
+  const list = Array.isArray(tablesArray) && tablesArray.length > 0 ? tablesArray : DEFAULT_DIGITAL_TABLES;
+  return list.map((tName) => {
+    const name = String(tName).trim();
+    let section = "Main Hall";
+    if (/vip/i.test(name)) section = "VIP Lounge";
+    else if (/patio|outdoor|garden|terrace/i.test(name)) section = "Outdoor Patio";
+    else if (/balcony/i.test(name)) section = "Balcony";
+
+    let shortLabel = name;
+    if (/^table\s*/i.test(name)) {
+      shortLabel = name.replace(/^table\s*/i, 'T-');
+    } else if (/^vip\s*/i.test(name)) {
+      shortLabel = name.replace(/^vip\s*/i, 'VIP-');
+    } else if (/^patio\s*/i.test(name)) {
+      shortLabel = name.replace(/^patio\s*/i, 'P-');
+    }
+
+    return {
+      id: name,
+      label: name,
+      shortLabel,
+      section,
+    };
+  });
+}
 
 function Toast({ msg, type = "success", onDone }) {
   useEffect(() => {
@@ -151,6 +178,13 @@ export default function POS() {
   const [showRefModal, setShowRefModal] = useState(false);
   const [refSearchQ, setRefSearchQ] = useState("");
 
+  const [diningTables, setDiningTables] = useState(() => {
+    try {
+      const cached = localStorage.getItem('baba_roti_pos_tables_cache');
+      if (cached) return parseDiningTablesFromSettings(JSON.parse(cached));
+    } catch (_) {}
+    return parseDiningTablesFromSettings();
+  });
   const [showPayModal, setShowPayModal] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [showWaiterPicker, setShowWaiterPicker] = useState(false);
@@ -175,7 +209,25 @@ export default function POS() {
 
   // Table busy check (table has active held order)
   const isTableBusy = useCallback(
-    (tableId) => heldOrdersList.some((o) => o.tableNo === tableId),
+    (tableId) => {
+      const raw = String(tableId || '').trim().toLowerCase();
+      const numOnly = raw.replace(/\D/g, '');
+      return heldOrdersList.some((o) => {
+        if (o.orderType !== 'dine_in') return false;
+        if (!['held', 'open', 'sent_to_kitchen', 'preparing'].includes(o.status)) return false;
+        const orderTbl = String(o.tableNo || '').trim().toLowerCase();
+        if (orderTbl === raw) return true;
+        const orderNum = orderTbl.replace(/\D/g, '');
+        if (numOnly && orderNum && parseInt(numOnly, 10) === parseInt(orderNum, 10)) {
+          const isVip1 = raw.includes('vip');
+          const isVip2 = orderTbl.includes('vip');
+          const isPatio1 = raw.includes('patio');
+          const isPatio2 = orderTbl.includes('patio');
+          if (isVip1 === isVip2 && isPatio1 === isPatio2) return true;
+        }
+        return false;
+      });
+    },
     [heldOrdersList]
   );
 
@@ -214,6 +266,15 @@ export default function POS() {
     try {
       setRefreshingWaiters(true);
       const empRes = await api.get("/employees");
+      const rawTables = settRes.data?.digitalMenuSettings?.tables;
+      if (Array.isArray(rawTables) && rawTables.length > 0) {
+        const parsedTables = parseDiningTablesFromSettings(rawTables);
+        setDiningTables(parsedTables);
+        try {
+          localStorage.setItem('baba_roti_pos_tables_cache', JSON.stringify(rawTables));
+        } catch (_) {}
+      }
+
       const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
       const parsedWaiters = parseWaitersFromEmployees(allEmployees);
       setWaiters(parsedWaiters);
@@ -396,7 +457,8 @@ export default function POS() {
         const streamUrl = `/api/captain-orders/stream`;
         es = new EventSource(streamUrl);
 
-        es.addEventListener("new_order", (event) => {
+        // Audio/Voice alert only on customer QR self-order placement
+        es.addEventListener("customer_qr_order", (event) => {
           try {
             const parsed = JSON.parse(event.data);
             const o = parsed.data;
@@ -415,6 +477,11 @@ export default function POS() {
               loadHeldOrders();
             }
           } catch (_) { }
+        });
+
+        // Silent reload for POS staff placed orders without false QR alarm
+        es.addEventListener("pos_order_updated", () => {
+          loadHeldOrders();
         });
 
         es.addEventListener("call_waiter", (event) => {
@@ -453,7 +520,7 @@ export default function POS() {
     if (typeof BroadcastChannel !== 'undefined') {
       channel = new BroadcastChannel('baba_roti_orders_channel');
       channel.onmessage = (msg) => {
-        if (msg.data?.type === 'new_order') {
+        if (msg.data?.type === 'new_customer_qr_order') {
           const o = msg.data.order;
           if (o) {
             triggerNewOrderAlert({
@@ -465,6 +532,8 @@ export default function POS() {
             });
             loadHeldOrders();
           }
+        } else if (msg.data?.type === 'pos_order_updated') {
+          loadHeldOrders();
         }
       };
     }
@@ -3011,9 +3080,9 @@ export default function POS() {
               </button>
             </div>
 
-            {/* Section Filter Pills */}
+            {/* Dynamic Section Filter Pills */}
             <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
-              {["All", "Main Hall", "VIP Lounge", "Outdoor Patio"].map((sec) => {
+              {["All", ...Array.from(new Set(diningTables.map((t) => t.section)))].map((sec) => {
                 const active = tableSectionFilter === sec;
                 return (
                   <button
@@ -3050,7 +3119,7 @@ export default function POS() {
                 maxHeight: 340,
               }}
             >
-              {ALL_TABLES.filter(
+              {diningTables.filter(
                 (t) => tableSectionFilter === "All" || t.section === tableSectionFilter
               ).map((t) => {
                 const busy = isTableBusy(t.id);
@@ -3062,7 +3131,11 @@ export default function POS() {
                     onClick={() => {
                       setSelectedTable(t.id);
                       setShowTablePicker(false);
-                      const tableOrder = heldOrdersList.find((o) => o.tableNo === t.id);
+                      const tableOrder = heldOrdersList.find((o) => {
+                        const oT = String(o.tableNo || '').trim().toLowerCase();
+                        const tT = String(t.id || '').trim().toLowerCase();
+                        return oT === tT;
+                      });
                       if (tableOrder) {
                         retrieveOrderToSidebar(tableOrder);
                       }
@@ -3094,7 +3167,7 @@ export default function POS() {
                     }}
                   >
                     <Table2 size={16} />
-                    <span>{t.id}</span>
+                    <span>{t.label}</span>
                     <span
                       style={{
                         fontSize: 9,

@@ -599,7 +599,7 @@ export default function DigitalMenu() {
         if (typeof BroadcastChannel !== 'undefined') {
           try {
             const bc = new BroadcastChannel('baba_roti_orders_channel');
-            bc.postMessage({ type: 'new_order', order: res.data.order });
+            bc.postMessage({ type: 'new_customer_qr_order', order: res.data.order, isQrSelfOrder: true });
             setTimeout(() => bc.close(), 1000);
           } catch (_) {}
         }
@@ -2322,18 +2322,12 @@ export default function DigitalMenu() {
               </p>
             </div>
 
-            {/* Quick table choices */}
-            <div className="grid grid-cols-4 gap-2 pt-1">
-              {[
-                'Table 01',
-                'Table 02',
-                'Table 03',
-                'Table 04',
-                'Table 05',
-                'Table 06',
-                'Table 07',
-                'Table 08',
-              ].map((tbl) => {
+            {/* Quick table choices (dynamically loaded from Settings) */}
+            <div className="grid grid-cols-4 gap-2 pt-1 max-h-48 overflow-y-auto no-scrollbar">
+              {(menuData?.digitalMenuSettings?.tables && menuData.digitalMenuSettings.tables.length > 0
+                ? menuData.digitalMenuSettings.tables
+                : ['Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05', 'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10', 'Table 12', 'Table 15', 'Table 20', 'Table 36', 'VIP 01', 'Patio 01', 'Patio 02']
+              ).map((tbl) => {
                 const isSelected = (newTableInput || tableNo).toLowerCase() === tbl.toLowerCase();
                 return (
                   <button
