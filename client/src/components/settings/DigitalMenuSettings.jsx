@@ -38,6 +38,11 @@ export default function DigitalMenuSettings() {
     allowOrdering: true,
     bannerText: 'Delicious Food Freshly Made',
     bannerSubtitle: 'Fresh Buns, Hot Specialty Coffee & Savory Meals',
+    tiktokUrl: 'https://www.tiktok.com/@babaroti_ethiopia',
+    facebookUrl: 'https://www.facebook.com/babarotiethiopia',
+    instagramUrl: 'https://www.instagram.com/babaroti_ethiopia',
+    telegramUrl: 'https://t.me/babaroticafe',
+    phone: '+251 91 123 4567',
     tables: [
       'Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05',
       'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
@@ -291,7 +296,7 @@ export default function DigitalMenuSettings() {
     <div class="qr-box">
       <img src="${qrImage}" class="qr-img" alt="Scan to Order" />
     </div>
-    <div class="instructions">📱 Scan with your phone camera to order</div>
+    <div class="instructions">📷 Open Phone Camera &amp; point to order instantly</div>
     <div class="sub-instructions">Browse digital menu &bull; Customize &bull; Instant Kitchen Prep</div>
     <div class="footer">Powered by Baba Roti Smart POS</div>
   </div>
@@ -889,6 +894,69 @@ export default function DigitalMenuSettings() {
                 onChange={(e) => setSettings((p) => ({ ...p, bannerText: e.target.value }))}
                 className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
               />
+            </div>
+
+            <div className="pt-3 border-t border-ink-100 space-y-3">
+              <h4 className="font-bold text-xs text-ink-900 uppercase tracking-wider text-amber-900">
+                Social Media Channels &amp; Contact Information
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ink-700 mb-1">TikTok Profile URL</label>
+                  <input
+                    type="url"
+                    value={settings.tiktokUrl || ''}
+                    placeholder="https://www.tiktok.com/@babaroti_ethiopia"
+                    onChange={(e) => setSettings((p) => ({ ...p, tiktokUrl: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-ink-700 mb-1">Facebook Page URL</label>
+                  <input
+                    type="url"
+                    value={settings.facebookUrl || ''}
+                    placeholder="https://www.facebook.com/babarotiethiopia"
+                    onChange={(e) => setSettings((p) => ({ ...p, facebookUrl: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-ink-700 mb-1">Instagram Profile URL</label>
+                  <input
+                    type="url"
+                    value={settings.instagramUrl || ''}
+                    placeholder="https://www.instagram.com/babaroti_ethiopia"
+                    onChange={(e) => setSettings((p) => ({ ...p, instagramUrl: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-ink-700 mb-1">Telegram Link / Handle</label>
+                  <input
+                    type="text"
+                    value={settings.telegramUrl || ''}
+                    placeholder="https://t.me/babaroticafe"
+                    onChange={(e) => setSettings((p) => ({ ...p, telegramUrl: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-ink-700 mb-1">Customer Order Hotline / Phone</label>
+                  <input
+                    type="text"
+                    value={settings.phone || ''}
+                    placeholder="+251 91 123 4567"
+                    onChange={(e) => setSettings((p) => ({ ...p, phone: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

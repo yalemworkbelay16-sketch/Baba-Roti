@@ -182,7 +182,7 @@ export default function POS() {
     try {
       const cached = localStorage.getItem('baba_roti_pos_tables_cache');
       if (cached) return parseDiningTablesFromSettings(JSON.parse(cached));
-    } catch (_) {}
+    } catch (_) { }
     return parseDiningTablesFromSettings();
   });
   const [showPayModal, setShowPayModal] = useState(false);
@@ -272,7 +272,7 @@ export default function POS() {
         setDiningTables(parsedTables);
         try {
           localStorage.setItem('baba_roti_pos_tables_cache', JSON.stringify(rawTables));
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];

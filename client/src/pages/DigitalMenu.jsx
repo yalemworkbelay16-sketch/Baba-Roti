@@ -28,7 +28,33 @@ import {
   MapPin,
   Heart,
   MessageSquare,
+  Phone,
+  Mail,
+  Share2,
 } from 'lucide-react';
+
+// Helper: Normalize table number (supports ?table=1, ?t=01, ?table=Table 01, ?table=Table%2001)
+export function normalizeTableNumber(raw) {
+  if (!raw) return 'Table 01';
+  let s = decodeURIComponent(String(raw)).trim();
+  if (/^vip/i.test(s)) {
+    const num = s.replace(/\D/g, '');
+    return `VIP ${num ? num.padStart(2, '0') : '01'}`;
+  }
+  if (/^patio/i.test(s)) {
+    const num = s.replace(/\D/g, '');
+    return `Patio ${num ? num.padStart(2, '0') : '01'}`;
+  }
+  if (/^table\s*/i.test(s)) {
+    const num = s.replace(/\D/g, '');
+    return `Table ${num ? num.padStart(2, '0') : '01'}`;
+  }
+  const digits = s.replace(/\D/g, '');
+  if (digits) {
+    return `Table ${digits.padStart(2, '0')}`;
+  }
+  return s;
+}
 import { normalizeFileUrl } from '../utils/fileUrl';
 
 // Base API URL
@@ -167,8 +193,9 @@ const TRANSLATIONS = {
 export default function DigitalMenu() {
   const [searchParams] = useSearchParams();
 
-  // Active table detection from URL query (?table=36 or ?table=Table 05)
-  const initialTable = searchParams.get('table') || searchParams.get('t') || 'Table 36';
+  // Active table detection from URL query (?table=36 or ?t=01 or ?table=Table%2001)
+  const rawTableParam = searchParams.get('table') || searchParams.get('t') || searchParams.get('tbl') || 'Table 01';
+  const initialTable = normalizeTableNumber(rawTableParam);
 
   // ── States ─────────────────────────────────────────────────────────────
   const [lang, setLang] = useState('en'); // 'en' | 'am'
@@ -232,17 +259,33 @@ export default function DigitalMenu() {
     if (activeTrackingOrder?.orderNo === orderNo) return true;
     try {
       const myOrders = JSON.parse(localStorage.getItem('baba_roti_my_orders') || '[]');
-      return myOrders.includes(orderNo);
+      if (myOrders.includes(orderNo)) return true;
+      const myTableOrder = localStorage.getItem(`baba_roti_active_table_${tableNo}`);
+      if (myTableOrder === orderNo) return true;
     } catch (_) {
       return false;
     }
-  }, [confirmedOrder, activeTrackingOrder]);
+    return false;
+  }, [confirmedOrder, activeTrackingOrder, tableNo]);
 
-  // Active unbilled order on this table (if placed by another customer)
+  // Active unbilled order on this table (until converted to cash sales / status === 'paid')
   const activeUnbilledOrder = tableOrdersHistory.find((o) =>
-    ['pending_approval', 'open', 'held', 'sent_to_kitchen', 'preparing', 'ready'].includes(o.status)
+    ['pending_approval', 'open', 'held', 'sent_to_kitchen', 'preparing', 'ready', 'billed'].includes(o.status)
   );
-  const isOtherCustomerOccupied = Boolean(activeUnbilledOrder && !isMyOrder(activeUnbilledOrder.orderNo) && !userJoinedTable);
+  const alreadyJoinedThisTable = typeof window !== 'undefined' && localStorage.getItem(`baba_roti_joined_${tableNo}`) === 'true';
+  const isOtherCustomerOccupied = Boolean(activeUnbilledOrder && !isMyOrder(activeUnbilledOrder.orderNo) && !userJoinedTable && !alreadyJoinedThisTable);
+  const [dismissedOccupiedWelcome, setDismissedOccupiedWelcome] = useState(false);
+
+  // Auto-detect occupied table immediately upon scanning/loading for another customer
+  useEffect(() => {
+    if (isOtherCustomerOccupied && !dismissedOccupiedWelcome && !tableOccupiedModal) {
+      setTableOccupiedModal({
+        tableNo,
+        orderNo: activeUnbilledOrder?.orderNo,
+        autoShown: true,
+      });
+    }
+  }, [isOtherCustomerOccupied, dismissedOccupiedWelcome, tableOccupiedModal, tableNo, activeUnbilledOrder]);
 
   // Customer Review & Subsystem Licensing States
   const [reviewRating, setReviewRating] = useState(5);
@@ -577,6 +620,7 @@ export default function DigitalMenu() {
         try {
           const prev = JSON.parse(localStorage.getItem('baba_roti_my_orders') || '[]');
           localStorage.setItem('baba_roti_my_orders', JSON.stringify([...prev, res.data.orderNo]));
+          localStorage.setItem(`baba_roti_active_table_${tableNo}`, res.data.orderNo);
         } catch (_) {}
 
         const orderData = {
@@ -1547,6 +1591,131 @@ export default function DigitalMenu() {
           </div>
         </div>
 
+        {/* ── SOCIAL MEDIA & OFFICIAL CHANNELS ── */}
+        <div className="rounded-3xl border border-amber-200/90 bg-white p-5 shadow-md space-y-4">
+          <div className="flex items-center justify-between border-b border-amber-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <div>
+                <h4 className="font-serif text-sm font-black text-slate-900">
+                  {lang === 'am' ? 'ማህበራዊ ሚዲያዎቻችንን ይከተሉ' : 'Follow Baba Roti on Social Media'}
+                </h4>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  {lang === 'am' ? 'አዳዲስ ምግቦች፣ ቅናሾች እና ልዩ የካፌ ድባብ' : 'Daily fresh baked buns, deals & café moments'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+              @babaroti
+            </span>
+          </div>
+
+          {/* Social Buttons Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {/* TikTok */}
+            <a
+              href={menuData?.digitalMenuSettings?.tiktokUrl || "https://www.tiktok.com/@babaroti_ethiopia"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 rounded-2xl bg-black hover:bg-slate-900 text-white flex items-center gap-2.5 transition group shadow-sm active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.86.12V9.32a6.38 6.38 0 0 0-.86-.06A6.34 6.34 0 0 0 3 15.6a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V9.06a8.28 8.28 0 0 0 4.91 1.6V7.21a4.85 4.85 0 0 1-1-.52z" />
+                </svg>
+              </div>
+              <div className="text-left overflow-hidden">
+                <span className="text-[11px] font-black block leading-tight">TikTok</span>
+                <span className="text-[9px] text-slate-400 truncate block">@babaroti</span>
+              </div>
+            </a>
+
+            {/* Facebook */}
+            <a
+              href={menuData?.digitalMenuSettings?.facebookUrl || "https://www.facebook.com/babarotiethiopia"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 rounded-2xl bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center gap-2.5 transition group shadow-sm active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+              </div>
+              <div className="text-left overflow-hidden">
+                <span className="text-[11px] font-black block leading-tight">Facebook</span>
+                <span className="text-[9px] text-blue-100 truncate block">Baba Roti</span>
+              </div>
+            </a>
+
+            {/* Instagram */}
+            <a
+              href={menuData?.digitalMenuSettings?.instagramUrl || "https://www.instagram.com/babaroti_ethiopia"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 rounded-2xl bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-95 text-white flex items-center gap-2.5 transition group shadow-sm active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                </svg>
+              </div>
+              <div className="text-left overflow-hidden">
+                <span className="text-[11px] font-black block leading-tight">Instagram</span>
+                <span className="text-[9px] text-pink-100 truncate block">@babaroti</span>
+              </div>
+            </a>
+
+            {/* Telegram */}
+            <a
+              href={menuData?.digitalMenuSettings?.telegramUrl || "https://t.me/babaroticafe"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 rounded-2xl bg-[#229ED9] hover:bg-[#1f8fc4] text-white flex items-center gap-2.5 transition group shadow-sm active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                </svg>
+              </div>
+              <div className="text-left overflow-hidden">
+                <span className="text-[11px] font-black block leading-tight">Telegram</span>
+                <span className="text-[9px] text-cyan-100 truncate block">@babaroticafe</span>
+              </div>
+            </a>
+          </div>
+
+          {/* Direct Contacts & Hotline */}
+          <div className="pt-2 border-t border-amber-100">
+            <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
+              {lang === 'am' ? 'እውቂያ እና የስልክ መስመሮች' : 'Direct Contact & Hotline'}
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <a
+                href={`tel:${menuData?.digitalMenuSettings?.phone || '+251911234567'}`}
+                className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold flex items-center justify-between transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone size={14} className="text-amber-700" />
+                  <span>{lang === 'am' ? 'ሞባይል / ትዕዛዝ' : 'Mobile / Orders'}</span>
+                </div>
+                <span className="font-mono text-amber-800 font-black">{menuData?.digitalMenuSettings?.phone || '+251 91 123 4567'}</span>
+              </a>
+
+              <a
+                href="tel:+251116678900"
+                className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold flex items-center justify-between transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone size={14} className="text-amber-700" />
+                  <span>{lang === 'am' ? 'የቢሮ ስልክ' : 'Landline'}</span>
+                </div>
+                <span className="font-mono text-amber-800 font-black">+251 11 667 8900</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* 4. Interactive "Rate Us" Component */}
         <div className="rounded-3xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 p-5 shadow-md space-y-3.5">
           {reviewSubmitted ? (
@@ -2216,81 +2385,115 @@ export default function DigitalMenu() {
         </div>
       )}
 
-      {/* ── TABLE OCCUPIED VALIDATION MODAL ── */}
+      {/* ── TABLE OCCUPIED POSITIVE HOSPITALITY MODAL ── */}
       {tableOccupiedModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-amber-200 text-center space-y-4 animate-in zoom-in-95 duration-200 relative">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-amber-200 text-center space-y-4 animate-in zoom-in-95 duration-200 relative overflow-hidden">
+            {/* Top decorative gradient bar */}
+            <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600" />
+
             <button
-              onClick={() => setTableOccupiedModal(null)}
-              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition"
+              onClick={() => {
+                setTableOccupiedModal(null);
+                setDismissedOccupiedWelcome(true);
+              }}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition cursor-pointer"
             >
               ✕
             </button>
 
-            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-amber-500/30">
-              ⚠️
+            {/* Welcoming Warm Icon */}
+            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-[#271406] to-[#542813] text-amber-300 flex items-center justify-center text-3xl shadow-lg shadow-amber-900/20">
+              ☕
             </div>
 
-            <div>
-              <h3 className="text-base font-black text-slate-900 font-serif">
-                {t.tableOccupiedTitle || 'Table Already Has an Active Order'}
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest bg-amber-100/80 px-3 py-0.5 rounded-full border border-amber-300/60 inline-block">
+                {lang === 'am' ? 'ሞቅ ያለ አቀባበል' : 'Welcome to Baba Roti Café'}
+              </span>
+              <h3 className="text-base font-black text-slate-900 font-serif pt-1">
+                {lang === 'am'
+                  ? `ጠረጴዛ ${tableOccupiedModal.tableNo || tableNo} በአሁኑ ሰዓት ተይዟል`
+                  : `Table ${tableOccupiedModal.tableNo || tableNo} is Currently in Use`}
               </h3>
-              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                {tableOccupiedModal.message ||
-                  (lang === 'am'
-                    ? `ጠረጴዛ ${tableOccupiedModal.tableNo || tableNo} ቀደም ሲል ንቁ እና ያልተከፈለ ትዕዛዝ አለው። እባክዎ ሌላ ጠረጴዛ ይሞክሩ ወይም አስተናጋጅ ያነጋግሩ።`
-                    : `Table ${tableOccupiedModal.tableNo || tableNo} already has an active order in progress that has not been billed yet. Please select your table or contact a waiter.`)}
+              <p className="text-xs text-slate-600 leading-relaxed font-medium pt-0.5">
+                {lang === 'am'
+                  ? `በዚህ ጠረጴዛ ላይ ያሉ እንግዶቻችን ንቁ ትዕዛዝ አላቸው። የተቀመጡበትን ትክክለኛ ጠረጴዛ መርጠው ትኩስ ምግቦችንና መጠጦችን መዘዝ ይችላሉ ወይም አብረው የሚመገቡ ከሆነ ትዕዛዝዎን ማከል ይችላሉ።`
+                  : `Guests at this table have an active dining order in progress. You can easily choose your table to start a new order, or if you are dining together, tap to add items!`}
               </p>
             </div>
 
             {tableOccupiedModal.orderNo && (
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 text-left flex items-center justify-between text-xs font-bold text-amber-900">
-                <span>Active Table Order</span>
-                <span className="font-mono text-amber-700 bg-white px-2 py-0.5 rounded-lg border border-amber-200">
+              <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-left flex items-center justify-between text-xs font-bold text-amber-950">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>
+                  <span>Active Dining Ticket</span>
+                </span>
+                <span className="font-mono text-amber-900 bg-white px-2 py-0.5 rounded-lg border border-amber-300">
                   #{tableOccupiedModal.orderNo}
                 </span>
               </div>
             )}
 
             <div className="space-y-2 pt-1 text-xs font-black">
-              {/* Option 1: Change Table */}
+              {/* Option 1: Choose my table */}
               <button
                 type="button"
                 onClick={() => {
                   setTableOccupiedModal(null);
+                  setDismissedOccupiedWelcome(true);
                   setNewTableInput('');
                   setChangeTableModalOpen(true);
                 }}
-                className="w-full py-3 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 shadow-sm transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-md transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>🪑</span>
-                <span>{t.changeTableBtn}</span>
+                <span>{lang === 'am' ? 'የተቀመጥኩበትን ጠረጴዛ ልምረጥ' : 'Choose My Table'}</span>
               </button>
 
-              {/* Option 2: Call Waiter */}
-              <button
-                type="button"
-                onClick={() => {
-                  setTableOccupiedModal(null);
-                  handleServiceRequest('call_waiter');
-                }}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-sm transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <PhoneCall size={14} />
-                <span>{t.contactWaiterBtn}</span>
-              </button>
-
-              {/* Option 3: I am sitting here / Dining with this table */}
+              {/* Option 2: Dining together with this table */}
               <button
                 type="button"
                 onClick={() => {
                   setUserJoinedTable(true);
+                  try {
+                    localStorage.setItem(`baba_roti_joined_${tableNo}`, 'true');
+                  } catch (_) {}
                   setTableOccupiedModal(null);
+                  setDismissedOccupiedWelcome(true);
                 }}
-                className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] transition cursor-pointer"
+                className="w-full py-2.5 rounded-2xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {t.joinTableBtn}
+                <span>👥</span>
+                <span>{lang === 'am' ? 'አብረን ነን (ተጨማሪ እዘዝ)' : 'I’m at this Table (Add Items)'}</span>
               </button>
+
+              {/* Option 3: Just browse menu / Call Waiter */}
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTableOccupiedModal(null);
+                    setDismissedOccupiedWelcome(true);
+                  }}
+                  className="py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition cursor-pointer"
+                >
+                  📖 {lang === 'am' ? 'ምግቦችን ልይ' : 'Browse Menu'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTableOccupiedModal(null);
+                    setDismissedOccupiedWelcome(true);
+                    handleServiceRequest('call_waiter');
+                  }}
+                  className="py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <PhoneCall size={12} />
+                  <span>{lang === 'am' ? 'አስተናጋጅ' : 'Call Waiter'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
