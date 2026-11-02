@@ -97,33 +97,43 @@ async function getChatIds() {
 }
 
 function sendToOne(chatId, text) {
-  const cleanId = cleanChatId(chatId);
-  if (!cleanId) return;
+  return new Promise((resolve) => {
+    const cleanId = cleanChatId(chatId);
+    if (!cleanId) return resolve({ ok: false, error: 'Invalid chat ID' });
 
-  const body = JSON.stringify({
-    chat_id: cleanId,
-    text,
-    parse_mode: 'HTML',
-    disable_web_page_preview: true,
-  });
+    const body = JSON.stringify({
+      chat_id: cleanId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+    });
 
-  const options = {
-    hostname: 'api.telegram.org',
-    path: `/bot${BOT_TOKEN}/sendMessage`,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-  };
+    const options = {
+      hostname: 'api.telegram.org',
+      path: `/bot${BOT_TOKEN}/sendMessage`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    };
 
-  const req = https.request(options, (res) => {
-    if (res.statusCode !== 200) {
+    const req = https.request(options, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
-      res.on('end', () => console.warn(`[Telegram] Non-200 for chat ${cleanId}:`, data));
-    }
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          resolve({ ok: true, data });
+        } else {
+          console.warn(`[Telegram] Non-200 for chat ${cleanId}:`, data);
+          resolve({ ok: false, error: data });
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.warn(`[Telegram] Send error to ${cleanId}:`, err.message);
+      resolve({ ok: false, error: err.message });
+    });
+    req.write(body);
+    req.end();
   });
-  req.on('error', (err) => console.warn(`[Telegram] Send error to ${cleanId}:`, err.message));
-  req.write(body);
-  req.end();
 }
 
 function sendTelegram(text) {
@@ -1158,8 +1168,10 @@ function notifyWaiterCall({ tableNo, action, customerName }) {
 module.exports = {
   HOTEL,
   sendToOne,
+  sendMessage: sendToOne,
   sendTelegram,
   sendNotification: sendTelegram,
+  getChatIds,
   notifyCustomerOrder,
   notifyWaiterCall,
   notifyLogin,

@@ -173,8 +173,8 @@ if (!process.env.VERCEL) {
     }
 
     // ── Automated Daily Sales Summary Scheduler ───────────────────
-    // Checks every 30 seconds if current Addis Ababa local time matches
-    // Setting.telegramDailyReportTime and hasn't already been sent today.
+    // Checks every 20 seconds if current Addis Ababa local time matches
+    // Setting.telegramDailyReportTime and hasn't already been dispatched for this time.
     setInterval(async () => {
       try {
         const Setting = require('./models/Setting');
@@ -199,16 +199,22 @@ if (!process.env.VERCEL) {
         const todayStr = dateFormatter.format(now); // "YYYY-MM-DD"
 
         const scheduledTime = (settings.telegramDailyReportTime || '12:00').padStart(5, '0');
+        const reportKey = `${todayStr}_${scheduledTime}`;
 
-        if (currentTime === scheduledTime && settings.lastDailyReportDate !== todayStr) {
+        if (currentTime === scheduledTime && settings.lastDailyReportExecution !== reportKey) {
           console.log(`[DAILY-REPORT] Triggering automated daily sales digest for ${todayStr} at ${currentTime}...`);
           const { sendDailySalesReport } = require('./utils/dailySalesReporter');
-          await sendDailySalesReport({ isManual: false });
+          const res = await sendDailySalesReport({ isManual: false });
+          if (res?.success) {
+            settings.lastDailyReportExecution = reportKey;
+            settings.lastDailyReportDate = todayStr;
+            await settings.save().catch(() => { });
+          }
         }
       } catch (err) {
         console.warn('[DAILY-REPORT] Scheduler error:', err.message);
       }
-    }, 30 * 1000);
+    }, 20 * 1000);
   });
 }
 

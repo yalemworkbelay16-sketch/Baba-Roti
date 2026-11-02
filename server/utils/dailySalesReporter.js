@@ -171,23 +171,34 @@ async function sendDailySalesReport({ isManual = false, targetChatId = null } = 
 
   let sentCount = 0;
   if (targetChatId) {
-    if (tg && typeof tg.sendMessage === 'function') {
-      await tg.sendMessage(targetChatId, text);
-      sentCount++;
+    if (tg && typeof tg.sendToOne === 'function') {
+      const res = await tg.sendToOne(targetChatId, text);
+      if (res?.ok) sentCount++;
     }
   } else {
-    // Broadcast to all active subscribers
-    const subscribers = settings?.telegramSubscribers || [];
-    for (const sub of subscribers) {
-      if (sub.chatId) {
-        try {
-          if (tg && typeof tg.sendMessage === 'function') {
-            await tg.sendMessage(sub.chatId, text);
+    // Collect all recipient chat IDs: subscribers from DB, staff telegram chat IDs, and environment chat IDs
+    let chatIds = [];
+    if (tg && typeof tg.getChatIds === 'function') {
+      chatIds = await tg.getChatIds();
+    }
+    if (!chatIds || chatIds.length === 0) {
+      chatIds = (settings?.telegramSubscribers || [])
+        .map((s) => s.chatId)
+        .filter(Boolean);
+    }
+
+    console.log(`[DailyReport] Broadcasting daily sales digest to ${chatIds.length} recipient(s):`, chatIds);
+
+    for (const cid of chatIds) {
+      try {
+        if (tg && typeof tg.sendToOne === 'function') {
+          const res = await tg.sendToOne(cid, text);
+          if (res?.ok) {
             sentCount++;
           }
-        } catch (e) {
-          console.warn(`[DailyReport] Error sending to ${sub.name}:`, e.message);
         }
+      } catch (e) {
+        console.warn(`[DailyReport] Error sending to chat ${cid}:`, e.message);
       }
     }
   }
@@ -203,7 +214,9 @@ async function sendDailySalesReport({ isManual = false, targetChatId = null } = 
     success: true,
     sentCount,
     metrics,
-    message: `Daily sales report sent to ${sentCount} Telegram recipient(s).`,
+    message: sentCount > 0
+      ? `Daily sales report sent to ${sentCount} Telegram recipient(s).`
+      : 'No active Telegram subscribers were reached. Please ensure your Telegram bot is started and subscribers are registered.',
   };
 }
 

@@ -150,6 +150,10 @@ const settingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    lastDailyReportExecution: {
+      type: String,
+      default: '',
+    },
   },
   { timestamps: true }
 );

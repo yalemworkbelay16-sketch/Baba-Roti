@@ -524,13 +524,28 @@ export default function Settings() {
     finally { setTgReportLoading(false); }
   };
 
+  const handleToggleTgReportEnabled = async (enabled) => {
+    setTgReportEnabled(enabled);
+    try {
+      await api.put('/settings', {
+        telegramDailyReportEnabled: enabled,
+        telegramDailyReportTime: tgReportTime,
+      });
+      setTgSuccess(`Daily Telegram digest ${enabled ? 'enabled' : 'disabled'}!`);
+      setTimeout(() => setTgSuccess(''), 3000);
+      loadTgReportPreview();
+    } catch (_) {
+      setTgError('Failed to update status.');
+    }
+  };
+
   const handleSaveTgReportConfig = async () => {
     try {
       await api.put('/settings', {
         telegramDailyReportEnabled: tgReportEnabled,
         telegramDailyReportTime: tgReportTime,
       });
-      setTgSuccess('Daily Telegram Report schedule saved successfully!');
+      setTgSuccess(`Daily Telegram Report schedule set to ${tgReportTime} (Addis Ababa)!`);
       setTimeout(() => setTgSuccess(''), 4000);
       loadTgReportPreview();
     } catch (err) {
@@ -544,8 +559,12 @@ export default function Settings() {
     setTgError('');
     try {
       const res = await api.post('/telegram/send-daily-report');
-      setTgSuccess(res.data?.message || 'Daily sales report broadcasted to Telegram successfully!');
-      setTimeout(() => setTgSuccess(''), 5000);
+      if (res.data?.sentCount > 0) {
+        setTgSuccess(`⚡ Daily report successfully delivered to ${res.data.sentCount} Telegram subscriber(s)! Check your bot.`);
+      } else {
+        setTgError(res.data?.message || 'No active Telegram bot subscribers found.');
+      }
+      setTimeout(() => { setTgSuccess(''); setTgError(''); }, 6000);
       loadTgReportPreview();
     } catch (err) {
       setTgError(err.response?.data?.message || 'Failed to send daily report.');
@@ -2509,7 +2528,7 @@ export default function Settings() {
                     type="checkbox"
                     id="tgReportEnabled"
                     checked={tgReportEnabled}
-                    onChange={(e) => setTgReportEnabled(e.target.checked)}
+                    onChange={(e) => handleToggleTgReportEnabled(e.target.checked)}
                     className="h-4 w-4 accent-emerald-600 cursor-pointer"
                   />
                   <label htmlFor="tgReportEnabled" className="font-medium text-ink-800 cursor-pointer">
