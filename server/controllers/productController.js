@@ -682,31 +682,19 @@ const getPublicMenu = asyncHandler(async (req, res) => {
     Setting.findOne().lean(),
   ]);
 
-  // Robust fallback 1: If strict active filter yields 0 products, fetch active non-deleted products
+  // If strict isActive filter yielded 0 products, check if any products have isAvailableOnMenu !== false
   if (!products || products.length === 0) {
-    products = await Product.find({
-      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
-      isAvailableOnMenu: { $ne: false },
-    })
-      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
-      .sort({ isFeatured: -1, category: 1, name: 1 })
-      .lean();
-  }
-
-  // Robust fallback 2: If still 0 products, fetch any products with isAvailableOnMenu !== false so menu is never blank
-  if (!products || products.length === 0) {
-    products = await Product.find({ isAvailableOnMenu: { $ne: false } })
-      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
-      .sort({ isFeatured: -1, category: 1, name: 1 })
-      .lean();
-  }
-
-  // Robust fallback 3: Final safety net: return all products in collection
-  if (!products || products.length === 0) {
-    products = await Product.find({})
-      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
-      .sort({ isFeatured: -1, category: 1, name: 1 })
-      .lean();
+    // Check if user explicitly hid all products via digital menu settings
+    const anyHidden = await Product.exists({ isAvailableOnMenu: false });
+    if (!anyHidden) {
+      // System initialization / legacy products fallback
+      products = await Product.find({
+        $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+      })
+        .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+        .sort({ isFeatured: -1, category: 1, name: 1 })
+        .lean();
+    }
   }
 
   const stockMap = new Map(rawMaterials.map((m) => [String(m._id), Number(m.currentStock || 0)]));

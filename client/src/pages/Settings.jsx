@@ -362,6 +362,13 @@ export default function Settings() {
   const [tgAddForm, setTgAddForm] = useState({ name: '', phone: '', username: '', chatId: '' });
   const [tgAddSaving, setTgAddSaving] = useState(false);
 
+  // Daily Sales Telegram Report state
+  const [tgReportEnabled, setTgReportEnabled] = useState(true);
+  const [tgReportTime, setTgReportTime] = useState('12:00');
+  const [tgReportSending, setTgReportSending] = useState(false);
+  const [tgReportPreview, setTgReportPreview] = useState(null);
+  const [tgReportLoading, setTgReportLoading] = useState(false);
+
   // Sync profile when user updates
   useEffect(() => {
     if (user) {
@@ -438,7 +445,10 @@ export default function Settings() {
       .finally(() => setTgLoading(false));
   };
   useEffect(() => {
-    if (currentTab === 'telegram' && hasRole('admin')) loadTgSubscribers();
+    if (currentTab === 'telegram' && hasRole('admin')) {
+      loadTgSubscribers();
+      loadTgReportPreview();
+    }
   }, [currentTab]);
 
   // Handle Telegram subscriber removal
@@ -496,6 +506,49 @@ export default function Settings() {
       setTgError(err.response?.data?.message || 'Failed to add subscriber.');
     } finally {
       setTgAddSaving(false);
+    }
+  };
+
+  const loadTgReportPreview = async () => {
+    try {
+      setTgReportLoading(true);
+      const res = await api.get('/telegram/daily-report-preview');
+      if (res.data?.success) {
+        setTgReportPreview(res.data);
+        if (res.data.scheduledTime) setTgReportTime(res.data.scheduledTime);
+        if (res.data.enabled !== undefined) setTgReportEnabled(res.data.enabled);
+      }
+    } catch (_) {}
+    finally { setTgReportLoading(false); }
+  };
+
+  const handleSaveTgReportConfig = async () => {
+    try {
+      await api.put('/settings', {
+        telegramDailyReportEnabled: tgReportEnabled,
+        telegramDailyReportTime: tgReportTime,
+      });
+      setTgSuccess('Daily Telegram Report schedule saved successfully!');
+      setTimeout(() => setTgSuccess(''), 4000);
+      loadTgReportPreview();
+    } catch (err) {
+      setTgError(err.response?.data?.message || 'Failed to update schedule.');
+    }
+  };
+
+  const handleSendManualReport = async () => {
+    if (!window.confirm('Send the current daily sales report to all Telegram bot subscribers right now?')) return;
+    setTgReportSending(true);
+    setTgError('');
+    try {
+      const res = await api.post('/telegram/send-daily-report');
+      setTgSuccess(res.data?.message || 'Daily sales report broadcasted to Telegram successfully!');
+      setTimeout(() => setTgSuccess(''), 5000);
+      loadTgReportPreview();
+    } catch (err) {
+      setTgError(err.response?.data?.message || 'Failed to send daily report.');
+    } finally {
+      setTgReportSending(false);
     }
   };
 
@@ -2420,6 +2473,93 @@ export default function Settings() {
               </div>
             </div>
           )}
+
+          {/* ── Daily Sales Executive Digest Card ── */}
+          <div className="mt-6 pt-6 border-t border-ink-100">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-emerald-50 p-1.5 text-emerald-600">
+                  <BarChart3 size={16} />
+                </span>
+                <div>
+                  <h4 className="font-bold text-sm text-ink-900">Automated Daily Sales Telegram Digest</h4>
+                  <p className="text-xs text-ink-400">
+                    Automatically sends the owner &amp; subscribers a complete daily sales summary (categories, QR vs POS orders, and payment totals)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSendManualReport}
+                disabled={tgReportSending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white transition disabled:opacity-50 shadow-xs cursor-pointer"
+              >
+                <Send size={13} />
+                <span>{tgReportSending ? 'Broadcasting…' : '⚡ Send Test Report to Telegram Now'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-ink-50/70 p-4 rounded-2xl border border-ink-200 text-xs">
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Automated Daily Report</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="checkbox"
+                    id="tgReportEnabled"
+                    checked={tgReportEnabled}
+                    onChange={(e) => setTgReportEnabled(e.target.checked)}
+                    className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                  />
+                  <label htmlFor="tgReportEnabled" className="font-medium text-ink-800 cursor-pointer">
+                    {tgReportEnabled ? 'Enabled (Active)' : 'Disabled'}
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Scheduled Delivery Time (Addis Ababa)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={tgReportTime}
+                    onChange={(e) => setTgReportTime(e.target.value)}
+                    className="border border-ink-200 rounded-lg px-2.5 py-1.5 text-xs bg-white font-mono outline-none focus:border-emerald-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveTgReportConfig}
+                    className="rounded-lg bg-ink-900 hover:bg-black px-3 py-1.5 text-xs font-bold text-white transition cursor-pointer"
+                  >
+                    Save Time
+                  </button>
+                </div>
+                <p className="text-[10px] text-ink-400 mt-1">Default 12:00 PM. Changeable anytime.</p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Today's Live Revenue</label>
+                <p className="text-base font-black text-emerald-700 font-mono">
+                  {tgReportPreview?.metrics?.totalSales ? `${tgReportPreview.metrics.totalSales.toLocaleString()} ETB` : '0.00 ETB'}
+                </p>
+                <p className="text-[10px] text-ink-400">
+                  {tgReportPreview?.metrics?.totalOrdersCount || 0} orders recorded today
+                </p>
+              </div>
+            </div>
+
+            {/* Live Message Preview Box */}
+            {tgReportPreview?.previewText && (
+              <div className="mt-3">
+                <span className="text-[11px] font-bold text-ink-500 uppercase tracking-wider block mb-1">
+                  Telegram Message Preview
+                </span>
+                <div
+                  className="rounded-xl border border-emerald-900/30 bg-[#0d1f14] text-emerald-200 p-3.5 text-xs font-mono whitespace-pre-wrap leading-relaxed shadow-inner max-h-56 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: tgReportPreview.previewText }}
+                />
+              </div>
+            )}
+          </div>
         </Card>
       )}
       {/* ── Tab 6: Developer / System Owner Controls (Strictly dev role only) ── */}

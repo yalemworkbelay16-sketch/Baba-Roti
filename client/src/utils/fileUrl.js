@@ -28,6 +28,9 @@ export function normalizeFileUrl(url) {
   if (viteApiUrl && /^https?:\/\//i.test(viteApiUrl)) {
     try {
       const parsedApi = new URL(viteApiUrl);
+      if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost' && parsedApi.hostname === 'localhost') {
+        parsedApi.hostname = window.location.hostname;
+      }
       apiOrigin = parsedApi.origin;
     } catch {
       apiOrigin = '';

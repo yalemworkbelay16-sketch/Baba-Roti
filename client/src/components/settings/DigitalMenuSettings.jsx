@@ -43,6 +43,9 @@ export default function DigitalMenuSettings() {
     instagramUrl: 'https://www.instagram.com/babaroti_ethiopia',
     telegramUrl: 'https://t.me/babaroticafe',
     phone: '+251 91 123 4567',
+    landline: '+251 11 667 8900',
+    googleMapsLink: 'https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed',
     tables: [
       'Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05',
       'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
@@ -833,58 +836,90 @@ export default function DigitalMenuSettings() {
             General Digital Ordering Controls
           </h3>
 
-          <div className="space-y-4 text-xs">
-            <label className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 cursor-pointer">
+          <div className="space-y-3.5 text-xs">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 hover:bg-white transition">
               <div>
-                <p className="font-bold text-ink-900">Enable Digital Menu</p>
-                <p className="text-[11px] text-ink-400">Master on/off switch for customer QR ordering page</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-ink-900">Enable Digital Menu</p>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${settings.enabled !== false ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'}`}>
+                    {settings.enabled !== false ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-0.5">Master on/off switch for customer QR ordering page</p>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.enabled}
-                onChange={(e) => setSettings((p) => ({ ...p, enabled: e.target.checked }))}
-                className="h-5 w-5 accent-amber-800"
-              />
-            </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.enabled !== false}
+                onClick={() => setSettings((p) => ({ ...p, enabled: p.enabled === false }))}
+                className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 shrink-0 ${settings.enabled !== false ? 'bg-emerald-600' : 'bg-slate-300'}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-200 ${settings.enabled !== false ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
 
-            <label className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 hover:bg-white transition">
               <div>
-                <p className="font-bold text-ink-900">Allow Direct Ordering to Kitchen</p>
-                <p className="text-[11px] text-ink-400">If disabled, customer can only view the menu catalog without placing orders</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-ink-900">Allow Direct Ordering to Kitchen</p>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${settings.allowOrdering !== false ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                    {settings.allowOrdering !== false ? 'ACTIVE (ON)' : 'CATALOG VIEW ONLY'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-0.5">If disabled, customer can only view the menu catalog without placing orders</p>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.allowOrdering}
-                onChange={(e) => setSettings((p) => ({ ...p, allowOrdering: e.target.checked }))}
-                className="h-5 w-5 accent-amber-800"
-              />
-            </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.allowOrdering !== false}
+                onClick={() => setSettings((p) => ({ ...p, allowOrdering: p.allowOrdering === false }))}
+                className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 shrink-0 ${settings.allowOrdering !== false ? 'bg-emerald-600' : 'bg-slate-300'}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-200 ${settings.allowOrdering !== false ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
 
-            <label className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 hover:bg-white transition">
               <div>
-                <p className="font-bold text-ink-900">Enable "📞 Call Waiter" Button</p>
-                <p className="text-[11px] text-ink-400">Allows customer to alert waiter to their table</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-ink-900">Enable "📞 Call Waiter" Button</p>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${settings.enableCallWaiter !== false ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+                    {settings.enableCallWaiter !== false ? 'ACTIVE (ON)' : 'HIDDEN (OFF)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-0.5">Allows customer to alert waiter to their table</p>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.enableCallWaiter}
-                onChange={(e) => setSettings((p) => ({ ...p, enableCallWaiter: e.target.checked }))}
-                className="h-5 w-5 accent-amber-800"
-              />
-            </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.enableCallWaiter !== false}
+                onClick={() => setSettings((p) => ({ ...p, enableCallWaiter: p.enableCallWaiter === false }))}
+                className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 shrink-0 ${settings.enableCallWaiter !== false ? 'bg-emerald-600' : 'bg-slate-300'}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-200 ${settings.enableCallWaiter !== false ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
 
-            <label className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl border border-ink-200 bg-ink-50/50 hover:bg-white transition">
               <div>
-                <p className="font-bold text-ink-900">Enable "💵 Bill Request" Button</p>
-                <p className="text-[11px] text-ink-400">Notifies cashier &amp; captain orders when customer is ready to pay</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-ink-900">Enable "💵 Bill Request" Button</p>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${settings.enableBillRequest !== false ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+                    {settings.enableBillRequest !== false ? 'ACTIVE (ON)' : 'HIDDEN (OFF)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-400 mt-0.5">Notifies cashier &amp; captain orders when customer is ready to pay</p>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.enableBillRequest}
-                onChange={(e) => setSettings((p) => ({ ...p, enableBillRequest: e.target.checked }))}
-                className="h-5 w-5 accent-amber-800"
-              />
-            </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.enableBillRequest !== false}
+                onClick={() => setSettings((p) => ({ ...p, enableBillRequest: p.enableBillRequest === false }))}
+                className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 shrink-0 ${settings.enableBillRequest !== false ? 'bg-emerald-600' : 'bg-slate-300'}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-200 ${settings.enableBillRequest !== false ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
 
             <div>
               <label className="block font-bold text-ink-800 mb-1">Banner Announcement Text</label>
@@ -946,7 +981,7 @@ export default function DigitalMenuSettings() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block font-semibold text-ink-700 mb-1">Customer Order Hotline / Phone</label>
                   <input
                     type="text"
@@ -955,6 +990,40 @@ export default function DigitalMenuSettings() {
                     onChange={(e) => setSettings((p) => ({ ...p, phone: e.target.value }))}
                     className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-ink-700 mb-1">Landline Phone (Office)</label>
+                  <input
+                    type="text"
+                    value={settings.landline || ''}
+                    placeholder="+251 11 667 8900"
+                    onChange={(e) => setSettings((p) => ({ ...p, landline: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-ink-700 mb-1">Google Maps Direct Link (Open in Maps Button)</label>
+                  <input
+                    type="url"
+                    value={settings.googleMapsLink || ''}
+                    placeholder="https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"
+                    onChange={(e) => setSettings((p) => ({ ...p, googleMapsLink: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-ink-700 mb-1">Google Maps Interactive Embedded URL</label>
+                  <input
+                    type="text"
+                    value={settings.googleMapsEmbedUrl || ''}
+                    placeholder="https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed"
+                    onChange={(e) => setSettings((p) => ({ ...p, googleMapsEmbedUrl: e.target.value }))}
+                    className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                  />
+                  <p className="text-[11px] text-ink-400 mt-1">Changes the interactive location map on the digital menu in real-time.</p>
                 </div>
               </div>
             </div>

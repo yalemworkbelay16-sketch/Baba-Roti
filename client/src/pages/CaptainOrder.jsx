@@ -3,7 +3,7 @@ import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
 import { dispatchPrint } from "../utils/localPrintDispatcher";
 import { exportToExcel, exportToCSV, exportToPDF } from "../utils/exportUtils";
-import { triggerNewOrderAlert } from "../utils/audioAlert";
+import { triggerNewOrderAlert, triggerWaiterCallAlert, playOrderChime, announceOrderVoice } from "../utils/audioAlert";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
   UtensilsCrossed, ShoppingBag, Printer, User, TableProperties,
@@ -121,9 +121,15 @@ export default function CaptainOrder() {
       const data = res.data || [];
       setOrders(data);
 
-      // Sound & Voice Alert on newly arriving orders
+      // Sound & Voice Alert on newly arriving orders (STRICTLY for customer QR self-orders only)
       if (knownOrderIdsRef.current !== null) {
-        const newOrders = data.filter((o) => !knownOrderIdsRef.current.has(o._id));
+        const newOrders = data.filter(
+          (o) =>
+            !knownOrderIdsRef.current.has(o._id) &&
+            (o.status === "pending_approval" ||
+              o.createdByName === "Customer Digital Menu" ||
+              o.waiterName?.includes("Self-Order"))
+        );
         newOrders.forEach((o) => {
           triggerNewOrderAlert({
             orderId: o._id,
@@ -168,13 +174,13 @@ export default function CaptainOrder() {
                 tableNo: o.tableNo,
                 itemsCount: o.items?.length,
                 totalAmount: o.grandTotal,
+                force: true,
               });
               showToast(`🛎️ New Customer QR Order #${o.orderNo} at ${o.tableNo || 'Table'}!`, "info");
               loadOrders();
             }
-          } catch (_) {}
+          } catch (_) { }
         });
-
         // Silent reload for POS staff updates
         es.addEventListener("pos_order_updated", () => {
           loadOrders();
@@ -185,12 +191,10 @@ export default function CaptainOrder() {
             const parsed = JSON.parse(event.data);
             const d = parsed.data;
             if (d) {
-              triggerNewOrderAlert({
-                orderId: Date.now(),
-                orderNo: d.action === 'request_bill' ? 'BILL' : 'ASSIST',
+              triggerWaiterCallAlert({
                 tableNo: d.tableNo,
-                itemsCount: 0,
-                totalAmount: 0,
+                action: d.action,
+                customerName: d.customerName,
               });
               showToast(
                 d.action === 'request_bill'
@@ -199,14 +203,14 @@ export default function CaptainOrder() {
                 "info"
               );
             }
-          } catch (_) {}
+          } catch (_) { }
         });
 
         es.onerror = () => {
           if (es) es.close();
           reconnectTimeout = setTimeout(connectSSE, 5000);
         };
-      } catch (_) {}
+      } catch (_) { }
     };
 
     connectSSE();

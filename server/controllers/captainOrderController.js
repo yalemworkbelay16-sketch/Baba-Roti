@@ -12,6 +12,9 @@ function broadcastOrderEvent(eventType, payload) {
   for (const client of sseSubscribers) {
     try {
       client.write(`event: ${eventType}\ndata: ${data}\n\n`);
+      if (typeof client.flush === 'function') {
+        client.flush();
+      }
     } catch (_) {
       sseSubscribers.delete(client);
     }
@@ -461,6 +464,18 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
     },
     tableNotes: safeTableNotes,
   });
+
+  const Notification = require("../models/Notification");
+  try {
+    await Notification.create({
+      type: "order",
+      title: `🛎️ New QR Order: ${safeTableNo}`,
+      message: `Customer at ${safeTableNo} submitted order #${orderNo} (${processedItems.length} items, ETB ${grandTotal.toFixed(2)}) awaiting waiter check.`,
+      icon: "🛎️",
+      link: "/captain-order",
+      severity: "warning",
+    });
+  } catch (_) {}
 
   const tg = require("../utils/telegramNotifier");
   if (tg) {

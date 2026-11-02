@@ -171,6 +171,44 @@ if (!process.env.VERCEL) {
 
       console.log(`[KEEP-ALIVE] Server ping active every 10 min → ${publicUrl}/api/health`);
     }
+
+    // ── Automated Daily Sales Summary Scheduler ───────────────────
+    // Checks every 30 seconds if current Addis Ababa local time matches
+    // Setting.telegramDailyReportTime and hasn't already been sent today.
+    setInterval(async () => {
+      try {
+        const Setting = require('./models/Setting');
+        const settings = await Setting.findOne();
+        if (!settings || settings.telegramDailyReportEnabled === false) return;
+
+        const now = new Date();
+        const timeFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Africa/Addis_Ababa',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+        const currentTime = timeFormatter.format(now); // e.g. "12:00"
+
+        const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Africa/Addis_Ababa',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const todayStr = dateFormatter.format(now); // "YYYY-MM-DD"
+
+        const scheduledTime = (settings.telegramDailyReportTime || '12:00').padStart(5, '0');
+
+        if (currentTime === scheduledTime && settings.lastDailyReportDate !== todayStr) {
+          console.log(`[DAILY-REPORT] Triggering automated daily sales digest for ${todayStr} at ${currentTime}...`);
+          const { sendDailySalesReport } = require('./utils/dailySalesReporter');
+          await sendDailySalesReport({ isManual: false });
+        }
+      } catch (err) {
+        console.warn('[DAILY-REPORT] Scheduler error:', err.message);
+      }
+    }, 30 * 1000);
   });
 }
 

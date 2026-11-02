@@ -204,6 +204,26 @@ const updateSettings = asyncHandler(async (req, res) => {
     settings.markModified('crudPermissions');
   }
 
+  // Customer Digital Menu Settings (toggles, contacts, maps, tables)
+  if (req.body.digitalMenuSettings !== undefined && typeof req.body.digitalMenuSettings === 'object') {
+    settings.digitalMenuSettings = {
+      ...(settings.digitalMenuSettings || {}),
+      ...req.body.digitalMenuSettings,
+    };
+    settings.markModified('digitalMenuSettings');
+  }
+
+  // Telegram Daily Sales Digest Settings
+  if (req.body.telegramDailyReportEnabled !== undefined) {
+    settings.telegramDailyReportEnabled = Boolean(req.body.telegramDailyReportEnabled);
+  }
+  if (req.body.telegramDailyReportTime !== undefined) {
+    const timeStr = String(req.body.telegramDailyReportTime).trim();
+    if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
+      settings.telegramDailyReportTime = timeStr.padStart(5, '0');
+    }
+  }
+
   // If user requested to immediately apply price adjustment to all raw materials in database
   let rawMaterialsUpdated = 0;
   if (req.body.applyToMaterialsNow && Number(settings.rawMaterialPriceAdjustValue) > 0) {

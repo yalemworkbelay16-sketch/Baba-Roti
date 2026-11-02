@@ -60,18 +60,15 @@ router.post('/', protect, upload.array('files', 5), async (req, res, next) => {
         uploadedAt: new Date(),
       });
     }
-
     res.status(201).json({ files: uploaded });
   } catch (err) {
     next(err);
   }
 });
-
 // ── GET /api/upload/:filename — query GridFS, fallback to disk + sync ────
 router.get('/:filename', async (req, res, next) => {
   try {
     const filename = path.basename(req.params.filename);
-
     // 1. Query MongoDB GridFS first
     const fileDoc = await findGridFSFile(filename);
     if (fileDoc) {
@@ -99,10 +96,8 @@ router.get('/:filename', async (req, res, next) => {
       syncLocalFileToGridFS(filename, localFilePath).catch((syncErr) => {
         console.warn(`[GridFS] Background sync failed for ${filename}:`, syncErr.message);
       });
-
       return res.sendFile(localFilePath);
     }
-
     // 3. File not found in GridFS or local cache: return SVG placeholder or JSON
     const isJsonExpected =
       req.query.json === 'true' ||
@@ -113,7 +108,6 @@ router.get('/:filename', async (req, res, next) => {
     if (isJsonExpected) {
       return res.status(404).json({ message: 'File not found.' });
     }
-
     return res
       .status(404)
       .set('Content-Type', 'image/svg+xml')
@@ -128,7 +122,6 @@ router.get('/:filename', async (req, res, next) => {
 router.delete('/:filename', protect, async (req, res, next) => {
   try {
     const filename = path.basename(req.params.filename);
-
     // Delete chunks and files from MongoDB Atlas GridFS
     const gridFsDeleted = await deleteFromGridFS(filename);
 

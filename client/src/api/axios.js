@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+let apiBase = import.meta.env.VITE_API_URL || '/api';
+if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost') {
+  if (apiBase.includes('localhost:5000')) {
+    apiBase = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+  }
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: apiBase,
 });
 
 api.interceptors.request.use((config) => {

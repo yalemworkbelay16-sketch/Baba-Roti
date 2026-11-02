@@ -22,7 +22,6 @@ function getAudioContext() {
   }
   return audioCtx;
 }
-
 /**
  * Plays a pleasant high-end restaurant service bell chime (3-tone harmonic chime).
  */
@@ -98,9 +97,9 @@ const alertedOrderIds = new Set();
 /**
  * Trigger full alert (Chime + Voice Announcement) for a new incoming customer order.
  */
-export function triggerNewOrderAlert({ orderId, orderNo, tableNo, itemsCount, totalAmount }) {
+export function triggerNewOrderAlert({ orderId, orderNo, tableNo, itemsCount, totalAmount, force = false }) {
   const key = String(orderId || orderNo);
-  if (alertedOrderIds.has(key)) return false;
+  if (!force && alertedOrderIds.has(key)) return false;
   alertedOrderIds.add(key);
 
   // 1. Play crystal-clear chime
@@ -112,6 +111,27 @@ export function triggerNewOrderAlert({ orderId, orderNo, tableNo, itemsCount, to
     cleanTable = cleanTable.replace(/^Table\s*0*([1-9]\d*)/i, 'Table $1');
     const countText = itemsCount ? `for ${itemsCount} items` : '';
     const voiceMessage = `New customer order on ${cleanTable} ${countText}!`;
+    announceOrderVoice(voiceMessage);
+  }, 350);
+
+  return true;
+}
+
+/**
+ * Trigger specific alert for customer Waiter Call or Bill Request
+ */
+export function triggerWaiterCallAlert({ tableNo, action = 'call_waiter', customerName = '' }) {
+  // 1. Play pleasant restaurant chime
+  playOrderChime();
+
+  // 2. Clear verbal announcement
+  setTimeout(() => {
+    let cleanTable = String(tableNo || 'Table').trim();
+    cleanTable = cleanTable.replace(/^Table\s*0*([1-9]\d*)/i, 'Table $1');
+    const isBill = action === 'request_bill';
+    const voiceMessage = isBill
+      ? `${cleanTable} requested the bill!`
+      : `Waiter requested at ${cleanTable}!`;
     announceOrderVoice(voiceMessage);
   }, 350);
 

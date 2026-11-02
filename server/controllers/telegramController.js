@@ -335,4 +335,36 @@ const removeSubscriber = asyncHandler(async (req, res) => {
   res.json({ message: 'Subscriber removed and notifications stopped.' });
 });
 
-module.exports = { handleWebhook, getSubscribers, addSubscriber, updateSubscriberPhone, removeSubscriber };
+// ── GET /api/telegram/daily-report-preview (admin/dev only) ────────
+const getDailyReportPreview = asyncHandler(async (req, res) => {
+  const { computeDailySalesMetrics, formatDailyReportMessage } = require('../utils/dailySalesReporter');
+  const Setting = require('../models/Setting');
+  const settings = await Setting.findOne();
+  const metrics = await computeDailySalesMetrics();
+  const previewText = formatDailyReportMessage(metrics, settings?.hotelName || 'Baba Roti Café');
+
+  res.json({
+    success: true,
+    metrics,
+    previewText,
+    scheduledTime: settings?.telegramDailyReportTime || '12:00',
+    enabled: settings?.telegramDailyReportEnabled !== false,
+  });
+});
+
+// ── POST /api/telegram/send-daily-report (admin/dev only) ──────────
+const sendManualDailyReport = asyncHandler(async (req, res) => {
+  const { sendDailySalesReport } = require('../utils/dailySalesReporter');
+  const result = await sendDailySalesReport({ isManual: true });
+  res.json(result);
+});
+
+module.exports = {
+  handleWebhook,
+  getSubscribers,
+  addSubscriber,
+  updateSubscriberPhone,
+  removeSubscriber,
+  getDailyReportPreview,
+  sendManualDailyReport,
+};

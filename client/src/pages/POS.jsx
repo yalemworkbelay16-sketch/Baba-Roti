@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
 import { dispatchPrint } from "../utils/localPrintDispatcher";
-import { triggerNewOrderAlert } from "../utils/audioAlert";
+import { triggerNewOrderAlert, triggerWaiterCallAlert } from "../utils/audioAlert";
 import {
   Search, Plus, Minus, Trash2, ChevronDown, X, Clock,
   UtensilsCrossed, ReceiptText, Printer, Check, CreditCard,
@@ -469,6 +469,7 @@ export default function POS() {
                 tableNo: o.tableNo,
                 itemsCount: o.items?.length,
                 totalAmount: o.grandTotal,
+                force: true,
               });
               setToast({
                 msg: `🛎️ New QR Order at ${o.tableNo || 'Table'}!`,
@@ -489,12 +490,10 @@ export default function POS() {
             const parsed = JSON.parse(event.data);
             const d = parsed.data;
             if (d) {
-              triggerNewOrderAlert({
-                orderId: Date.now(),
-                orderNo: d.action === 'request_bill' ? 'BILL' : 'ASSIST',
+              triggerWaiterCallAlert({
                 tableNo: d.tableNo,
-                itemsCount: 0,
-                totalAmount: 0,
+                action: d.action,
+                customerName: d.customerName,
               });
               setToast({
                 msg: d.action === 'request_bill'

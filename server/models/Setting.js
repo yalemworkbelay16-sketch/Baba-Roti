@@ -117,16 +117,38 @@ const settingSchema = new mongoose.Schema(
       default: {
         enabled: true,
         allowOrdering: true,
+        enableCallWaiter: true,
+        enableBillRequest: true,
         bannerText: 'Delicious Food Freshly Made',
         bannerSubtitle: 'Fresh Buns, Hot Specialty Coffee & Savory Meals',
+        phone: '+251 91 123 4567',
+        landline: '+251 11 667 8900',
+        googleMapsLink: 'https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa',
+        googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed',
+        tiktokUrl: 'https://www.tiktok.com/@babaroti_ethiopia',
+        facebookUrl: 'https://www.facebook.com/babarotiethiopia',
+        instagramUrl: 'https://www.instagram.com/babaroti_ethiopia',
+        telegramUrl: 'https://t.me/babaroticafe',
         tables: [
           'Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05',
           'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
           'Table 12', 'Table 15', 'Table 20', 'Table 36', 'VIP 01', 'Patio 01', 'Patio 02'
         ],
-        enableCallWaiter: true,
-        enableBillRequest: true,
       },
+    },
+
+    // ── Automated Daily Sales Summary via Telegram ────────────────
+    telegramDailyReportEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    telegramDailyReportTime: {
+      type: String,
+      default: '12:00', // 24-hr format (e.g. '12:00', '09:00', '21:00')
+    },
+    lastDailyReportDate: {
+      type: String,
+      default: '',
     },
   },
   { timestamps: true }

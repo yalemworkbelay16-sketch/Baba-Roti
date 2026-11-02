@@ -289,22 +289,32 @@ function executePrint(html, frameId = 'pos_print_frame') {
   iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;z-index:-9999;';
   document.body.appendChild(iframe);
 
+  let hasPrinted = false;
+  const triggerPrint = () => {
+    if (hasPrinted) return;
+    hasPrinted = true;
+    try {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+    } catch (err) {
+      console.error('Print execution error:', err);
+    } finally {
+      setTimeout(() => {
+        try { iframe.remove(); } catch (_) {}
+      }, 3000);
+    }
+  };
+
+  iframe.onload = () => setTimeout(triggerPrint, 150);
+
   iframe.contentDocument.open();
   iframe.contentDocument.write(html);
   iframe.contentDocument.close();
 
-  iframe.onload = () => {
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (err) {
-        console.error('Print execution error:', err);
-      } finally {
-        setTimeout(() => iframe.remove(), 2000);
-      }
-    }, 250);
-  };
+  // Guarantees print dialog pops even if onload doesn't fire on dynamic iframe
+  setTimeout(triggerPrint, 250);
 }
 
 export const posPrint = {

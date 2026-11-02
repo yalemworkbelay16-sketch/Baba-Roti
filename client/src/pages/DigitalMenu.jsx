@@ -56,9 +56,18 @@ export function normalizeTableNumber(raw) {
   return s;
 }
 import { normalizeFileUrl } from '../utils/fileUrl';
+import { getLocalizedCategory, getLocalizedProductName } from '../utils/amharicTranslations';
 
 // Base API URL
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = (() => {
+  const envApi = import.meta.env.VITE_API_URL || '/api';
+  if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost') {
+    if (envApi.includes('localhost:5000')) {
+      return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+    }
+  }
+  return envApi;
+})();
 
 // Multilingual Dictionary (English <-> Amharic)
 const TRANSLATIONS = {
@@ -748,18 +757,26 @@ export default function DigitalMenu() {
     }
   };
 
-  if (menuLicensed === false) {
+  if (menuLicensed === false || menuData?.digitalMenuSettings?.enabled === false || (menuData?.products && menuData.products.length === 0)) {
     return (
       <div className="min-h-screen bg-[#fdfbf7] flex flex-col justify-between max-w-md mx-auto shadow-2xl relative text-slate-800">
         {/* Café Top Brand Bar */}
         <div className="bg-[#271406] text-white px-5 py-4 flex items-center justify-between border-b border-amber-900/30">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-xl shadow-inner">
-              🥐
+            <div className="h-10 w-10 rounded-2xl bg-white border border-amber-400/40 flex items-center justify-center overflow-hidden shadow-inner p-0.5 shrink-0">
+              <img
+                src="/baba-roti-logo.png"
+                alt="Baba Roti"
+                className="h-full w-full object-cover rounded-xl"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/logo.png';
+                }}
+              />
             </div>
             <div>
               <h1 className="font-serif font-black text-sm tracking-wide text-amber-100 uppercase">
-                Baba Roti Café
+                {menuData.cafeName || 'Baba Roti Café'}
               </h1>
               <p className="text-[10px] text-amber-300 font-bold tracking-wider">
                 Fresh Buns &bull; Specialty Coffee
@@ -774,7 +791,7 @@ export default function DigitalMenu() {
         </div>
 
         {/* Positive Hospitality Card */}
-        <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-5">
+        <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-4">
           <div className="relative">
             <div className="h-24 w-24 rounded-3xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-200 text-stone-950 flex items-center justify-center text-5xl shadow-xl shadow-amber-900/10 border-4 border-white">
               ✨
@@ -786,32 +803,54 @@ export default function DigitalMenu() {
 
           <div className="space-y-2 max-w-xs">
             <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-              A Warm Welcome to Our Café!
+              {lang === 'am' ? 'እንኳን ደህና መጡ!' : 'A Warm Welcome to Our Café!'}
             </span>
             <h2 className="font-serif text-2xl font-black text-stone-900 leading-tight">
-              We're Delighted You're Here!
+              {lang === 'am' ? 'ስለመጡ ደስ ብሎናል!' : "We're Delighted You're Here!"}
             </h2>
             <p className="text-xs text-stone-600 leading-relaxed pt-1">
-              Our digital self-ordering is taking a brief rest while our chefs prepare today's fresh delicacies.
+              {lang === 'am'
+                ? 'የዲጂታል ሜኑ አገልግሎታችን ሼፎቻችን ትኩስ እና ጣፋጭ ምግቦችን እያዘጋጁ ባለበት ወቅት ለአፍታ እረፍት ወስዷል።'
+                : "Our digital self-ordering is taking a brief rest while our chefs prepare today's fresh delicacies."}
             </p>
             <p className="text-xs font-semibold text-amber-900 bg-amber-50/80 p-3 rounded-2xl border border-amber-200/80 leading-relaxed">
-              👋 Our friendly waiter will be right at your table in just a moment to present our menu and take your order in person!
+              {lang === 'am'
+                ? '👋 ደግ እና ፈጣን አስተናጋጆቻችን የተሟላ ሜኑ ይዘው ትዕዛዝዎን በአካል ለመቀበል ወደ ጠረጴዛዎ እየመጡ ነው!'
+                : '👋 Our friendly waiter will be right at your table in just a moment to present our menu and take your order in person!'}
             </p>
           </div>
 
           {/* Quick Waiter Call Button */}
-          <div className="w-full max-w-xs pt-2 space-y-2">
-            <button
-              onClick={() => handleServiceRequest('call_waiter')}
-              disabled={submittingService}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98"
-            >
-              <Bell size={16} />
-              <span>{submittingService ? 'Calling Waiter...' : `Call Waiter to ${tableNo || 'My Table'}`}</span>
-            </button>
-            <p className="text-[10px] text-stone-400 font-medium">
-              Tap above to notify our team immediately &bull; Table alert is instant
-            </p>
+          {menuData?.digitalMenuSettings?.enableCallWaiter !== false && (
+            <div className="w-full max-w-xs pt-1 space-y-2">
+              <button
+                onClick={() => handleServiceRequest('call_waiter')}
+                disabled={submittingService}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+              >
+                <Bell size={16} />
+                <span>{submittingService ? (lang === 'am' ? 'አስተናጋጅ እየተጠራ ነው...' : 'Calling Waiter...') : (lang === 'am' ? `አስተናጋጅ ወደ ${tableNo || 'ጠረጴዛዬ'} ጥራ` : `Call Waiter to ${tableNo || 'My Table'}`)}</span>
+              </button>
+              <p className="text-[10px] text-stone-400 font-medium">
+                {lang === 'am' ? 'አስተናጋጅ በፍጥነት ለማስጠራት ከላይ ያለውን ይጫኑ' : 'Tap above to notify our team immediately • Table alert is instant'}
+              </p>
+            </div>
+          )}
+
+          {/* Direct Hotline & Landline */}
+          <div className="w-full max-w-xs pt-2 space-y-1.5 text-xs text-left">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 font-bold">
+              <span>{lang === 'am' ? 'የቢሮ ስልክ (Landline):' : 'Landline:'}</span>
+              <a href={`tel:${(menuData?.digitalMenuSettings?.landline || '+251116678900').replace(/[^+\d]/g, '')}`} className="font-mono text-amber-800 underline">
+                {menuData?.digitalMenuSettings?.landline || '+251 11 667 8900'}
+              </a>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 font-bold">
+              <span>{lang === 'am' ? 'ሞባይል / ትዕዛዝ:' : 'Mobile Hotline:'}</span>
+              <a href={`tel:${(menuData?.digitalMenuSettings?.phone || '+251911234567').replace(/[^+\d]/g, '')}`} className="font-mono text-amber-800 underline">
+                {menuData?.digitalMenuSettings?.phone || '+251 91 123 4567'}
+              </a>
+            </div>
           </div>
 
           {/* Service Alert Toast if called */}
@@ -821,6 +860,17 @@ export default function DigitalMenu() {
               <span>{serviceAlert.message}</span>
             </div>
           )}
+        </div>
+
+        {/* Floating Language Switcher */}
+        <div className="pb-4 px-6 flex justify-center">
+          <button
+            onClick={toggleLanguage}
+            className="px-4 py-2 rounded-full bg-[#271406] text-amber-200 font-extrabold text-xs shadow-md border border-amber-600/40 flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+          >
+            <span>🌐</span>
+            <span>{t.switchLang}</span>
+          </button>
         </div>
 
         {/* Location & Hospitality Footer */}
@@ -1074,12 +1124,20 @@ export default function DigitalMenu() {
       {/* ── 1. DARK ROAST BROWN TOP HEADER (Matches Screenshots) ── */}
       <header className="bg-[#271406] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-full bg-white text-[#271406] flex items-center justify-center text-lg font-black shadow-inner shrink-0">
-            🥐
+          <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm shrink-0 border border-amber-400/40 p-0.5">
+            <img
+              src="/baba-roti-logo.png"
+              alt="Baba Roti"
+              className="h-full w-full object-cover rounded-full"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/logo.png';
+              }}
+            />
           </div>
           <div>
             <h1 className="text-xs font-black text-white leading-tight uppercase tracking-tight">
-              {menuData.cafeName}
+              {menuData.cafeName || 'Baba Roti Café'}
             </h1>
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-[10px] font-bold text-amber-300">
@@ -1131,27 +1189,41 @@ export default function DigitalMenu() {
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-1.5">
-          {tableOrdersHistory.length > 0 && (
+          {tableOrdersHistory.length > 0 && menuData?.digitalMenuSettings?.enableBillRequest !== false && (
             <button
               onClick={() => setHistoryOpen(true)}
-              className="px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-amber-200 font-bold text-xs flex items-center gap-1 transition border border-white/10"
+              className="px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-amber-200 font-bold text-xs flex items-center gap-1 transition border border-white/10 cursor-pointer"
               title="Table Orders & Bill"
             >
               <Receipt size={12} className="text-amber-300" />
-              <span>Bill</span>
+              <span>{lang === 'am' ? 'ሒሳብ' : 'Bill'}</span>
             </button>
           )}
 
-          {/* Call Waiter Button (Exact Match) */}
-          <button
-            onClick={() => setWaiterModalOpen(true)}
-            className="px-3 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm flex items-center gap-1 transition active:scale-95"
-          >
-            <PhoneCall size={12} className="stroke-[2.5]" />
-            <span>{t.callWaiter}</span>
-          </button>
+          {/* Call Waiter Button */}
+          {menuData?.digitalMenuSettings?.enableCallWaiter !== false && (
+            <button
+              onClick={() => setWaiterModalOpen(true)}
+              className="px-3 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow-sm flex items-center gap-1 transition active:scale-95 cursor-pointer"
+            >
+              <PhoneCall size={12} className="stroke-[2.5]" />
+              <span>{t.callWaiter}</span>
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Browsing Mode Banner if direct kitchen ordering is turned off */}
+      {menuData?.digitalMenuSettings?.allowOrdering === false && (
+        <div className="bg-amber-100 border-b border-amber-300 px-3.5 py-2 text-center text-xs text-amber-950 font-bold flex items-center justify-center gap-2 shadow-2xs">
+          <Info size={14} className="text-amber-800 shrink-0" />
+          <span>
+            {lang === 'am'
+              ? 'የማሰሻ ሁነታ በርቷል (የቀጥታ ትዕዛዝ ተዘግቷል)፡ እባክዎ ሲዘጋጁ ለአስተናጋጅ ይንገሩ።'
+              : 'Browsing Mode Active: Self-ordering is currently paused. Please inform your waiter when ready.'}
+          </span>
+        </div>
+      )}
 
       {/* Table Occupied Warning Banner if another guest already ordered here */}
       {isOtherCustomerOccupied && (
@@ -1259,9 +1331,7 @@ export default function DigitalMenu() {
             {/* Carousel Content */}
             <div className="relative z-10 p-3.5 w-full">
               <h2 className="text-lg font-black text-white font-serif leading-tight">
-                {lang === 'am' && featuredProducts[featuredIndex]?.nameAmharic
-                  ? featuredProducts[featuredIndex].nameAmharic
-                  : featuredProducts[featuredIndex]?.name}
+                {getLocalizedProductName(featuredProducts[featuredIndex], lang)}
               </h2>
               <div className="flex items-center justify-between mt-0.5">
                 <span className="text-xs text-amber-300 font-semibold">{t.nowAvailable}</span>
@@ -1327,7 +1397,7 @@ export default function DigitalMenu() {
               : 'bg-white text-slate-700 border border-slate-200'
               }`}
           >
-            {cat}
+            {getLocalizedCategory(cat, lang)}
           </button>
         ))}
       </div>
@@ -1364,7 +1434,7 @@ export default function DigitalMenu() {
             const isOut = !!p.isOutOfStock;
             const price = Number(p.sellingPrice || 0);
             const safeImg = p.imageUrl ? normalizeFileUrl(p.imageUrl) : null;
-            const displayName = lang === 'am' && p.nameAmharic ? p.nameAmharic : p.name;
+            const displayName = getLocalizedProductName(p, lang);
             const displayDesc =
               lang === 'am' && p.descriptionAmharic ? p.descriptionAmharic : p.description;
             const cartItem = cart.find((item) => item.productId === p._id);
@@ -1421,7 +1491,15 @@ export default function DigitalMenu() {
                     {price.toFixed(0)} ETB
                   </span>
 
-                  {isOut ? (
+                  {menuData?.digitalMenuSettings?.allowOrdering === false ? (
+                    <button
+                      onClick={() => setDetailProduct(p)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 cursor-pointer"
+                    >
+                      <span>🔍</span>
+                      <span>{t.details}</span>
+                    </button>
+                  ) : isOut ? (
                     <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200">
                       {t.soldOut}
                     </span>
@@ -1454,7 +1532,7 @@ export default function DigitalMenu() {
                   ) : (
                     <button
                       onClick={() => addToCart(p)}
-                      className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 bg-[#d97706] hover:bg-[#b45309] text-white"
+                      className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs transition active:scale-95 flex items-center gap-1 bg-[#d97706] hover:bg-[#b45309] text-white cursor-pointer"
                     >
                       <span>+</span>
                       <span>{t.add}</span>
@@ -1585,10 +1663,10 @@ export default function DigitalMenu() {
               </p>
             </div>
             <a
-              href="https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"
+              href={menuData?.digitalMenuSettings?.googleMapsLink || "https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-[10px] font-extrabold flex items-center gap-1 transition shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-[10px] font-extrabold flex items-center gap-1 transition shrink-0 cursor-pointer"
             >
               <span>Map</span>
               <ExternalLink size={11} />
@@ -1599,7 +1677,7 @@ export default function DigitalMenu() {
           <div className="rounded-2xl overflow-hidden border border-slate-200 h-44 relative bg-slate-100 shadow-inner">
             <iframe
               title="Baba Roti Location - Bole Alem Cinema"
-              src="https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed"
+              src={menuData?.digitalMenuSettings?.googleMapsEmbedUrl || "https://maps.google.com/maps?q=Alem%20Cinema,%20Bole,%20Addis%20Ababa,%20Ethiopia&t=&z=16&ie=UTF8&iwloc=&output=embed"}
               className="w-full h-full border-0"
               loading="lazy"
             />
@@ -1607,10 +1685,10 @@ export default function DigitalMenu() {
 
           <div className="flex items-center justify-between pt-1">
             <a
-              href="https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"
+              href={menuData?.digitalMenuSettings?.googleMapsLink || "https://maps.google.com/?q=Alem+Cinema+Bole+Addis+Ababa"}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-2.5 rounded-xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-extrabold text-xs shadow-sm transition flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 rounded-xl bg-[#271406] hover:bg-[#3b2219] text-amber-200 font-extrabold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <MapPin size={13} className="text-amber-400" />
               <span>{lang === 'am' ? 'በጉግል ካርታ ይክፈቱ (ቦሌ ዓለም ሲኒማ)' : 'Open in Google Maps (Around Alem Cinema)'}</span>
@@ -1719,7 +1797,7 @@ export default function DigitalMenu() {
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <a
-                href={`tel:${menuData?.digitalMenuSettings?.phone || '+251911234567'}`}
+                href={`tel:${(menuData?.digitalMenuSettings?.phone || '+251911234567').replace(/[^+\d]/g, '')}`}
                 className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold flex items-center justify-between transition"
               >
                 <div className="flex items-center gap-2">
@@ -1730,14 +1808,16 @@ export default function DigitalMenu() {
               </a>
 
               <a
-                href="tel:+251116678900"
+                href={`tel:${(menuData?.digitalMenuSettings?.landline || '+251116678900').replace(/[^+\d]/g, '')}`}
                 className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold flex items-center justify-between transition"
               >
                 <div className="flex items-center gap-2">
                   <Phone size={14} className="text-amber-700" />
                   <span>{lang === 'am' ? 'የቢሮ ስልክ' : 'Landline'}</span>
                 </div>
-                <span className="font-mono text-amber-800 font-black">+251 11 667 8900</span>
+                <span className="font-mono text-amber-800 font-black">
+                  {menuData?.digitalMenuSettings?.landline || '+251 11 667 8900'}
+                </span>
               </a>
             </div>
           </div>
@@ -1868,7 +1948,7 @@ export default function DigitalMenu() {
       </div>
 
       {/* ── 7. FLOATING ORDER STATUS BAR (Dynamic: Review Cart OR Track Active Order) ── */}
-      {cart.length > 0 ? (
+      {cart.length > 0 && menuData?.digitalMenuSettings?.allowOrdering !== false ? (
         <div className="fixed bottom-3 inset-x-3 max-w-md mx-auto z-40">
           <div
             onClick={() => setViewState('review')}
@@ -2077,33 +2157,53 @@ export default function DigitalMenu() {
 
             <div className="p-5 space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-extrabold text-base text-slate-900">{detailProduct.name}</h3>
+                <h3 className="font-extrabold text-base text-slate-900">
+                  {getLocalizedProductName(detailProduct, lang)}
+                </h3>
                 <span className="font-black text-base text-slate-900">
                   {Number(detailProduct.sellingPrice || 0).toFixed(0)} ETB
                 </span>
               </div>
 
-              {detailProduct.description && (
+              {(detailProduct.description || detailProduct.descriptionAmharic) && (
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  {detailProduct.description}
+                  {lang === 'am' && detailProduct.descriptionAmharic
+                    ? detailProduct.descriptionAmharic
+                    : detailProduct.description}
                 </p>
               )}
 
-              <button
-                disabled={detailProduct.isOutOfStock}
-                onClick={() => {
-                  addToCart(detailProduct);
-                  setDetailProduct(null);
-                }}
-                className={`w-full py-3.5 rounded-2xl font-black text-xs shadow-md transition ${detailProduct.isOutOfStock
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950'
-                  }`}
-              >
-                {detailProduct.isOutOfStock
-                  ? t.soldOut
-                  : `${t.add} • ${Number(detailProduct.sellingPrice || 0).toFixed(0)} ETB`}
-              </button>
+              {menuData?.digitalMenuSettings?.allowOrdering === false ? (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded-xl font-medium text-center">
+                    {lang === 'am'
+                      ? 'የማሰሻ ሁነታ በርቷል፡ እባክዎ ሲዘጋጁ ለአስተናጋጅ ይንገሩ።'
+                      : 'Browsing Mode Active: Self-ordering is paused. Please inform your waiter when ready.'}
+                  </p>
+                  <button
+                    onClick={() => setDetailProduct(null)}
+                    className="w-full py-3 rounded-2xl font-black text-xs bg-slate-900 text-white shadow-sm transition cursor-pointer"
+                  >
+                    {lang === 'am' ? 'ዝጋ' : 'Close'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  disabled={detailProduct.isOutOfStock}
+                  onClick={() => {
+                    addToCart(detailProduct);
+                    setDetailProduct(null);
+                  }}
+                  className={`w-full py-3.5 rounded-2xl font-black text-xs shadow-md transition cursor-pointer ${detailProduct.isOutOfStock
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 hover:brightness-105 active:scale-98'
+                    }`}
+                >
+                  {detailProduct.isOutOfStock
+                    ? t.soldOut
+                    : `${t.add} • ${Number(detailProduct.sellingPrice || 0).toFixed(0)} ETB`}
+                </button>
+              )}
             </div>
           </div>
         </div>
