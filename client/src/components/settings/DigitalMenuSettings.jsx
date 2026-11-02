@@ -22,9 +22,14 @@ import {
   Layers,
   Star,
   MessageSquare,
+  Image as ImageIcon,
+  Upload,
+  ChefHat,
+  Sparkles as SparkleIcon,
 } from 'lucide-react';
 import api from '../../api/axios';
 import Button from '../ui/Button';
+import { normalizeFileUrl } from '../../utils/fileUrl';
 
 export default function DigitalMenuSettings() {
   const [loading, setLoading] = useState(true);
@@ -53,6 +58,39 @@ export default function DigitalMenuSettings() {
     ],
     enableCallWaiter: true,
     enableBillRequest: true,
+    // About Section
+    aboutTitle: 'Baba Roti Café & Restaurant',
+    aboutSubtitle: 'Bole Road • Addis Ababa, Ethiopia',
+    aboutDescription: 'Famous for our freshly baked signature Mexican coffee buns with crisp caramelized butter crust, specialty coffee hand-crafted by master baristas, and gourmet dining in a warm, welcoming ambience.',
+    aboutDescriptionAmharic: 'በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች፣ በእደ-ጥበብ የተጠበሱ ምርጥ የባሪስታ ቡናዎች፣ ጣፋጭ በርገሮች እና የድንጋይ ምድጃ ፒሳዎች ከሞቅ ያለ እንግዳ ተቀባይነት ጋር።',
+    aboutBadge1Icon: '☕',
+    aboutBadge1Label: 'Specialty Coffee',
+    aboutBadge2Icon: '🥐',
+    aboutBadge2Label: 'Fresh Buns',
+    aboutBadge3Icon: '👨‍🍳',
+    aboutBadge3Label: 'Master Chefs',
+    // Showcase Gallery
+    galleryTitle: 'Our Baristas, Chefs & Atmosphere',
+    galleryTitleAmharic: 'የካፌው ድባብ እና የእጅ ሙያ',
+    gallerySubtitle: 'Baba Roti Gallery',
+    galleryItems: [
+      {
+        imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80',
+        caption: '☕ Barista Latte Craft',
+      },
+      {
+        imageUrl: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80',
+        caption: '🥐 Fresh Caramel Buns',
+      },
+      {
+        imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+        caption: '👨‍🍳 Chef Kitchen Plating',
+      },
+      {
+        imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+        caption: '✨ Cozy Dining Ambiance',
+      },
+    ],
   });
 
   // Products list for menu toggling
@@ -241,6 +279,54 @@ export default function DigitalMenuSettings() {
     } finally {
       setSavingSettings(false);
     }
+  };
+
+  // ── Gallery Helpers ────────────────────────────────────────────────────
+  const [uploadingGalleryIdx, setUploadingGalleryIdx] = useState(null);
+
+  const handleGalleryUpload = async (e, index) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingGalleryIdx(index);
+    const formData = new FormData();
+    formData.append('files', file);
+    try {
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const uploadedUrl = res.data?.files?.[0]?.url;
+      if (uploadedUrl) {
+        setSettings((prev) => {
+          const currentItems = [...(prev.galleryItems || [])];
+          currentItems[index] = { ...currentItems[index], imageUrl: uploadedUrl };
+          return { ...prev, galleryItems: currentItems };
+        });
+        setSuccessMsg('Gallery photo uploaded successfully!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }
+    } catch (err) {
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingGalleryIdx(null);
+    }
+  };
+
+  const handleAddGalleryItem = () => {
+    setSettings((prev) => ({
+      ...prev,
+      galleryItems: [
+        ...(prev.galleryItems || []),
+        { imageUrl: '', caption: '✨ New Showcase Photo' },
+      ],
+    }));
+  };
+
+  const handleRemoveGalleryItem = (index) => {
+    if (!window.confirm('Delete this gallery photo?')) return;
+    setSettings((prev) => ({
+      ...prev,
+      galleryItems: (prev.galleryItems || []).filter((_, i) => i !== index),
+    }));
   };
 
   // Add a new table to the list
@@ -487,6 +573,18 @@ export default function DigitalMenuSettings() {
         >
           <Sliders size={14} />
           <span>Menu Rules &amp; Controls</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('about')}
+          className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${activeTab === 'about'
+              ? 'bg-amber-900 text-white shadow-sm'
+              : 'text-ink-600 hover:bg-ink-100 bg-white border border-ink-200'
+            }`}
+        >
+          <ImageIcon size={14} />
+          <span>About Us &amp; Gallery</span>
         </button>
 
         <button
@@ -1000,6 +1098,366 @@ export default function DigitalMenuSettings() {
           <div className="flex justify-end pt-3 border-t border-ink-100">
             <Button type="submit" disabled={savingSettings} className="bg-amber-900 hover:bg-amber-800 text-white font-bold text-xs">
               {savingSettings ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* ── TAB: ABOUT US & EXPERIENCE GALLERY CUSTOMIZER ── */}
+      {activeTab === 'about' && (
+        <form onSubmit={handleSaveSettings} className="space-y-6 max-w-4xl">
+          {/* Top Action Bar */}
+          <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-4 rounded-2xl border border-ink-200 shadow-xs">
+            <div>
+              <h3 className="font-bold text-sm text-ink-900 flex items-center gap-2">
+                <ChefHat size={16} className="text-amber-800" />
+                <span>About Us &amp; Experience Gallery Customizer</span>
+              </h3>
+              <p className="text-xs text-ink-500">
+                Customize the cafe story, badges, and photo gallery shown to customers on the digital menu.
+              </p>
+            </div>
+            <Button
+              type="submit"
+              disabled={savingSettings}
+              className="bg-amber-900 hover:bg-amber-800 text-white font-bold text-xs"
+            >
+              {savingSettings ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+
+          {/* Section 1: About Baba Roti Café Card */}
+          <div className="bg-white rounded-3xl border border-ink-200 p-5 sm:p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+              <div>
+                <h4 className="font-bold text-sm text-ink-900 flex items-center gap-2">
+                  <span>🥐</span>
+                  <span>About Us Card (Welcome Story &amp; Badges)</span>
+                </h4>
+                <p className="text-[11px] text-ink-400">
+                  Controls the dark brown showcase card shown above the photo gallery on the customer menu.
+                </p>
+              </div>
+            </div>
+
+            {/* Live Visual Card Preview */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#271406] via-[#3b2219] to-[#1c0d04] text-white p-4 shadow-md max-w-md mx-auto space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🥐</span>
+                <div>
+                  <h4 className="font-serif text-sm font-black text-amber-200 leading-tight">
+                    {settings.aboutTitle || 'Baba Roti Café & Restaurant'}
+                  </h4>
+                  <p className="text-[10px] text-amber-300/80 font-medium">
+                    {settings.aboutSubtitle || 'Bole Road • Addis Ababa, Ethiopia'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-100/80 leading-relaxed">
+                {settings.aboutDescription || 'Famous for our freshly baked signature Mexican coffee buns...'}
+              </p>
+              <div className="grid grid-cols-3 gap-1.5 pt-1 text-center">
+                <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
+                  <span className="text-sm block">{settings.aboutBadge1Icon || '☕'}</span>
+                  <span className="text-[9px] font-extrabold text-amber-200 block mt-0.5">{settings.aboutBadge1Label || 'Specialty Coffee'}</span>
+                </div>
+                <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
+                  <span className="text-sm block">{settings.aboutBadge2Icon || '🥐'}</span>
+                  <span className="text-[9px] font-extrabold text-amber-200 block mt-0.5">{settings.aboutBadge2Label || 'Fresh Buns'}</span>
+                </div>
+                <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
+                  <span className="text-sm block">{settings.aboutBadge3Icon || '👨‍🍳'}</span>
+                  <span className="text-[9px] font-extrabold text-amber-200 block mt-0.5">{settings.aboutBadge3Label || 'Master Chefs'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Fields for About Us */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Brand / Restaurant Name</label>
+                <input
+                  type="text"
+                  value={settings.aboutTitle || ''}
+                  placeholder="Baba Roti Café & Restaurant"
+                  onChange={(e) => setSettings((p) => ({ ...p, aboutTitle: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Location Subtitle / Tagline</label>
+                <input
+                  type="text"
+                  value={settings.aboutSubtitle || ''}
+                  placeholder="Bole Road • Addis Ababa, Ethiopia"
+                  onChange={(e) => setSettings((p) => ({ ...p, aboutSubtitle: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-ink-700 mb-1">Story / Description (English)</label>
+                <textarea
+                  rows={2}
+                  value={settings.aboutDescription || ''}
+                  placeholder="Famous for our freshly baked signature Mexican coffee buns..."
+                  onChange={(e) => setSettings((p) => ({ ...p, aboutDescription: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700 leading-relaxed"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-ink-700 mb-1">Story / Description (Amharic - አማርኛ)</label>
+                <textarea
+                  rows={2}
+                  value={settings.aboutDescriptionAmharic || ''}
+                  placeholder="በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች..."
+                  onChange={(e) => setSettings((p) => ({ ...p, aboutDescriptionAmharic: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700 leading-relaxed font-sans"
+                />
+              </div>
+            </div>
+
+            {/* 3 Highlight Badges */}
+            <div className="pt-2 border-t border-ink-100">
+              <label className="block font-bold text-ink-800 text-xs mb-2">3 Showcase Badges</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-xl border border-ink-200 bg-ink-50/50 space-y-2">
+                  <span className="font-bold text-ink-600 text-[11px] block">Badge 1</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={settings.aboutBadge1Icon || '☕'}
+                      title="Emoji Icon"
+                      placeholder="☕"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge1Icon: e.target.value }))}
+                      className="w-12 text-center border border-ink-200 rounded-lg px-2 py-1 text-sm bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={settings.aboutBadge1Label || 'Specialty Coffee'}
+                      placeholder="Specialty Coffee"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge1Label: e.target.value }))}
+                      className="flex-1 border border-ink-200 rounded-lg px-2.5 py-1 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-ink-200 bg-ink-50/50 space-y-2">
+                  <span className="font-bold text-ink-600 text-[11px] block">Badge 2</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={settings.aboutBadge2Icon || '🥐'}
+                      title="Emoji Icon"
+                      placeholder="🥐"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge2Icon: e.target.value }))}
+                      className="w-12 text-center border border-ink-200 rounded-lg px-2 py-1 text-sm bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={settings.aboutBadge2Label || 'Fresh Buns'}
+                      placeholder="Fresh Buns"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge2Label: e.target.value }))}
+                      className="flex-1 border border-ink-200 rounded-lg px-2.5 py-1 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-ink-200 bg-ink-50/50 space-y-2">
+                  <span className="font-bold text-ink-600 text-[11px] block">Badge 3</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={settings.aboutBadge3Icon || '👨‍🍳'}
+                      title="Emoji Icon"
+                      placeholder="👨‍🍳"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge3Icon: e.target.value }))}
+                      className="w-12 text-center border border-ink-200 rounded-lg px-2 py-1 text-sm bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={settings.aboutBadge3Label || 'Master Chefs'}
+                      placeholder="Master Chefs"
+                      onChange={(e) => setSettings((p) => ({ ...p, aboutBadge3Label: e.target.value }))}
+                      className="flex-1 border border-ink-200 rounded-lg px-2.5 py-1 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Our Baristas, Chefs & Atmosphere (Gallery) */}
+          <div className="bg-white rounded-3xl border border-ink-200 p-5 sm:p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-ink-100 pb-3 flex-wrap gap-2">
+              <div>
+                <h4 className="font-bold text-sm text-ink-900 flex items-center gap-2">
+                  <ImageIcon size={16} className="text-amber-800" />
+                  <span>Atmosphere, Baristas &amp; Chefs Photo Gallery</span>
+                </h4>
+                <p className="text-[11px] text-ink-400">
+                  Add photos, upload images from your device, and edit the caption overlays for the 2x2 showcase grid.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddGalleryItem}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs transition cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>Add Gallery Photo</span>
+              </button>
+            </div>
+
+            {/* Gallery Titles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Section Title (English)</label>
+                <input
+                  type="text"
+                  value={settings.galleryTitle || ''}
+                  placeholder="Our Baristas, Chefs & Atmosphere"
+                  onChange={(e) => setSettings((p) => ({ ...p, galleryTitle: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Section Title (Amharic - አማርኛ)</label>
+                <input
+                  type="text"
+                  value={settings.galleryTitleAmharic || ''}
+                  placeholder="የካፌው ድባብ እና የእጅ ሙያ"
+                  onChange={(e) => setSettings((p) => ({ ...p, galleryTitleAmharic: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700 font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Subtitle / Badge</label>
+                <input
+                  type="text"
+                  value={settings.gallerySubtitle || ''}
+                  placeholder="Baba Roti Gallery"
+                  onChange={(e) => setSettings((p) => ({ ...p, gallerySubtitle: e.target.value }))}
+                  className="w-full border border-ink-200 rounded-xl px-3 py-2 outline-none focus:border-amber-700"
+                />
+              </div>
+            </div>
+
+            {/* Gallery Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              {(settings.galleryItems || []).map((item, index) => (
+                <div
+                  key={index}
+                  className="rounded-2xl border border-ink-200 bg-ink-50/40 p-3.5 space-y-3 relative hover:border-amber-300 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                      Photo #{index + 1}
+                    </span>
+                    {(settings.galleryItems || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGalleryItem(index)}
+                        className="text-rose-600 hover:text-rose-800 p-1 text-xs cursor-pointer flex items-center gap-1"
+                        title="Remove photo"
+                      >
+                        <Trash2 size={13} />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Thumbnail Preview */}
+                  <div className="relative rounded-xl overflow-hidden h-36 bg-slate-900 flex items-center justify-center">
+                    {item.imageUrl ? (
+                      <img
+                        src={normalizeFileUrl(item.imageUrl)}
+                        alt={item.caption || 'Gallery photo'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-center p-4 text-slate-400">
+                        <ImageIcon size={28} className="mx-auto mb-1 opacity-50" />
+                        <span className="text-[10px]">No image selected</span>
+                      </div>
+                    )}
+                    {item.caption && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex items-end p-2.5">
+                        <span className="text-[10px] font-black text-white leading-tight">
+                          {item.caption}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Image Source & Upload */}
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="block font-semibold text-ink-700 mb-1">Image URL or Upload</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={item.imageUrl || ''}
+                          placeholder="https://... or upload image"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings((p) => {
+                              const items = [...(p.galleryItems || [])];
+                              items[index] = { ...items[index], imageUrl: val };
+                              return { ...p, galleryItems: items };
+                            });
+                          }}
+                          className="flex-1 border border-ink-200 rounded-xl px-2.5 py-1.5 text-xs bg-white outline-none focus:border-amber-700 font-mono"
+                        />
+                        <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-900 hover:bg-amber-800 text-white font-bold text-xs shadow-xs cursor-pointer shrink-0 transition">
+                          <Upload size={12} />
+                          <span>{uploadingGalleryIdx === index ? 'Uploading…' : 'Upload'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={uploadingGalleryIdx === index}
+                            onChange={(e) => handleGalleryUpload(e, index)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-ink-700 mb-1">Caption / Overlay Text</label>
+                      <input
+                        type="text"
+                        value={item.caption || ''}
+                        placeholder="☕ Barista Latte Craft"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings((p) => {
+                            const items = [...(p.galleryItems || [])];
+                            items[index] = { ...items[index], caption: val };
+                            return { ...p, galleryItems: items };
+                          });
+                        }}
+                        className="w-full border border-ink-200 rounded-xl px-2.5 py-1.5 text-xs bg-white outline-none focus:border-amber-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom Save Bar */}
+          <div className="flex justify-end pt-2 pb-6">
+            <Button
+              type="submit"
+              disabled={savingSettings}
+              className="bg-amber-900 hover:bg-amber-800 text-white font-bold text-xs px-6 py-2.5 shadow-md"
+            >
+              {savingSettings ? 'Saving All Changes…' : 'Save About & Gallery Configuration'}
             </Button>
           </div>
         </form>

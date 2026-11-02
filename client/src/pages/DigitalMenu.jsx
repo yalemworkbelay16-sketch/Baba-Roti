@@ -1563,29 +1563,37 @@ export default function DigitalMenu() {
             <span className="text-2xl">🥐</span>
             <div>
               <h3 className="font-serif text-lg font-black text-amber-200 leading-tight">
-                Baba Roti Café &amp; Restaurant
+                {menuData?.digitalMenuSettings?.aboutTitle || 'Baba Roti Café & Restaurant'}
               </h3>
-              <p className="text-[11px] text-amber-300/80 font-medium">Bole Road &bull; Addis Ababa, Ethiopia</p>
+              <p className="text-[11px] text-amber-300/80 font-medium">
+                {menuData?.digitalMenuSettings?.aboutSubtitle || 'Bole Road • Addis Ababa, Ethiopia'}
+              </p>
             </div>
           </div>
           <p className="text-xs text-amber-100/80 leading-relaxed font-sans">
             {lang === 'am'
-              ? 'በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች፣ በእደ-ጥበብ የተጠበሱ ምርጥ የባሪስታ ቡናዎች፣ ጣፋጭ በርገሮች እና የድንጋይ ምድጃ ፒሳዎች ከሞቅ ያለ እንግዳ ተቀባይነት ጋር።'
-              : 'Famous for our freshly baked signature Mexican coffee buns with crisp caramelized butter crust, specialty coffee hand-crafted by master baristas, and gourmet dining in a warm, welcoming ambience.'}
+              ? (menuData?.digitalMenuSettings?.aboutDescriptionAmharic || 'በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች፣ በእደ-ጥበብ የተጠበሱ ምርጥ የባሪስታ ቡናዎች፣ ጣፋጭ በርገሮች እና የድንጋይ ምድጃ ፒሳዎች ከሞቅ ያለ እንግዳ ተቀባይነት ጋር።')
+              : (menuData?.digitalMenuSettings?.aboutDescription || 'Famous for our freshly baked signature Mexican coffee buns with crisp caramelized butter crust, specialty coffee hand-crafted by master baristas, and gourmet dining in a warm, welcoming ambience.')}
           </p>
 
           <div className="grid grid-cols-3 gap-2 pt-1 text-center">
             <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-base block">☕</span>
-              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Specialty Coffee</span>
+              <span className="text-base block">{menuData?.digitalMenuSettings?.aboutBadge1Icon || '☕'}</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">
+                {menuData?.digitalMenuSettings?.aboutBadge1Label || 'Specialty Coffee'}
+              </span>
             </div>
             <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-base block">🥐</span>
-              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Fresh Buns</span>
+              <span className="text-base block">{menuData?.digitalMenuSettings?.aboutBadge2Icon || '🥐'}</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">
+                {menuData?.digitalMenuSettings?.aboutBadge2Label || 'Fresh Buns'}
+              </span>
             </div>
             <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-base block">👨‍🍳</span>
-              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">Master Chefs</span>
+              <span className="text-base block">{menuData?.digitalMenuSettings?.aboutBadge3Icon || '👨‍🍳'}</span>
+              <span className="text-[10px] font-extrabold text-amber-200 block mt-0.5">
+                {menuData?.digitalMenuSettings?.aboutBadge3Label || 'Master Chefs'}
+              </span>
             </div>
           </div>
         </div>
@@ -1595,55 +1603,52 @@ export default function DigitalMenu() {
           <div className="flex items-center justify-between px-1">
             <h4 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
               <ChefHat size={15} className="text-amber-600" />
-              <span>{lang === 'am' ? 'የካፌው ድባብ እና የእጅ ሙያ' : 'Our Baristas, Chefs & Atmosphere'}</span>
+              <span>
+                {lang === 'am'
+                  ? (menuData?.digitalMenuSettings?.galleryTitleAmharic || 'የካፌው ድባብ እና የእጅ ሙያ')
+                  : (menuData?.digitalMenuSettings?.galleryTitle || 'Our Baristas, Chefs & Atmosphere')}
+              </span>
             </h4>
-            <span className="text-[10px] text-slate-400 font-bold">Baba Roti Gallery</span>
+            <span className="text-[10px] text-slate-400 font-bold">
+              {menuData?.digitalMenuSettings?.gallerySubtitle || 'Baba Roti Gallery'}
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
-              <img
-                src="https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80"
-                alt="Barista Latte Art"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
-                <span className="text-[10px] font-black text-white leading-tight">☕ Barista Latte Craft</span>
+            {((menuData?.digitalMenuSettings?.galleryItems && menuData.digitalMenuSettings.galleryItems.length > 0)
+              ? menuData.digitalMenuSettings.galleryItems
+              : [
+                {
+                  imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80',
+                  caption: '☕ Barista Latte Craft',
+                },
+                {
+                  imageUrl: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80',
+                  caption: '🥐 Fresh Caramel Buns',
+                },
+                {
+                  imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+                  caption: '👨‍🍳 Chef Kitchen Plating',
+                },
+                {
+                  imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+                  caption: '✨ Cozy Dining Ambiance',
+                },
+              ]
+            ).map((item, idx) => (
+              <div key={idx} className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
+                <img
+                  src={normalizeFileUrl(item.imageUrl)}
+                  alt={item.caption || 'Gallery photo'}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                {item.caption && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
+                    <span className="text-[10px] font-black text-white leading-tight">{item.caption}</span>
+                  </div>
+                )}
               </div>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
-              <img
-                src="https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80"
-                alt="Signature Buns"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
-                <span className="text-[10px] font-black text-white leading-tight">🥐 Fresh Caramel Buns</span>
-              </div>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
-              <img
-                src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80"
-                alt="Master Chef Culinary"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
-                <span className="text-[10px] font-black text-white leading-tight">👨‍🍳 Chef Kitchen Plating</span>
-              </div>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-slate-900 group">
-              <img
-                src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
-                alt="Cozy Atmosphere"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2.5">
-                <span className="text-[10px] font-black text-white leading-tight">✨ Cozy Dining Ambiance</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 

@@ -134,6 +134,39 @@ const settingSchema = new mongoose.Schema(
           'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10',
           'Table 12', 'Table 15', 'Table 20', 'Table 36', 'VIP 01', 'Patio 01', 'Patio 02'
         ],
+        // About Section
+        aboutTitle: 'Baba Roti Café & Restaurant',
+        aboutSubtitle: 'Bole Road • Addis Ababa, Ethiopia',
+        aboutDescription: 'Famous for our freshly baked signature Mexican coffee buns with crisp caramelized butter crust, specialty coffee hand-crafted by master baristas, and gourmet dining in a warm, welcoming ambience.',
+        aboutDescriptionAmharic: 'በልዩ ጥራትና ፍቅር የሚዘጋጁ ትኩስ የካራሜል ቡኖች፣ በእደ-ጥበብ የተጠበሱ ምርጥ የባሪስታ ቡናዎች፣ ጣፋጭ በርገሮች እና የድንጋይ ምድጃ ፒሳዎች ከሞቅ ያለ እንግዳ ተቀባይነት ጋር።',
+        aboutBadge1Icon: '☕',
+        aboutBadge1Label: 'Specialty Coffee',
+        aboutBadge2Icon: '🥐',
+        aboutBadge2Label: 'Fresh Buns',
+        aboutBadge3Icon: '👨‍🍳',
+        aboutBadge3Label: 'Master Chefs',
+        // Showcase Gallery
+        galleryTitle: 'Our Baristas, Chefs & Atmosphere',
+        galleryTitleAmharic: 'የካፌው ድባብ እና የእጅ ሙያ',
+        gallerySubtitle: 'Baba Roti Gallery',
+        galleryItems: [
+          {
+            imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80',
+            caption: '☕ Barista Latte Craft',
+          },
+          {
+            imageUrl: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80',
+            caption: '🥐 Fresh Caramel Buns',
+          },
+          {
+            imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+            caption: '👨‍🍳 Chef Kitchen Plating',
+          },
+          {
+            imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+            caption: '✨ Cozy Dining Ambiance',
+          },
+        ],
       },
     },
 
