@@ -231,7 +231,7 @@ const getSubscribers = asyncHandler(async (req, res) => {
   if (modified && settings) {
     settings.telegramSubscribers = subscribers;
     settings.markModified('telegramSubscribers');
-    await settings.save().catch(() => {});
+    await settings.save().catch(() => { });
   }
   res.json(subscribers);
 });

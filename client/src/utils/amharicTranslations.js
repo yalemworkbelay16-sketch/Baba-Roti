@@ -212,3 +212,4 @@ export function getLocalizedProductName(product, lang) {
 
   return changed ? translatedWords.join(' ') : rawName;
 }
+

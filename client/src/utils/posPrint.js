@@ -302,7 +302,7 @@ function executePrint(html, frameId = 'pos_print_frame') {
       console.error('Print execution error:', err);
     } finally {
       setTimeout(() => {
-        try { iframe.remove(); } catch (_) {}
+        try { iframe.remove(); } catch (_) { }
       }, 3000);
     }
   };

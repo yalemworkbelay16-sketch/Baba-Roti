@@ -630,7 +630,7 @@ export default function DigitalMenu() {
           const prev = JSON.parse(localStorage.getItem('baba_roti_my_orders') || '[]');
           localStorage.setItem('baba_roti_my_orders', JSON.stringify([...prev, res.data.orderNo]));
           localStorage.setItem(`baba_roti_active_table_${tableNo}`, res.data.orderNo);
-        } catch (_) {}
+        } catch (_) { }
 
         const orderData = {
           orderNo: res.data.orderNo,
@@ -654,7 +654,7 @@ export default function DigitalMenu() {
             const bc = new BroadcastChannel('baba_roti_orders_channel');
             bc.postMessage({ type: 'new_customer_qr_order', order: res.data.order, isQrSelfOrder: true });
             setTimeout(() => bc.close(), 1000);
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // Play instant joyful confirmation chime
@@ -676,7 +676,7 @@ export default function DigitalMenu() {
               osc.stop(now + idx * 0.1 + 0.45);
             });
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (err) {
       console.error('Order error:', err);
@@ -1041,8 +1041,8 @@ export default function DigitalMenu() {
               const isApproved = ['sent_to_kitchen', 'preparing', 'ready', 'billed', 'paid'].includes(currentStatus);
               return (
                 <div className={`rounded-2xl border-2 p-3 space-y-1 ${isApproved
-                    ? 'border-emerald-300 bg-emerald-50/60'
-                    : 'border-amber-300 bg-amber-50/60'
+                  ? 'border-emerald-300 bg-emerald-50/60'
+                  : 'border-amber-300 bg-amber-50/60'
                   }`}>
                   <div className={`flex items-center justify-center gap-2 font-black text-xs tracking-wider ${isApproved ? 'text-emerald-900' : 'text-amber-900'
                     }`}>
@@ -1874,8 +1874,8 @@ export default function DigitalMenu() {
                     <Star
                       size={28}
                       className={`transition-colors duration-200 ${s <= (reviewHoverRating || reviewRating)
-                          ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
-                          : 'text-slate-300'
+                        ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
+                        : 'text-slate-300'
                         }`}
                     />
                   </button>
@@ -1902,8 +1902,8 @@ export default function DigitalMenu() {
                         )
                       }
                       className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all ${selected
-                          ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-2xs'
-                          : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-2xs'
+                        : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
                         }`}
                     >
                       {tag.label}
@@ -2585,7 +2585,7 @@ export default function DigitalMenu() {
                   setUserJoinedTable(true);
                   try {
                     localStorage.setItem(`baba_roti_joined_${tableNo}`, 'true');
-                  } catch (_) {}
+                  } catch (_) { }
                   setTableOccupiedModal(null);
                   setDismissedOccupiedWelcome(true);
                 }}
@@ -2664,11 +2664,10 @@ export default function DigitalMenu() {
                     key={tbl}
                     type="button"
                     onClick={() => setNewTableInput(tbl)}
-                    className={`py-2 px-1 rounded-xl text-xs font-black transition cursor-pointer ${
-                      isSelected
+                    className={`py-2 px-1 rounded-xl text-xs font-black transition cursor-pointer ${isSelected
                         ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
                         : 'bg-slate-100 text-slate-700 hover:bg-amber-50'
-                    }`}
+                      }`}
                   >
                     {tbl.replace('Table ', 'T-')}
                   </button>

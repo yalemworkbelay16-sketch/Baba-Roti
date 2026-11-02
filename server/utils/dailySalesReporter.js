@@ -138,7 +138,7 @@ function formatDailyReportMessage(metrics, cafeName = 'Baba Roti Café') {
     .join('\n');
 
   return (
-`🏨 <b>${cafeName.toUpperCase()}</b>
+    `🏨 <b>${cafeName.toUpperCase()}</b>
 📊 <b>DAILY SALES DIGEST — ${metrics.dateString}</b>
 ━━━━━━━━━━━━━━━━━━━━
 💰 <b>TOTAL SALES:</b> <code>${formatBirr(metrics.totalSales)}</code>
@@ -196,7 +196,7 @@ async function sendDailySalesReport({ isManual = false, targetChatId = null } = 
   if (!isManual && settings) {
     const todayStr = new Date().toISOString().slice(0, 10);
     settings.lastDailyReportDate = todayStr;
-    await settings.save().catch(() => {});
+    await settings.save().catch(() => { });
   }
 
   return {
@@ -212,3 +212,4 @@ module.exports = {
   formatDailyReportMessage,
   sendDailySalesReport,
 };
+

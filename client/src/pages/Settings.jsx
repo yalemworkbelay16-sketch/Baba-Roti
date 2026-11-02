@@ -37,6 +37,8 @@ import {
   Sparkles,
   QrCode,
   Utensils,
+  ShieldCheck,
+  BarChart3,
 } from 'lucide-react';
 import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
 import api from '../api/axios';
