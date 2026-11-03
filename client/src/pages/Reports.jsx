@@ -146,10 +146,17 @@ function InventoryCountPanel() {
   useEffect(() => {
     api.get('/inventory-count/stores')
       .then(r => {
-        setStores(r.data.stores || []);
-        if (r.data.stores?.length) setInitStore(r.data.stores[0]);
+        const list = (r.data.stores && r.data.stores.length > 0)
+          ? r.data.stores
+          : ['Main Store', 'Kitchen Store', 'Bar Store', 'Pastry & Bakery Store'];
+        setStores(list);
+        if (list.length) setInitStore(list[0]);
       })
-      .catch(() => { });
+      .catch(() => {
+        const fallback = ['Main Store', 'Kitchen Store', 'Bar Store', 'Pastry & Bakery Store'];
+        setStores(fallback);
+        setInitStore(fallback[0]);
+      });
   }, []);
 
   // ── Load count list ────────────────────────────────────────────────
@@ -261,9 +268,11 @@ function InventoryCountPanel() {
 
   const handleApprove = async () => {
     if (!activeCount) return;
+    if (!window.confirm(`Are you sure you want to approve and close ${activeCount.title}?\n\n• Physical counted quantities will be applied directly to Raw Material current stock.\n• Audit reconciliation vouchers will be generated for variances.\n• This month-end count will be permanently locked and cannot be edited backwards.`)) return;
     try {
       const r = await api.post(`/inventory-count/${activeCount._id}/approve`);
       setActiveCount(r.data.count);
+      alert(r.data.message || 'Count approved! Raw material balances updated successfully to physical counts.');
       await loadList();
     } catch (e) {
       setSaveError(e.response?.data?.message || 'Approval failed');
@@ -350,7 +359,12 @@ function InventoryCountPanel() {
           </select>
         </div>
         <button
-          onClick={() => setShowInitForm(true)}
+          onClick={() => {
+            setShowInitForm(true);
+            if (!initStore) {
+              setInitStore(stores[0] || 'Main Store');
+            }
+          }}
           className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition"
         >
           <Plus size={15} /> New Count Sheet
@@ -380,12 +394,13 @@ function InventoryCountPanel() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-ink-600">Store Location</label>
                 <select
-                  value={initStore}
+                  value={initStore || (stores[0] || 'Main Store')}
                   onChange={e => setInitStore(e.target.value)}
                   className="w-full rounded-xl border border-ink-200 bg-ink-50 px-3 py-2 text-xs font-medium text-ink-900 outline-none focus:border-blue-500"
                 >
-                  {stores.map(s => <option key={s} value={s}>{s}</option>)}
-                  {!stores.length && <option value="">No stores found</option>}
+                  {(stores.length > 0 ? stores : ['Main Store', 'Kitchen Store', 'Bar Store', 'Pastry & Bakery Store']).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1">
@@ -395,9 +410,14 @@ function InventoryCountPanel() {
                   onChange={e => setInitMonth(Number(e.target.value))}
                   className="w-full rounded-xl border border-ink-200 bg-ink-50 px-3 py-2 text-xs font-medium text-ink-900 outline-none focus:border-blue-500"
                 >
-                  {MONTH_NAMES.map((m, i) => (
-                    <option key={m} value={i + 1}>{m}</option>
-                  ))}
+                  {MONTH_NAMES.map((m, i) => {
+                    const isFuture = initYear === now.getFullYear() && (i + 1) > (now.getMonth() + 1);
+                    return (
+                      <option key={m} value={i + 1} disabled={isFuture}>
+                        {m} {isFuture ? '(Future)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div className="space-y-1">
@@ -417,8 +437,20 @@ function InventoryCountPanel() {
                   onChange={e => setInitNotes(e.target.value)}
                   rows={2}
                   className="w-full rounded-xl border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-900 outline-none focus:border-blue-500 resize-none"
-                  placeholder="e.g. Annual stock take..."
+                  placeholder="e.g. Month-end physical stock audit..."
                 />
+              </div>
+
+              {/* Month-End Closing Rules Banner */}
+              <div className="col-span-2 rounded-xl bg-blue-50 border border-blue-200 p-2.5 text-[11px] text-blue-800 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-blue-900">
+                  <ShieldCheck size={14} className="text-blue-700 shrink-0" /> Month-End Closing Rules
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-blue-800">
+                  <li>Upon approval, <strong>Raw Material stock balances will automatically update</strong> to your counted quantities.</li>
+                  <li>Discrepancies automatically generate reconciliation audit adjustment vouchers.</li>
+                  <li>Once approved, this month is locked and cannot be edited backwards.</li>
+                </ul>
               </div>
             </div>
 
@@ -431,7 +463,7 @@ function InventoryCountPanel() {
               </button>
               <button
                 onClick={handleInit}
-                disabled={initLoading || !initStore}
+                disabled={initLoading || !(initStore || stores[0])}
                 className="px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow transition disabled:opacity-60"
               >
                 {initLoading ? 'Initializing…' : 'Initialize & Open'}

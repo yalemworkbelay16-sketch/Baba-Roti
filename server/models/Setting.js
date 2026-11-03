@@ -111,6 +111,17 @@ const settingSchema = new mongoose.Schema(
     // Product Selling Price Bulk Adjustment — percentage to add to ALL product selling prices
     productSellingPriceAdjustPercent: { type: Number, default: 0, min: 0, max: 500 },
 
+    // Store Locations for Inventory Count & Warehouses
+    storeLocations: {
+      type: [String],
+      default: [
+        'Main Store',
+        'Kitchen Store',
+        'Bar Store',
+        'Pastry & Bakery Store',
+      ],
+    },
+
     // ── Customer Digital Menu & QR Settings ───────────────────────
     digitalMenuSettings: {
       type: Object,

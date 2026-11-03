@@ -124,7 +124,6 @@ async function computeDailySalesMetrics(startDate, endDate) {
     paymentStats,
   };
 }
-
 /**
  * Format Telegram HTML report message
  */

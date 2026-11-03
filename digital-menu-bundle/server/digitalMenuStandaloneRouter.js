@@ -409,7 +409,37 @@ router.post('/products/bulk-menu-visibility', asyncHandler(async (req, res) => {
 }));
 
 // ─────────────────────────────────────────────────────────────────
-// 6. LIVE SSE STREAM (Zero-dependency real-time push to staff)
+// 6. WAITER APPROVES CUSTOMER QR ORDER
+// ─────────────────────────────────────────────────────────────────
+// @route POST /api/captain-orders/:id/approve-order
+router.post('/captain-orders/:id/approve-order', asyncHandler(async (req, res) => {
+  const order = await CaptainOrder.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error('Captain order not found');
+  }
+  if (order.status !== 'pending_approval') {
+    return res.json({ success: true, order, message: `Order #${order.orderNo} is already ${order.status}.` });
+  }
+  order.status = 'sent_to_kitchen';
+  order.waiterApproval = {
+    required: true,
+    status: 'approved',
+    approvedBy: req.user?._id || null,
+    approvedByName: req.user?.name || 'Waiter',
+    approvedAt: new Date(),
+  };
+  if (!order.waiter || (order.waiterName && order.waiterName.toLowerCase().includes('self-order'))) {
+    order.waiter = req.user?._id || null;
+    order.waiterName = req.user?.name || 'Waiter';
+  }
+  await order.save();
+  broadcastOrderEvent('order_approved', order);
+  res.json({ success: true, order, message: `Order #${order.orderNo} verified & sent to kitchen.` });
+}));
+
+// ─────────────────────────────────────────────────────────────────
+// 7. LIVE SSE STREAM (Zero-dependency real-time push to staff)
 // ─────────────────────────────────────────────────────────────────
 // @route GET /api/captain-orders/stream
 router.get('/captain-orders/stream', (req, res) => {
@@ -428,3 +458,4 @@ router.get('/captain-orders/stream', (req, res) => {
 });
 
 module.exports = router;
+

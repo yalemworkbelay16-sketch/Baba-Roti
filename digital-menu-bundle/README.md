@@ -85,3 +85,4 @@ npm install express-async-handler mongoose
    - Cafe managers can edit brand story in English and Amharic, update feature badges, and upload showcase photos directly from their phone.
 6. **Live Real-time SSE Stream**:
    - Built-in `/api/captain-orders/stream` provides instant live updates without requiring Socket.IO setup.
+

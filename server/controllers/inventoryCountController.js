@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const InventoryCount = require('../models/InventoryCount');
 const RawMaterial = require('../models/RawMaterial');
 const StockTransaction = require('../models/StockTransaction');
+const Setting = require('../models/Setting');
 const tg = require('../utils/telegramNotifier');
 
 const MONTHS = [
@@ -152,11 +153,30 @@ async function getMaterialBalances(material, periodStart, periodEnd) {
 
 // ════════════════════════════════════════════════════════════════════════════
 // GET  /api/inventory-count/stores
-// Returns distinct store locations from RawMaterial
+// Returns distinct store locations from RawMaterial + Settings + Defaults
 // ════════════════════════════════════════════════════════════════════════════
 exports.getStores = asyncHandler(async (req, res) => {
-  const stores = await RawMaterial.distinct('storeLocation', { isActive: true });
-  res.json({ stores: stores.filter(Boolean) });
+  const [fromMaterials, setting] = await Promise.all([
+    RawMaterial.distinct('storeLocation', { isActive: true }),
+    Setting.findOne().lean(),
+  ]);
+
+  const defaultStores = [
+    'Main Store',
+    'Kitchen Store',
+    'Bar Store',
+    'Pastry & Bakery Store',
+  ];
+
+  const configured = Array.isArray(setting?.storeLocations) ? setting.storeLocations : [];
+
+  const combined = Array.from(new Set([
+    ...configured.filter(Boolean),
+    ...fromMaterials.filter(Boolean),
+    ...defaultStores,
+  ]));
+
+  res.json({ stores: combined });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -205,10 +225,24 @@ async function syncCountDoc(doc) {
   const periodStart = new Date(doc.periodYear, doc.periodMonth - 1, 1);
   const periodEnd   = new Date(doc.periodYear, doc.periodMonth, 0, 23, 59, 59, 999);
 
-  const materials = await RawMaterial.find({
-    storeLocation: doc.storeLocation,
-    isActive: true,
-  }).lean();
+  const matFilter = { isActive: true };
+  if (doc.storeLocation && doc.storeLocation !== 'All Stores' && doc.storeLocation !== 'All Stores (Consolidated)') {
+    if (doc.storeLocation === 'Main Store') {
+      matFilter.$or = [
+        { storeLocation: 'Main Store' },
+        { storeLocation: null },
+        { storeLocation: '' },
+        { storeLocation: { $exists: false } },
+      ];
+    } else {
+      matFilter.storeLocation = doc.storeLocation;
+    }
+  }
+
+  let materials = await RawMaterial.find(matFilter).lean();
+  if (!materials.length) {
+    materials = await RawMaterial.find({ isActive: true }).lean();
+  }
 
   const materialMap = {};
   materials.forEach((m) => {
@@ -308,6 +342,8 @@ exports.syncCount = asyncHandler(async (req, res) => {
 // POST /api/inventory-count/initialize
 // Creates a new count sheet for store+month+year, pre-filled with all
 // materials in that store and their live begin balance + period movement.
+// Enforces month-end closing rules (cannot initialize future months,
+// cannot re-open past closed/approved periods).
 // ════════════════════════════════════════════════════════════════════════════
 exports.initializeCount = asyncHandler(async (req, res) => {
   const { periodYear, periodMonth, storeLocation, notes } = req.body;
@@ -316,19 +352,58 @@ exports.initializeCount = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'periodYear, periodMonth and storeLocation are required' });
   }
 
-  // Check duplicate
-  const exists = await InventoryCount.findOne({ periodYear, periodMonth, storeLocation });
+  const numYear = Number(periodYear);
+  const numMonth = Number(periodMonth);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  // 1. Month-end validation: Prevent initializing future months
+  if (numYear > currentYear || (numYear === currentYear && numMonth > currentMonth)) {
+    return res.status(400).json({
+      message: `Cannot initialize inventory count for future period ${MONTHS[numMonth - 1]} ${numYear}. Monthly counts are conducted at month-end.`,
+    });
+  }
+
+  // 2. Prevent reopening or reinitializing already approved / closed periods
+  const exists = await InventoryCount.findOne({ periodYear: numYear, periodMonth: numMonth, storeLocation });
   if (exists) {
+    if (exists.status === 'approved' || exists.status === 'closed') {
+      return res.status(409).json({
+        message: `Inventory count for ${storeLocation} – ${MONTHS[numMonth - 1]} ${numYear} has already been approved and closed. Closed monthly counts cannot be re-opened or modified backwards.`,
+        existingId: exists._id,
+      });
+    }
     return res.status(409).json({
-      message: `Count for ${storeLocation} – ${MONTHS[periodMonth - 1]} ${periodYear} already exists`,
+      message: `A count sheet for ${storeLocation} – ${MONTHS[numMonth - 1]} ${numYear} already exists (${exists.status}).`,
       existingId: exists._id,
     });
   }
 
-  const periodStart = new Date(periodYear, periodMonth - 1, 1);
-  const periodEnd   = new Date(periodYear, periodMonth, 0, 23, 59, 59, 999);
+  const periodStart = new Date(numYear, numMonth - 1, 1);
+  const periodEnd   = new Date(numYear, numMonth, 0, 23, 59, 59, 999);
 
-  const materials = await RawMaterial.find({ storeLocation, isActive: true }).lean();
+  const matFilter = { isActive: true };
+  if (storeLocation && storeLocation !== 'All Stores' && storeLocation !== 'All Stores (Consolidated)') {
+    if (storeLocation === 'Main Store') {
+      matFilter.$or = [
+        { storeLocation: 'Main Store' },
+        { storeLocation: null },
+        { storeLocation: '' },
+        { storeLocation: { $exists: false } },
+      ];
+    } else {
+      matFilter.storeLocation = storeLocation;
+    }
+  }
+
+  let materials = await RawMaterial.find(matFilter).lean();
+
+  // If specific store filter has 0 materials, fallback to all active materials so sheet is not empty
+  if (!materials.length) {
+    materials = await RawMaterial.find({ isActive: true }).lean();
+  }
 
   const lines = await Promise.all(
     materials.map(async (mat) => {
@@ -354,11 +429,11 @@ exports.initializeCount = asyncHandler(async (req, res) => {
     })
   );
 
-  const title = `${MONTHS[periodMonth - 1]} ${periodYear} – ${storeLocation}`;
+  const title = `${MONTHS[numMonth - 1]} ${numYear} – ${storeLocation}`;
 
   const doc = await InventoryCount.create({
-    periodYear,
-    periodMonth,
+    periodYear: numYear,
+    periodMonth: numMonth,
     storeLocation,
     title,
     lines,
@@ -438,12 +513,14 @@ exports.submitCount = asyncHandler(async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════════════════
 // POST /api/inventory-count/:id/approve
-// Approve and lock the count; set closing date
+// Approve and lock the count; set closing date;
+// APPLIES PHYSICAL COUNTS DIRECTLY TO RAWMATERIAL currentStock;
+// Creates formal audit StockTransactions for any discrepancies.
 // ════════════════════════════════════════════════════════════════════════════
 exports.approveCount = asyncHandler(async (req, res) => {
   const doc = await InventoryCount.findById(req.params.id);
   if (!doc) return res.status(404).json({ message: 'Count not found' });
-  if (doc.status !== 'submitted') {
+  if (doc.status !== 'submitted' && doc.status !== 'draft') {
     return res.status(400).json({ message: `Cannot approve a count in "${doc.status}" status` });
   }
 
@@ -452,19 +529,113 @@ exports.approveCount = asyncHandler(async (req, res) => {
   doc.approvedAt  = new Date();
   doc.closingDate = new Date();
 
-  // Lock all lines: systemBalance becomes the physical count if not counted
+  let totalAdjustedItems = 0;
+  let totalNetGainLoss = 0;
+
+  // 1. Lock all lines and apply physical counts directly to RawMaterial currentStock
   for (const line of doc.lines) {
-    if (!line.isCounted) {
+    if (!line.isCounted || line.physicalCount === null || line.physicalCount === undefined) {
       line.physicalCount = line.systemBalance;
       line.variance      = 0;
       line.varianceType  = 'zero';
       line.varianceValue = 0;
+      line.isCounted     = true;
+    } else {
+      line.variance      = Number((line.physicalCount - line.systemBalance).toFixed(4));
+      line.varianceValue = Number((line.variance * (line.wac || 0)).toFixed(2));
+      if (line.variance > 0) line.varianceType = 'positive';
+      else if (line.variance < 0) line.varianceType = 'negative';
+      else line.varianceType = 'zero';
+    }
+
+    const physicalQty = Number(line.physicalCount);
+    const varianceQty = Number(line.variance || 0);
+
+    // Update RawMaterial currentStock in database
+    const mat = await RawMaterial.findById(line.material);
+    if (mat) {
+      mat.currentStock = physicalQty;
+      await mat.save();
+
+      // If there is variance, record formal StockTransaction audit voucher
+      if (varianceQty !== 0) {
+        totalAdjustedItems++;
+        totalNetGainLoss += Number(line.varianceValue || 0);
+        const isGain = varianceQty > 0;
+        const absQty = Math.abs(varianceQty);
+        const unitCost = Number(line.wac || mat.unitCost || 0);
+        const totalAmount = Math.abs(Number(line.varianceValue || (varianceQty * unitCost).toFixed(2)));
+
+        try {
+          await StockTransaction.create({
+            voucherType: isGain ? 'pos_adjustment' : 'neg_adjustment',
+            voucherNo: `RECON-${doc.periodYear}${String(doc.periodMonth).padStart(2, '0')}-${String(Math.floor(1000 + Math.random() * 9000))}`,
+            status: 'posted',
+            material: mat._id,
+            type: isGain ? 'in' : 'out',
+            quantity: absQty,
+            unitCost,
+            totalAmount,
+            items: [{
+              material: mat._id,
+              quantity: absQty,
+              unitCost,
+              totalCost: totalAmount,
+            }],
+            reason: `Month-End Inventory Reconciliation (${doc.title}) | Physical: ${physicalQty} ${mat.unit}, Book: ${line.systemBalance} ${mat.unit}`,
+            reference: `COUNT-${doc._id}`,
+            performedBy: req.user._id,
+            notes: line.note ? `Variance note: ${line.note}` : `Monthly inventory count reconciliation adjustment`,
+            date: new Date(doc.periodYear, doc.periodMonth, 0, 23, 59, 59),
+          });
+        } catch (errTx) {
+          console.warn('Could not record reconciliation StockTransaction:', errTx.message);
+        }
+      }
     }
   }
 
+  // Final summary numbers
+  doc.countedItems   = doc.lines.length;
+  doc.uncountedItems = 0;
+  doc.positiveVariance = doc.lines
+    .filter((l) => l.varianceType === 'positive')
+    .reduce((s, l) => s + (l.varianceValue || 0), 0);
+  doc.negativeVariance = doc.lines
+    .filter((l) => l.varianceType === 'negative')
+    .reduce((s, l) => s + (l.varianceValue || 0), 0);
+  doc.netVarianceValue = doc.positiveVariance + doc.negativeVariance;
+
   await doc.save();
-  tg.notifyInventoryCountApproved(doc, req.user);
-  res.json({ count: doc, message: 'Count approved and closing balance set' });
+
+  // Invalidate any dashboard caching
+  try {
+    const { invalidateDashboardCache } = require('./dashboardController');
+    invalidateDashboardCache?.();
+  } catch (_) {}
+
+  // Telegram Alert
+  try {
+    tg.notifyInventoryCountApproved?.(doc, req.user);
+    if (typeof tg.sendNotification === 'function') {
+      tg.sendNotification(
+        `📋 <b>MONTH-END INVENTORY COUNT APPROVED & CLOSED!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏬 <b>Store:</b> ${doc.storeLocation}\n` +
+        `📅 <b>Period:</b> ${MONTHS[doc.periodMonth - 1]} ${doc.periodYear}\n` +
+        `📦 <b>Materials Counted:</b> ${doc.lines.length}\n` +
+        `⚖️ <b>Items Adjusted:</b> ${totalAdjustedItems}\n` +
+        `💰 <b>Net Variance Value:</b> ETB ${doc.netVarianceValue.toFixed(2)}\n` +
+        `✅ <i>Raw Material stock balances have been updated to physical counts!</i>`
+      );
+    }
+  } catch (_) {}
+
+  res.json({
+    success: true,
+    count: doc,
+    message: `Inventory count approved and finalized! ${doc.lines.length} raw material stock balances updated to physical counts.`,
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -475,8 +646,8 @@ exports.deleteCount = asyncHandler(async (req, res) => {
   const doc = await InventoryCount.findById(req.params.id);
   if (!doc) return res.status(404).json({ message: 'Count not found' });
   if (doc.status !== 'draft') {
-    return res.status(400).json({ message: 'Only draft counts can be deleted' });
+    return res.status(400).json({ message: 'Only draft counts can be deleted. Approved and closed monthly counts cannot be deleted or modified backwards.' });
   }
   await doc.deleteOne();
-  res.json({ message: 'Count deleted' });
+  res.json({ message: 'Draft count deleted successfully' });
 });
