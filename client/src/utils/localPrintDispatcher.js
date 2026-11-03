@@ -13,7 +13,7 @@
 import api from '../api/axios';
 import { posPrint } from './posPrint';
 
-const LOCAL_BRIDGE_URLS = ['http://127.0.0.1:5000', 'http://127.0.0.1:9101'];
+const LOCAL_BRIDGE_URLS = ['http://127.0.0.1:9101', 'http://127.0.0.1:9102', 'http://127.0.0.1:5000'];
 const BRIDGE_TIMEOUT_MS = 1000; // Fast 1.0s timeout
 
 let cachedBridgeUrl = null;
@@ -21,7 +21,7 @@ let lastBridgeCheckTime = 0;
 
 /**
  * Probes whether the local loopback bridge (pos-agent.js) is running on this machine.
- * Checks port 5000 first, then port 9101.
+ * Checks port 9101 first, then port 9102, then fallback 5000.
  * Returns { online: boolean, url: string|null, info: Object|null }
  */
 export async function checkLocalBridge() {
@@ -185,6 +185,43 @@ export async function pingPrinter(ip, port = 9100) {
 }
 
 /**
+ * Direct test page helper checking local bridge then cloud server
+ */
+export async function printTestPage(printer) {
+  const bridge = await checkLocalBridge();
+  if (bridge.online && bridge.url) {
+    try {
+      const res = await fetch(`${bridge.url}/api/printers/action/test-page`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printer,
+          ip: printer.ipAddress,
+          port: printer.port || 9100,
+          brand: printer.brand,
+          model: printer.model,
+          type: printer.type || 'receipt',
+        }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (_) {}
+  }
+
+  const payload = printer._id
+    ? { printerId: printer._id }
+    : {
+        ip: printer.ipAddress,
+        port: printer.port || 9100,
+        brand: printer.brand,
+        model: printer.model,
+      };
+  const res = await api.post('/printers/action/test-page', payload);
+  return res.data;
+}
+
+/**
  * Convenience shortcuts
  */
 export const localPrintDispatcher = {
@@ -194,6 +231,7 @@ export const localPrintDispatcher = {
   checkLocalBridge,
   checkRelayStatus,
   pingPrinter,
+  printTestPage,
 };
 
 export default localPrintDispatcher;

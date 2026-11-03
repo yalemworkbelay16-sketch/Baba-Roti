@@ -39,11 +39,12 @@ import {
   Utensils,
   ShieldCheck,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
 import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
 import api from '../api/axios';
 import posPrint from '../utils/posPrint';
-import { checkLocalBridge, checkRelayStatus } from '../utils/localPrintDispatcher';
+import { checkLocalBridge, checkRelayStatus, pingPrinter as dispatcherPing, printTestPage as dispatcherTestPage } from '../utils/localPrintDispatcher';
 import { useAuth } from '../context/AuthContext';
 import { useSessionTimeout, TIMEOUT_OPTIONS } from '../context/SessionTimeoutContext';
 import { THEME_OPTIONS } from '../config/sidebarThemes';
@@ -2963,10 +2964,20 @@ export default function Settings() {
           const key = `${ip}:${port}`;
           setPingStatus(prev => ({ ...prev, [key]: 'pending' }));
           try {
-            const res = await api.post('/printers/action/ping', { ip, port: Number(port) });
-            setPingStatus(prev => ({ ...prev, [key]: res.data.ok ? 'ok' : 'fail' }));
+            const res = await dispatcherPing(ip, Number(port) || 9100);
+            const isOk = res && (res.ok || res.status === 'ok');
+            setPingStatus(prev => ({ ...prev, [key]: isOk ? 'ok' : 'fail' }));
+            if (isOk) {
+              setPrinterSuccess(`Printer reachable at ${ip}:${port} (${res.method === 'local_bridge' ? 'Local LAN Bridge' : res.method === 'direct_tcp' ? 'Direct TCP' : 'Cloud Relay Agent'})`);
+              setTimeout(() => setPrinterSuccess(''), 5000);
+            } else {
+              setPrinterError(res.error || `Printer unreachable at ${ip}:${port}. Please ensure start-printer-agent.bat is running on POS computer.`);
+              setTimeout(() => setPrinterError(''), 7000);
+            }
           } catch (_) {
             setPingStatus(prev => ({ ...prev, [key]: 'fail' }));
+            setPrinterError(`Connection test failed for ${ip}:${port}.`);
+            setTimeout(() => setPrinterError(''), 7000);
           }
         };
 
@@ -2975,30 +2986,23 @@ export default function Settings() {
           setPrintTestStatus(prev => ({ ...prev, [key]: 'pending' }));
           setPrinterError('');
           try {
-            const payload = printerOrForm._id
-              ? { printerId: printerOrForm._id }
-              : {
-                ip: printerOrForm.ipAddress,
-                port: printerOrForm.port,
-                brand: printerOrForm.brand,
-                model: printerOrForm.model,
-              };
-            const res = await api.post('/printers/action/test-page', payload);
-            if (res.data.ok) {
+            const res = await dispatcherTestPage(printerOrForm);
+            if (res && (res.ok || res.queuedForRelay)) {
               setPrintTestStatus(prev => ({ ...prev, [key]: 'ok' }));
-              setPrinterSuccess(`Test page sent successfully to ${printerOrForm.name || printerOrForm.ipAddress}! Check printer.`);
+              setPrinterSuccess(`Test page sent successfully to ${printerOrForm.name || printerOrForm.ipAddress}! Check printer output.`);
               setTimeout(() => {
                 setPrinterSuccess('');
                 setPrintTestStatus(prev => ({ ...prev, [key]: null }));
               }, 6000);
             } else {
               setPrintTestStatus(prev => ({ ...prev, [key]: 'fail' }));
-              setPrinterError(res.data.error || 'Test print failed');
+              setPrinterError(res?.error || 'Network print failed. Double-click start-printer-agent.bat on the POS computer, or use Browser Print.');
+              setTimeout(() => setPrinterError(''), 8000);
             }
           } catch (err) {
             setPrintTestStatus(prev => ({ ...prev, [key]: 'fail' }));
-            setPrinterError(err.response?.data?.error || err.response?.data?.message || err.message || 'Test print failed');
-            setTimeout(() => setPrinterError(''), 6000);
+            setPrinterError(err.response?.data?.error || err.response?.data?.message || err.message || 'Test print failed. Please run start-printer-agent.bat on POS computer.');
+            setTimeout(() => setPrinterError(''), 8000);
           }
         };
 
@@ -3012,7 +3016,7 @@ export default function Settings() {
         return (
           <div className="max-w-4xl">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="font-display text-xl font-bold text-ink-900 flex items-center gap-2">
                   <span className="rounded-xl bg-violet-100 p-2 text-violet-600"><Printer size={20} /></span>
@@ -3022,12 +3026,41 @@ export default function Settings() {
                   Connect thermal &amp; laser printers via IP address. Supports Epson, Star, Datecs, Citizen, Bixolon, HP LaserJet &amp; Generic printers.
                 </p>
               </div>
-              <button
-                onClick={openAdd}
-                className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm px-4 py-2.5 transition shadow-md"
-              >
-                <Plus size={16} /> Add Printer
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrinterForm({
+                      ...blankPrinter,
+                      name: 'Kitchen Order Printer',
+                      type: 'kitchen',
+                      brand: 'Generic',
+                      model: 'All Generic ESC/POS (80mm)',
+                      paperWidth: '80mm',
+                      charWidth: 42,
+                      connectionType: 'network',
+                      ipAddress: '10.241.18.48',
+                      port: 9100,
+                      enabled: true,
+                      printOnOrder: true,
+                      printOnCheckout: false,
+                      copies: 1,
+                    });
+                    setEditingPrinterId(null);
+                    setShowPrinterForm(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700 px-3 py-2 text-xs font-semibold transition"
+                >
+                  <Utensils size={13} /> + 80mm Kitchen Thermal
+                </button>
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3.5 py-2 transition shadow-md"
+                >
+                  <Plus size={15} /> Add Printer
+                </button>
+              </div>
             </div>
 
             {printerSuccess && (
@@ -3042,55 +3075,102 @@ export default function Settings() {
             )}
 
             {/* Network Architecture & Relay Agent Status */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
-                    <Wifi size={13} className="text-violet-600" /> Direct RAW TCP (Port 9100)
-                  </span>
-                  <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
-                    ACTIVE
-                  </span>
-                </div>
-                <p className="text-[11px] text-ink-400 mt-1">
-                  Parallel non-blocking dispatch with TCP FIN spooling &amp; 2.5s fail-fast timeout.
-                </p>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-ink-500 uppercase tracking-wider">
+                  Network Print Bridge &amp; Cloud Dispatch Architecture
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    loadPrinters();
+                    setPrinterSuccess('Agent status refreshed.');
+                    setTimeout(() => setPrinterSuccess(''), 2500);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 font-semibold"
+                >
+                  <RefreshCw size={11} /> Refresh Status
+                </button>
               </div>
-
-              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
-                    <Printer size={13} className="text-indigo-600" /> Local Bridge (:9101)
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${localBridgeInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
-                    }`}>
-                    {localBridgeInfo.online ? 'ONLINE' : 'STANDBY'}
-                  </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                      <Wifi size={13} className="text-violet-600" /> Direct RAW TCP (Port 9100)
+                    </span>
+                    <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink-400 mt-1">
+                    Parallel non-blocking dispatch with TCP FIN spooling &amp; 2.5s fail-fast timeout.
+                  </p>
                 </div>
-                <p className="text-[11px] text-ink-400 mt-1">
-                  {localBridgeInfo.online
-                    ? 'Connected to local Baba Roti agent. Direct LAN print ready.'
-                    : 'Run baba-roti-agent.js locally for instant 0ms LAN print bridge.'}
-                </p>
-              </div>
 
-              <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
-                    <Radio size={13} className="text-amber-600" /> Cloud Relay Agent
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${relayAgentInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
-                    }`}>
-                    {relayAgentInfo.online ? 'CONNECTED' : 'STANDBY'}
-                  </span>
+                <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                      <Printer size={13} className="text-indigo-600" /> Local Bridge (:9101)
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${localBridgeInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
+                      }`}>
+                      {localBridgeInfo.online ? 'ONLINE' : 'STANDBY'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink-400 mt-1">
+                    {localBridgeInfo.online
+                      ? 'Connected to local Baba Roti agent. Direct LAN print ready.'
+                      : 'Run start-printer-agent.bat locally for instant 0ms LAN print bridge.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-ink-400 mt-1">
-                  {relayAgentInfo.online
-                    ? `Agent online (${relayAgentInfo.agent?.agentName || 'Relay'}). Cloud-to-LAN active.`
-                    : 'Allows cloud servers (Render / Aletcloud) to print to local IP printers.'}
-                </p>
+
+                <div className="rounded-xl border border-violet-100 bg-white p-3.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                      <Radio size={13} className="text-amber-600" /> Cloud Relay Agent
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${relayAgentInfo.online ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
+                      }`}>
+                      {relayAgentInfo.online ? 'CONNECTED' : 'STANDBY'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink-400 mt-1">
+                    {relayAgentInfo.online
+                      ? `Agent online (${relayAgentInfo.agent?.agentName || 'Relay'}). Cloud-to-LAN active.`
+                      : 'Allows cloud servers (Render / Aletcloud) to print to local IP printers.'}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* If Agent is Offline, Show Helpful Action Banner */}
+            {(!localBridgeInfo.online && !relayAgentInfo.online) && (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-amber-900 space-y-1.5">
+                    <p className="font-bold text-sm text-amber-950">Local Print Bridge Agent is not running on this PC</p>
+                    <p className="leading-relaxed">
+                      Your restaurant web app is deployed in the cloud (<strong>baba-roti-1.app.aletcloud.com</strong>). To allow the cloud to communicate with local network printers (like <code>10.241.18.48</code>), the local print bridge must be running on your POS computer.
+                    </p>
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <span className="font-semibold text-amber-800">Quick Fix:</span>
+                      <span className="rounded-md bg-white border border-amber-300 px-2.5 py-1 font-mono text-[11px] text-ink-800">
+                        Double-click start-printer-agent.bat
+                      </span>
+                      <span className="text-ink-500">or run <strong>install-startup.bat</strong> for automatic boot on Windows!</span>
+                      <button
+                        type="button"
+                        onClick={() => loadPrinters()}
+                        className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold px-3 py-1 text-[11px] transition shadow-sm ml-auto"
+                      >
+                        ↻ Check Agent Connection
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* How-to banner */}
             <div className="mb-6 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-indigo-50 p-4">
@@ -3205,7 +3285,7 @@ export default function Settings() {
                                 <button
                                   onClick={() => printTestPage(p)}
                                   disabled={printTestStatus[p._id || `${p.ipAddress}:${p.port}`] === 'pending'}
-                                  title="Send a sample test print ticket"
+                                  title="Send a sample test print ticket over Network RAW TCP 9100 or Cloud Relay"
                                   className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${printTestStatus[p._id || `${p.ipAddress}:${p.port}`] === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' :
                                     printTestStatus[p._id || `${p.ipAddress}:${p.port}`] === 'fail' ? 'border-red-300 bg-red-50 text-red-600' :
                                       printTestStatus[p._id || `${p.ipAddress}:${p.port}`] === 'pending' ? 'border-ink-200 bg-ink-50 text-ink-400' :
@@ -3219,6 +3299,14 @@ export default function Settings() {
                                   }
                                 </button>
                               )}
+                              {/* Browser Print Fallback Test */}
+                              <button
+                                onClick={() => printSystemReceipt(p)}
+                                title="Print formatted test ticket via Windows / Browser Print Dialog (instant 100% test for USB, thermal, or any Windows printer)"
+                                className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 text-[11px] font-semibold transition"
+                              >
+                                <Printer size={12} /> Browser Test
+                              </button>
                             </>
                           )}
                           {/* Toggle Enable */}

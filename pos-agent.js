@@ -44,8 +44,8 @@ const CLOUD_URL = (
   'https://baba-roti-1.app.aletcloud.com'
 ).replace(/\/+$/, '');
 
-const PREFERRED_PORT = parseInt(process.argv[3] || process.env.LOCAL_PORT || fileConfig.localBridgePort || '5000', 10);
-const FALLBACK_PORT = parseInt(fileConfig.fallbackBridgePort || '9101', 10);
+const PREFERRED_PORT = parseInt(process.argv[3] || process.env.LOCAL_PORT || fileConfig.localBridgePort || '9101', 10);
+const FALLBACK_PORT = parseInt(fileConfig.fallbackBridgePort || '9102', 10);
 const AGENT_NAME = `POSAgent@${os.hostname()}`;
 const CONNECT_TIMEOUT_MS = parseInt(fileConfig.connectTimeoutMs || '2500', 10);
 const WRITE_TIMEOUT_MS   = parseInt(fileConfig.writeTimeoutMs || '8000', 10);
