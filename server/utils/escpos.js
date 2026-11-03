@@ -88,8 +88,8 @@ function buildKOT(order, opts = {}) {
   const W = opts.charWidth || 42;
   const businessName = opts.businessName || 'KITCHEN ORDER';
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = now.toLocaleDateString('en-ET');
+  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
+  const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
 
   // Filter items by target station if specified ('kitchen', 'barista', etc.)
   const targetStation = opts.targetStation || opts.station;
@@ -190,8 +190,8 @@ function buildReceipt(order, opts = {}) {
   const currency    = opts.currency || 'ETB';
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-ET');
-  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
+  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
 
   const subtotal   = (order.items || []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
   const discAmt    = subtotal * ((order.discountPercent || 0) / 100);
@@ -315,8 +315,8 @@ function buildKOT_plain(order, opts = {}) {
   const W = 60; // wider for laser/letter page
   const businessName = opts.businessName || 'KITCHEN ORDER';
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = now.toLocaleDateString('en-ET');
+  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
+  const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
 
   const lines = [];
   lines.push(PCL_RESET + PCL_SETUP);
@@ -365,8 +365,8 @@ function buildReceipt_plain(order, opts = {}) {
   const currency   = opts.currency || 'ETB';
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-ET');
-  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
+  const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
 
   const subtotal  = (order.items || []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
   const discAmt   = subtotal * ((order.discountPercent || 0) / 100);

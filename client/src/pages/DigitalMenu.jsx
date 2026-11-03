@@ -706,18 +706,21 @@ export default function DigitalMenu() {
         customerName,
       });
       if (res.data?.success) {
+        // Use the customer device's current local time
+        const localCurrentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const displayTime = localCurrentTime || res.data.time;
         setServiceAlert({
           type: action,
-          time: res.data.time,
+          time: displayTime,
           tableNo: res.data.tableNo || tableNo,
           message:
             action === 'request_bill'
-              ? `${t.billBanner} (${res.data.time})`
-              : `${t.waiterBanner} (${res.data.time})`,
+              ? `${t.billBanner} (${displayTime})`
+              : `${t.waiterBanner} (${displayTime})`,
         });
         setServiceSuccessModal({
           type: action,
-          time: res.data.time,
+          time: displayTime,
           tableNo: res.data.tableNo || tableNo,
         });
         setWaiterModalOpen(false);

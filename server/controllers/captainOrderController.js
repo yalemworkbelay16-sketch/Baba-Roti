@@ -542,11 +542,17 @@ const callWaiter = asyncHandler(async (req, res) => {
 
   broadcastOrderEvent("call_waiter", { tableNo, action, customerName });
 
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: process.env.TIMEZONE || "Africa/Addis_Ababa",
+  });
+
   res.json({
     success: true,
     action,
     tableNo,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    time: formattedTime,
     message: isBill
       ? `Bill requested • a waiter is coming to ${tableNo}`
       : `Waiter called • assistance is on the way to ${tableNo}`,
