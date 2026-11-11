@@ -9,9 +9,12 @@ import {
   Smartphone, Banknote, RefreshCw, ShoppingBag, User,
   Users, Table2, Layers, AlertCircle, MessageSquare,
   History, ArrowRight, CheckCircle2, FileText, ArrowDownLeft,
+  Globe,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { normalizeFileUrl } from "../utils/fileUrl";
+import { getLocalizedCategory, getLocalizedProductName } from "../utils/amharicTranslations";
 
 const ETB = (n) => `ETB ${Number(n || 0).toFixed(2)}`;
 
@@ -80,6 +83,7 @@ function Toast({ msg, type = "success", onDone }) {
 
 export default function POS() {
   const { user } = useAuth();
+  const { language, isAmharic, toggleLanguage, t } = useLanguage();
   // Instant Cache Restoration (0ms initial load)
   const [products, setProducts] = useState(() => {
     try {
@@ -1195,8 +1199,32 @@ export default function POS() {
           </a>
         </div>
 
-        {/* Right: Clock & User info */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Right: Clock, Language & User info */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Language Switcher Pill */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            title={isAmharic ? "Switch to English" : "ወደ አማርኛ ቀይር"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: isAmharic ? "#ecfdf5" : "#eff6ff",
+              border: isAmharic ? "1.5px solid #a7f3d0" : "1.5px solid #bfdbfe",
+              color: isAmharic ? "#047857" : "#1d4ed8",
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Globe size={13} />
+            <span>{isAmharic ? "English ⇄" : "አማርኛ ⇄"}</span>
+          </button>
+
           {/* Live Clock */}
           <div
             style={{
@@ -1323,7 +1351,7 @@ export default function POS() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <ReceiptText size={17} color="#2563eb" />
                 <span style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  Current Order
+                  {t('pos.currentOrder')}
                 </span>
                 <span
                   style={{
@@ -1336,7 +1364,7 @@ export default function POS() {
                     borderRadius: 12,
                   }}
                 >
-                  {items.length} item{items.length !== 1 ? "s" : ""}
+                  {items.length} {t('pos.itemsCount')}
                 </span>
               </div>
 
@@ -1363,7 +1391,7 @@ export default function POS() {
                   }}
                 >
                   <X size={13} />
-                  Close
+                  {t('pos.closeOrder')}
                 </button>
 
                 <button
@@ -1410,7 +1438,7 @@ export default function POS() {
                     }}
                   >
                     <Trash2 size={11} />
-                    Clear
+                    {t('pos.clearCart')}
                   </button>
                 )}
               </div>
@@ -1466,7 +1494,7 @@ export default function POS() {
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Guest Name (optional)"
+                placeholder={t('pos.guestName')}
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -1506,7 +1534,7 @@ export default function POS() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <Table2 size={13} style={{ flexShrink: 0 }} />
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {selectedTable ? `Table: ${selectedTable}` : "🪑 Table #"}
+                    {selectedTable ? `${t('pos.tableSelect')}: ${selectedTable}` : `🪑 ${t('pos.tableSelect')}`}
                   </span>
                 </div>
                 <ChevronDown size={11} style={{ flexShrink: 0, opacity: 0.6 }} />
@@ -1535,7 +1563,7 @@ export default function POS() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <User size={13} style={{ flexShrink: 0 }} />
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {selectedWaiter ? selectedWaiter.name : "👤 Waiter"}
+                    {selectedWaiter ? selectedWaiter.name : `👤 ${t('pos.waiterSelect')}`}
                   </span>
                 </div>
                 <ChevronDown size={11} style={{ flexShrink: 0, opacity: 0.6 }} />
@@ -1804,7 +1832,7 @@ export default function POS() {
             {/* Discount selector */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                Discount:
+                {t('pos.discount')}
               </span>
               <div style={{ display: "flex", gap: 5 }}>
                 {[0, 5, 10, 15].map((d) => {
@@ -1826,7 +1854,7 @@ export default function POS() {
                         transition: "all 0.15s ease",
                       }}
                     >
-                      {d === 0 ? "None" : `${d}%`}
+                      {d === 0 ? (isAmharic ? "የለም" : "None") : `${d}%`}
                     </button>
                   );
                 })}
@@ -1836,7 +1864,7 @@ export default function POS() {
             {/* Service Charge selector - matching discount mode exactly */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                Service Charge:
+                {t('pos.serviceCharge')}
               </span>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {Array.from(new Set([0, ...(settings.serviceChargePresets || [5, 10, 15]), ...(serviceChargePct > 0 ? [serviceChargePct] : [])])).sort((a, b) => a - b).map((s) => {
@@ -1861,7 +1889,7 @@ export default function POS() {
                         transition: "all 0.15s ease",
                       }}
                     >
-                      {s === 0 ? "None" : `${s}%`}
+                      {s === 0 ? (isAmharic ? "የለም" : "None") : `${s}%`}
                     </button>
                   );
                 })}
@@ -1871,22 +1899,22 @@ export default function POS() {
             {/* Line calculations */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12, marginBottom: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b" }}>
-                <span>Subtotal</span>
+                <span>{t('pos.subtotal')}</span>
                 <span style={{ fontVariantNumeric: "tabular-nums", color: "#0f172a", fontWeight: 600 }}>{ETB(subtotal)}</span>
               </div>
               {discountAmt > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", color: "#b45309" }}>
-                  <span>Discount ({discountPct}%)</span>
+                  <span>{t('pos.discount')} ({discountPct}%)</span>
                   <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>- {ETB(discountAmt)}</span>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b" }}>
-                <span>VAT / Tax ({settings.taxRate}%)</span>
+                <span>{isAmharic ? `ቫት / ታክስ (${settings.taxRate || 15}%)` : `VAT / Tax (${settings.taxRate || 15}%)`}</span>
                 <span style={{ fontVariantNumeric: "tabular-nums", color: "#0f172a", fontWeight: 600 }}>{ETB(taxAmt)}</span>
               </div>
               {serviceChargeAmt > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", color: "#2563eb" }}>
-                  <span>Service Charge {serviceChargePct > 0 ? `(${serviceChargePct}%)` : ""}</span>
+                  <span>{t('pos.serviceCharge')} {serviceChargePct > 0 ? `(${serviceChargePct}%)` : ""}</span>
                   <span style={{ fontVariantNumeric: "tabular-nums", color: "#0f172a", fontWeight: 600 }}>+ {ETB(serviceChargeAmt)}</span>
                 </div>
               )}
@@ -1905,9 +1933,9 @@ export default function POS() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 0.5, color: "#059669", textTransform: "uppercase" }}>
-                  TOTAL PAYABLE
+                  {t('pos.totalPayable')}
                 </div>
-                <div style={{ fontSize: 10, color: "#64748b" }}>Tax &amp; Service Included</div>
+                <div style={{ fontSize: 10, color: "#64748b" }}>{t('pos.taxAndServiceIncluded')}</div>
               </div>
               <div
                 style={{
@@ -1948,7 +1976,7 @@ export default function POS() {
                 }}
               >
                 <UtensilsCrossed size={16} />
-                {heldOrderId ? "Update" : "🍽 Order"}
+                {heldOrderId ? (isAmharic ? "አድስ" : "Update") : (isAmharic ? "🍽 ትዕዛዝ (Order)" : "🍽 Order")}
               </button>
 
               <button
@@ -1956,7 +1984,7 @@ export default function POS() {
                 className="checkout-btn"
                 disabled={placing}
                 onClick={() => {
-                  if (!items.length) { showToast("Please add items to cart", "error"); return; }
+                  if (!items.length) { showToast(isAmharic ? "እባክዎን መጀመሪያ ምግብ ይምረጡ" : "Please add items to cart", "error"); return; }
                   setShowPayModal(true);
                 }}
                 title="Pay now and automatically convert to Cash Sales"
@@ -1978,7 +2006,7 @@ export default function POS() {
                 }}
               >
                 <ReceiptText size={16} />
-                Checkout ›
+                {t('pos.checkoutBtn')} ›
               </button>
             </div>
 
@@ -2074,7 +2102,7 @@ export default function POS() {
                 ref={searchRef}
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="Search products by name or code (e.g. Coffee, Burger, Roll)..."
+                placeholder={t('pos.searchPlaceholder')}
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -2138,7 +2166,7 @@ export default function POS() {
                     letterSpacing: 0.3,
                   }}
                 >
-                  {cat === "All" ? "All Items" : cat}
+                  {cat === "All" ? t('pos.allItems') : (isAmharic ? getLocalizedCategory(cat) : cat)}
                 </button>
               );
             })}
@@ -2269,7 +2297,7 @@ export default function POS() {
                           padding: "2px 7.5px", borderRadius: 20,
                           maxWidth: "105px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         }}>
-                          {p.category || "General"}
+                          {isAmharic ? getLocalizedCategory(p.category || "General") : (p.category || "General")}
                         </span>
                         <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", fontWeight: 700 }}>
                           #{p.code || "—"}
@@ -2291,7 +2319,7 @@ export default function POS() {
                         }}
                         title={p.name}
                       >
-                        {p.name}
+                        {isAmharic ? getLocalizedProductName(p.name) : p.name}
                       </div>
                     </div>
 
@@ -2844,11 +2872,11 @@ export default function POS() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
                 <h3 style={{ fontWeight: 800, fontSize: 18, color: "#0f172a", margin: 0 }}>
-                  Payment &amp; Settlement
+                  {t('pos.checkoutModalTitle')}
                 </h3>
                 {heldOrderId && (
                   <span style={{ fontSize: 11, color: "#b45309", fontWeight: 700, background: "#fffbeb", padding: "2px 6px", borderRadius: 6, display: "inline-block", marginTop: 4 }}>
-                    Converting #{heldOrderNo} to Cash Sales
+                    {isAmharic ? `ትዕዛዝ #${heldOrderNo} ወደ ጥሬ ገንዘብ ሽያጭ በመቀየር ላይ` : `Converting #${heldOrderNo} to Cash Sales`}
                   </span>
                 )}
               </div>
@@ -2880,7 +2908,7 @@ export default function POS() {
               }}
             >
               <p style={{ color: "#047857", fontSize: 11, marginBottom: 4, textTransform: "uppercase", fontWeight: 800 }}>
-                Total Payable
+                {t('pos.totalPayable')}
               </p>
               <p style={{ fontWeight: 900, fontSize: 30, color: "#059669", margin: 0 }}>
                 {ETB(grandTotal)}
@@ -2895,6 +2923,7 @@ export default function POS() {
                 ["Card", CreditCard, "#d97706"],
               ].map(([m, Icon, clr]) => {
                 const active = payMethod === m;
+                const localizedMethod = m === "Cash" ? t('pos.cash') : m === "Telebirr" ? t('pos.telebirr') : t('pos.card');
                 return (
                   <button
                     key={m}
@@ -2917,7 +2946,7 @@ export default function POS() {
                     onClick={() => setPayMethod(m)}
                   >
                     <Icon size={18} />
-                    {m}
+                    {localizedMethod}
                   </button>
                 );
               })}
@@ -2927,7 +2956,7 @@ export default function POS() {
             {payMethod === "Cash" && (
               <div style={{ marginBottom: 18 }}>
                 <p style={{ fontSize: 11, color: "#475569", marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>
-                  Cash Tendered (ETB)
+                  {t('pos.cashTendered')}
                 </p>
                 <input
                   type="number"
@@ -2962,7 +2991,7 @@ export default function POS() {
                       color: "#1d4ed8",
                     }}
                   >
-                    <span>Change Due:</span>
+                    <span>{t('pos.changeDue')}:</span>
                     <span>{ETB(change)}</span>
                   </div>
                 )}
@@ -2989,7 +3018,7 @@ export default function POS() {
                 boxShadow: "0 6px 20px rgba(16,185,129,0.35)",
               }}
             >
-              {placing ? "Processing Sale & Deducting Stock..." : "Confirm & Complete Cash Sale"}
+              {placing ? t('pos.processingSale') : (payMethod === 'Cash' ? t('pos.confirmCashSale') : payMethod === 'Telebirr' ? t('pos.confirmTelebirrSale') : t('pos.confirmCardSale'))}
             </button>
           </div>
         </div>

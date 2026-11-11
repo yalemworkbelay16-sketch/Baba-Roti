@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import BabaRotiLogo from '../ui/BabaRotiLogo';
 import { SIDEBAR_THEMES } from '../../config/sidebarThemes';
 
@@ -13,6 +14,7 @@ import MoveToInboxRoundedIcon from '@mui/icons-material/MoveToInboxRounded';
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded';
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
+import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
@@ -296,6 +298,7 @@ const Sidebar = ({
   onExpand,
 }) => {
   const { user, canSeeNav, sidebarTheme, useMaterialIcons } = useAuth();
+  const { isAmharic, toggleLanguage, t } = useLanguage();
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
   const location = useLocation();
   const navigate = useNavigate();
@@ -342,9 +345,9 @@ const Sidebar = ({
   // Dynamic greeting based on current local hour
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return { text: 'Good Morning', emoji: '☀️' };
-    if (hour >= 12 && hour < 18) return { text: 'Good Afternoon', emoji: '🌤️' };
-    return { text: 'Good Evening', emoji: '🌙' };
+    if (hour >= 5 && hour < 12) return { text: t('topbar.goodMorning'), emoji: '☀️' };
+    if (hour >= 12 && hour < 18) return { text: t('topbar.goodAfternoon'), emoji: '🌤️' };
+    return { text: t('topbar.goodEvening'), emoji: '🌙' };
   };
   const greeting = getGreeting();
 
@@ -380,29 +383,55 @@ const Sidebar = ({
     closeFlyoutImmediately();
   }, [location.pathname, collapsed]);
 
-  // Submenu items
+  // Submenu items (dynamically translated)
+  const stockItems = [
+    { to: '/transactions', label: t('nav.allMovements'), icon: SwapHorizRoundedIcon, end: true },
+    { to: '/transactions/cash-grv', label: t('nav.cashGrv'), icon: ShoppingBagRoundedIcon },
+    { to: '/transactions/credit-grv', label: t('nav.creditGrv'), icon: CreditCardRoundedIcon },
+    { to: '/transactions/fresh-bazaar', label: t('nav.freshBazaar'), icon: SpaRoundedIcon },
+    { to: '/transactions/pos-adjustment', label: t('nav.posAdjustment'), icon: TrendingUpRoundedIcon },
+    { to: '/transactions/disposal', label: t('nav.disposal'), icon: LocalFireDepartmentRoundedIcon },
+    { to: '/transactions/neg-adjustment', label: t('nav.negAdjustment'), icon: TrendingDownRoundedIcon },
+    { to: '/sales-import', label: t('nav.salesImport'), icon: CloudUploadRoundedIcon },
+  ];
+
+  const reportItems = [
+    { to: '/reports/summary', label: t('nav.overviewSummary'), icon: AssessmentRoundedIcon },
+    { to: '/reports/stock-balance', label: t('nav.stockBalance'), icon: ScaleRoundedIcon },
+    { to: '/reports/inventory-count', label: t('nav.inventoryCount'), icon: FactCheckRoundedIcon },
+    { to: '/reports/daily', label: t('nav.dailyReport'), icon: CalendarMonthRoundedIcon },
+    { to: '/reports/cash-grv', label: t('nav.cashGrvReport'), icon: ShoppingBagRoundedIcon },
+    { to: '/reports/credit-grv', label: t('nav.creditGrvReport'), icon: CreditCardRoundedIcon },
+    { to: '/reports/fresh-bazaar', label: t('nav.freshBazaarReport'), icon: SpaRoundedIcon },
+    { to: '/reports/pos-adjustment', label: t('nav.posAdjustment'), icon: TrendingUpRoundedIcon },
+    { to: '/reports/disposal', label: t('nav.disposal'), icon: LocalFireDepartmentRoundedIcon },
+    { to: '/reports/neg-adjustment', label: t('nav.negAdjustment'), icon: TrendingDownRoundedIcon },
+    { to: '/reports/stock-levels', label: t('nav.stockLevelsReport'), icon: WidgetsRoundedIcon },
+    { to: '/reports/purchases', label: t('nav.purchaseHistory'), icon: HistoryRoundedIcon },
+  ];
+
   const subsystemItems = [
-    canSeeNav('captainOrder') && { to: '/captain-order', label: 'Captain Order', icon: ReceiptLongRoundedIcon },
-    canSeeNav('cashSales') && { to: '/cash-sales', label: 'Cash Sales', icon: PaidRoundedIcon },
-    canSeeNav('pos') && { to: '/pos', label: 'POS Ordering', icon: PointOfSaleRoundedIcon },
-    canSeeNav('digitalMenu') && { to: '/menu', label: 'Digital Menu (QR)', icon: MenuBookRoundedIcon },
+    canSeeNav('captainOrder') && { to: '/captain-order', label: t('nav.captainOrder'), icon: ReceiptLongRoundedIcon },
+    canSeeNav('cashSales') && { to: '/cash-sales', label: t('nav.cashSales'), icon: PaidRoundedIcon },
+    canSeeNav('pos') && { to: '/pos', label: t('nav.pos'), icon: PointOfSaleRoundedIcon },
+    canSeeNav('digitalMenu') && { to: '/menu', label: t('nav.digitalMenu'), icon: MenuBookRoundedIcon },
   ].filter(Boolean);
 
   const inventoryItems = [
-    canSeeNav('rawMaterials') && { to: '/materials', label: 'Raw Materials', icon: WidgetsRoundedIcon },
-    canSeeNav('products') && { to: '/products', label: 'Products & Recipes', icon: RestaurantMenuRoundedIcon },
-    canSeeNav('suppliers') && { to: '/suppliers', label: 'Suppliers Directory', icon: LocalShippingRoundedIcon },
-    canSeeNav('consumption') && { to: '/consumption', label: 'Consumption', icon: CoffeeRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials', label: t('nav.rawMaterials'), icon: WidgetsRoundedIcon },
+    canSeeNav('products') && { to: '/products', label: t('nav.products'), icon: RestaurantMenuRoundedIcon },
+    canSeeNav('suppliers') && { to: '/suppliers', label: t('nav.suppliers'), icon: LocalShippingRoundedIcon },
+    canSeeNav('consumption') && { to: '/consumption', label: t('nav.consumption'), icon: CoffeeRoundedIcon },
   ].filter(Boolean);
 
   const financeItems = [
-    canSeeNav('expenses') && { to: '/expenses', label: 'Overhead Expenses', icon: ReceiptLongRoundedIcon },
-    canSeeNav('analytics') && { to: '/analytics', label: 'Analytics & P&L', icon: TrendingUpRoundedIcon },
+    canSeeNav('expenses') && { to: '/expenses', label: t('nav.expenses'), icon: ReceiptLongRoundedIcon },
+    canSeeNav('analytics') && { to: '/analytics', label: t('nav.analytics'), icon: TrendingUpRoundedIcon },
   ].filter(Boolean);
 
   const staffItems = [
-    { to: '/users', label: 'Staff Accounts', icon: PeopleAltRoundedIcon },
-    { to: '/employees', label: 'Employees Directory', icon: ManageAccountsRoundedIcon },
+    { to: '/users', label: t('nav.staffAccounts'), icon: PeopleAltRoundedIcon },
+    { to: '/employees', label: t('nav.employees'), icon: ManageAccountsRoundedIcon },
   ];
 
   return (
@@ -501,9 +530,9 @@ const Sidebar = ({
               onMouseEnter={(e) =>
                 openFlyout(
                   {
-                    title: 'Dashboard',
+                    title: t('nav.dashboard'),
                     icon: DashboardRoundedIcon,
-                    items: [{ to: '/', label: 'Overview & Metrics', icon: DashboardRoundedIcon, end: true }],
+                    items: [{ to: '/', label: t('nav.dashboard'), icon: DashboardRoundedIcon, end: true }],
                   },
                   e
                 )
@@ -512,8 +541,8 @@ const Sidebar = ({
             >
               <MenuLink
                 to="/"
-                label="Dashboard"
-                subtitle="Overview & metrics"
+                label={t('nav.dashboard')}
+                subtitle={isAmharic ? 'አጠቃላይ መረጃ' : 'Overview & metrics'}
                 icon={DashboardRoundedIcon}
                 iconGradient="linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
                 end={true}
@@ -532,7 +561,7 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Subsystem',
+                      title: t('nav.subsystems'),
                       icon: LayersRoundedIcon,
                       items: subsystemItems,
                     },
@@ -543,7 +572,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/pos"
-                  label="Subsystem"
+                  label={t('nav.subsystems')}
                   icon={LayersRoundedIcon}
                   iconGradient="linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)"
                   collapsed={true}
@@ -552,8 +581,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Subsystem"
-                subtitle="POS, Orders & Sales"
+                label={t('nav.subsystems')}
+                subtitle={isAmharic ? 'ትዕዛዝ እና ሽያጭ' : 'POS, Orders & Sales'}
                 icon={LayersRoundedIcon}
                 iconGradient="linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)"
                 isActive={onSubsystem}
@@ -562,18 +591,18 @@ const Sidebar = ({
                 collapsed={collapsed}
               >
                 {canSeeNav('captainOrder') && (
-                  <SubLink to="/captain-order" label="Captain Order" icon={ReceiptLongRoundedIcon} onClick={onClose} />
+                  <SubLink to="/captain-order" label={t('nav.captainOrder')} icon={ReceiptLongRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('cashSales') && (
-                  <SubLink to="/cash-sales" label="Cash Sales" icon={PaidRoundedIcon} onClick={onClose} />
+                  <SubLink to="/cash-sales" label={t('nav.cashSales')} icon={PaidRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('pos') && (
-                  <SubLink to="/pos" label="POS Ordering" icon={PointOfSaleRoundedIcon} onClick={onClose} />
+                  <SubLink to="/pos" label={t('nav.pos')} icon={PointOfSaleRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('digitalMenu') && (
                   <SubLink
                     to="/menu"
-                    label="Digital Menu (QR)"
+                    label={t('nav.digitalMenu')}
                     icon={MenuBookRoundedIcon}
                     onClick={onClose}
                     target="_blank"
@@ -591,7 +620,7 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Inventory & Items',
+                      title: t('nav.inventory'),
                       icon: Inventory2RoundedIcon,
                       items: inventoryItems,
                     },
@@ -602,7 +631,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/materials"
-                  label="Inventory & Items"
+                  label={t('nav.inventory')}
                   icon={Inventory2RoundedIcon}
                   iconGradient="linear-gradient(135deg, #059669 0%, #10b981 100%)"
                   collapsed={true}
@@ -611,8 +640,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Inventory & Items"
-                subtitle="Stock & products"
+                label={t('nav.inventory')}
+                subtitle={isAmharic ? 'ጥሬ ዕቃዎችና ምርቶች' : 'Stock & products'}
                 icon={Inventory2RoundedIcon}
                 iconGradient="linear-gradient(135deg, #059669 0%, #10b981 100%)"
                 isActive={onInventory}
@@ -621,23 +650,23 @@ const Sidebar = ({
                 collapsed={collapsed}
               >
                 {canSeeNav('rawMaterials') && (
-                  <SubLink to="/materials" label="Raw Materials" icon={WidgetsRoundedIcon} onClick={onClose} />
+                  <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('products') && (
-                  <SubLink to="/products" label="Products & Recipes" icon={RestaurantMenuRoundedIcon} onClick={onClose} />
+                  <SubLink to="/products" label={t('nav.products')} icon={RestaurantMenuRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('suppliers') && (
-                  <SubLink to="/suppliers" label="Suppliers Directory" icon={LocalShippingRoundedIcon} onClick={onClose} />
+                  <SubLink to="/suppliers" label={t('nav.suppliers')} icon={LocalShippingRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('consumption') && (
-                  <SubLink to="/consumption" label="Consumption" icon={CoffeeRoundedIcon} onClick={onClose} />
+                  <SubLink to="/consumption" label={t('nav.consumption')} icon={CoffeeRoundedIcon} onClick={onClose} />
                 )}
               </CollapsibleNav>
             )
           )}
 
           {/* ── SECTION: OPERATIONS ── */}
-          <SectionLabel collapsed={collapsed}>Operations</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t('nav.operations')}</SectionLabel>
 
           {/* 4. Stock Movements */}
           {canSeeNav('stockMovements') && (
@@ -646,9 +675,9 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Stock Movements',
+                      title: t('nav.stockMovements'),
                       icon: SwapHorizRoundedIcon,
-                      items: STOCK_ITEMS,
+                      items: stockItems,
                     },
                     e
                   )
@@ -657,7 +686,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/transactions"
-                  label="Stock Movements"
+                  label={t('nav.stockMovements')}
                   icon={SwapHorizRoundedIcon}
                   iconGradient="linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)"
                   collapsed={true}
@@ -666,8 +695,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Stock Movements"
-                subtitle="Stock transfers"
+                label={t('nav.stockMovements')}
+                subtitle={isAmharic ? 'የዕቃ ግዢና ዝውውር' : 'Stock transfers'}
                 icon={SwapHorizRoundedIcon}
                 iconGradient="linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)"
                 isActive={onTransactions}
@@ -675,7 +704,7 @@ const Sidebar = ({
                 onToggle={() => setStockOpen((o) => !o)}
                 collapsed={collapsed}
               >
-                {STOCK_ITEMS.map((item) => (
+                {stockItems.map((item) => (
                   <SubLink key={item.to} {...item} onClick={onClose} />
                 ))}
               </CollapsibleNav>
@@ -687,9 +716,9 @@ const Sidebar = ({
             onMouseEnter={(e) =>
               openFlyout(
                 {
-                  title: 'Stock Issue & Request',
+                  title: t('nav.stockRequests'),
                   icon: MoveToInboxRoundedIcon,
-                  items: [{ to: '/stock-requests', label: 'Store Requisition', icon: MoveToInboxRoundedIcon }],
+                  items: [{ to: '/stock-requests', label: t('nav.stockRequests'), icon: MoveToInboxRoundedIcon }],
                 },
                 e
               )
@@ -698,8 +727,8 @@ const Sidebar = ({
           >
             <MenuLink
               to="/stock-requests"
-              label="Stock Issue & Request"
-              subtitle="Requisition & dispatch"
+              label={t('nav.stockRequests')}
+              subtitle={isAmharic ? 'የዕቃ ጥያቄና ወጪ' : 'Requisition & dispatch'}
               icon={MoveToInboxRoundedIcon}
               iconGradient="linear-gradient(135deg, #d97706 0%, #f59e0b 100%)"
               collapsed={collapsed}
@@ -714,9 +743,9 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Reports',
+                      title: t('nav.reports'),
                       icon: AssessmentRoundedIcon,
-                      items: REPORT_ITEMS,
+                      items: reportItems,
                     },
                     e
                   )
@@ -725,7 +754,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/reports"
-                  label="Reports"
+                  label={t('nav.reports')}
                   icon={AssessmentRoundedIcon}
                   iconGradient="linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)"
                   collapsed={true}
@@ -734,8 +763,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Reports"
-                subtitle="Analytics & insights"
+                label={t('nav.reports')}
+                subtitle={isAmharic ? 'ትንተናና ሪፖርቶች' : 'Analytics & insights'}
                 icon={AssessmentRoundedIcon}
                 iconGradient="linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)"
                 isActive={onReports}
@@ -743,7 +772,7 @@ const Sidebar = ({
                 onToggle={() => setReportOpen((o) => !o)}
                 collapsed={collapsed}
               >
-                {REPORT_ITEMS.map((item) => (
+                {reportItems.map((item) => (
                   <SubLink key={item.to} {...item} onClick={onClose} />
                 ))}
               </CollapsibleNav>
@@ -757,7 +786,7 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Finance & Expenses',
+                      title: t('nav.finance'),
                       icon: SavingsRoundedIcon,
                       items: financeItems,
                     },
@@ -768,7 +797,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/expenses"
-                  label="Finance & Expenses"
+                  label={t('nav.finance')}
                   icon={SavingsRoundedIcon}
                   iconGradient="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
                   collapsed={true}
@@ -777,8 +806,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Finance & Expenses"
-                subtitle="Expenses & P&L"
+                label={t('nav.finance')}
+                subtitle={isAmharic ? 'ወጪዎችና ትርፍ/ኪሳራ' : 'Expenses & P&L'}
                 icon={SavingsRoundedIcon}
                 iconGradient="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
                 isActive={onFinance}
@@ -787,17 +816,17 @@ const Sidebar = ({
                 collapsed={collapsed}
               >
                 {canSeeNav('expenses') && (
-                  <SubLink to="/expenses" label="Overhead Expenses" icon={ReceiptLongRoundedIcon} onClick={onClose} />
+                  <SubLink to="/expenses" label={t('nav.expenses')} icon={ReceiptLongRoundedIcon} onClick={onClose} />
                 )}
                 {canSeeNav('analytics') && (
-                  <SubLink to="/analytics" label="Analytics & P&L" icon={TrendingUpRoundedIcon} onClick={onClose} />
+                  <SubLink to="/analytics" label={t('nav.analytics')} icon={TrendingUpRoundedIcon} onClick={onClose} />
                 )}
               </CollapsibleNav>
             )
           )}
 
           {/* ── SECTION: ADMIN ── */}
-          <SectionLabel collapsed={collapsed}>Admin</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{isAmharic ? 'አስተዳደር' : 'Admin'}</SectionLabel>
 
           {/* 8. Staff & Employees */}
           {canSeeNav('staffAccounts') && (
@@ -806,7 +835,7 @@ const Sidebar = ({
                 onMouseEnter={(e) =>
                   openFlyout(
                     {
-                      title: 'Staff & Employees',
+                      title: t('nav.staff'),
                       icon: PeopleAltRoundedIcon,
                       items: staffItems,
                     },
@@ -817,7 +846,7 @@ const Sidebar = ({
               >
                 <MenuLink
                   to="/users"
-                  label="Staff & Employees"
+                  label={t('nav.staff')}
                   icon={PeopleAltRoundedIcon}
                   iconGradient="linear-gradient(135deg, #2563eb 0%, #38bdf8 100%)"
                   collapsed={true}
@@ -826,8 +855,8 @@ const Sidebar = ({
               </div>
             ) : (
               <CollapsibleNav
-                label="Staff & Employees"
-                subtitle="Staff directory"
+                label={t('nav.staff')}
+                subtitle={isAmharic ? 'የሰራተኞች ማውጫ' : 'Staff directory'}
                 icon={PeopleAltRoundedIcon}
                 iconGradient="linear-gradient(135deg, #2563eb 0%, #38bdf8 100%)"
                 isActive={onStaff}
@@ -835,8 +864,8 @@ const Sidebar = ({
                 onToggle={() => setStaffOpen((o) => !o)}
                 collapsed={collapsed}
               >
-                <SubLink to="/users" label="Staff Accounts" icon={PeopleAltRoundedIcon} onClick={onClose} />
-                <SubLink to="/employees" label="Employees Directory" icon={ManageAccountsRoundedIcon} onClick={onClose} />
+                <SubLink to="/users" label={t('nav.staffAccounts')} icon={PeopleAltRoundedIcon} onClick={onClose} />
+                <SubLink to="/employees" label={t('nav.employees')} icon={ManageAccountsRoundedIcon} onClick={onClose} />
               </CollapsibleNav>
             )
           )}
@@ -846,9 +875,9 @@ const Sidebar = ({
             onMouseEnter={(e) =>
               openFlyout(
                 {
-                  title: 'Settings',
+                  title: t('nav.settings'),
                   icon: SettingsRoundedIcon,
-                  items: [{ to: '/settings', label: 'System Configurations', icon: SettingsRoundedIcon }],
+                  items: [{ to: '/settings', label: t('nav.settings'), icon: SettingsRoundedIcon }],
                 },
                 e
               )
@@ -857,8 +886,8 @@ const Sidebar = ({
           >
             <MenuLink
               to="/settings"
-              label="Settings"
-              subtitle="Configurations"
+              label={t('nav.settings')}
+              subtitle={isAmharic ? 'የሲስተም ቅንብሮች' : 'Configurations'}
               icon={SettingsRoundedIcon}
               iconGradient="linear-gradient(135deg, #475569 0%, #64748b 100%)"
               collapsed={collapsed}
@@ -872,9 +901,9 @@ const Sidebar = ({
               onMouseEnter={(e) =>
                 openFlyout(
                   {
-                    title: 'Recycle Bin',
+                    title: t('nav.recycleBin'),
                     icon: DeleteSweepRoundedIcon,
-                    items: [{ to: '/recycle-bin', label: 'Recycle Bin & Restores', icon: DeleteSweepRoundedIcon }],
+                    items: [{ to: '/recycle-bin', label: t('nav.recycleBin'), icon: DeleteSweepRoundedIcon }],
                   },
                   e
                 )
@@ -883,8 +912,8 @@ const Sidebar = ({
             >
               <MenuLink
                 to="/recycle-bin"
-                label="Recycle Bin"
-                subtitle="Restore records"
+                label={t('nav.recycleBin')}
+                subtitle={isAmharic ? 'የተሰረዙ መዝገቦች' : 'Restore records'}
                 icon={DeleteSweepRoundedIcon}
                 iconGradient="linear-gradient(135deg, #dc2626 0%, #ef4444 100%)"
                 collapsed={collapsed}
@@ -893,6 +922,39 @@ const Sidebar = ({
             </div>
           )}
         </nav>
+
+        {/* ── LANGUAGE SWITCHER IN SIDEBAR FOOTER ── */}
+        <div className={`px-2.5 py-1.5 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
+          {!collapsed ? (
+            <>
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-white/70">
+                <LanguageRoundedIcon sx={{ fontSize: 15 }} />
+                <span>{t('common.language')}</span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition shadow-xs cursor-pointer ${
+                  theme.isLight
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                    : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'
+                }`}
+                title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
+              >
+                <span>{isAmharic ? 'English' : 'አማርኛ'}</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
+            >
+              <LanguageRoundedIcon sx={{ fontSize: 16 }} />
+            </button>
+          )}
+        </div>
 
         {/* ── BOTTOM USER PROFILE CARD (COMPACT) ── */}
         <div className={`p-1.5 ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.07]'}`}>

@@ -5,11 +5,12 @@ import {
   Layers, Clock, HelpCircle, X, BookOpen, Package,
   ArrowLeftRight, ShoppingCart, BarChart2, Users,
   ChevronRight, Search, Lightbulb, CheckCircle2, PlayCircle,
-  Bell, BellRing, Trash2,
+  Bell, BellRing, Trash2, Globe,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionTimeout } from '../../context/SessionTimeoutContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 // ─────────────────────────────────────────
 // HELP MODAL DATA
@@ -483,6 +484,7 @@ const NotificationBell = () => {
 const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
   const { user, logout, hasRole } = useAuth();
   const { timeoutMinutes, setTimeoutMinutes } = useSessionTimeout();
+  const { language, isAmharic, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -553,9 +555,20 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
             <span className={`h-1.5 w-1.5 rounded-full ${timeoutMinutes === 0 ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`} />
             <Clock size={12} className="text-slate-400" />
             <span className="text-[11px] font-medium text-slate-600">
-              {timeoutMinutes === 0 ? 'Timeout: Off' : `Auto-Logout: ${timeoutMinutes}m`}
+              {timeoutMinutes === 0 ? t('topbar.timeoutOff') : `${t('topbar.autoLogout')}: ${timeoutMinutes}${t('topbar.minutes')}`}
             </span>
           </div>
+
+          {/* Language Switcher Pill */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 rounded-full border border-blue-200/90 bg-blue-50/80 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer select-none"
+            title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
+          >
+            <Globe size={13} className="text-blue-600" />
+            <span>{isAmharic ? 'English' : 'አማርኛ'}</span>
+          </button>
 
           {/* Notification Bell */}
           <NotificationBell />
@@ -612,14 +625,14 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 transition"
                   >
                     <User size={15} className="text-ink-400" />
-                    My Profile
+                    {t('topbar.myProfile')}
                   </button>
                   <button
                     onClick={() => handleNav('/settings?tab=security')}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 transition"
                   >
                     <Shield size={15} className="text-ink-400" />
-                    Security &amp; Password
+                    {t('topbar.changePassword')}
                   </button>
                   {hasRole('admin') && (
                     <button
@@ -627,7 +640,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 transition"
                     >
                       <Building size={15} className="text-ink-400" />
-                      Hotel Settings
+                      {t('topbar.systemSettings')}
                     </button>
                   )}
                   <button
@@ -643,7 +656,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 transition"
                   >
                     <HelpCircle size={15} className="text-blue-500" />
-                    Help &amp; Documentation
+                    {t('topbar.help')}
                   </button>
                 </div>
 
@@ -652,10 +665,10 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
                       <Clock size={13} className="text-blue-600" />
-                      Session Timeout
+                      {t('topbar.autoLogout')}
                     </span>
                     <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-200">
-                      {timeoutMinutes === 0 ? 'Disabled' : `${timeoutMinutes} min`}
+                      {timeoutMinutes === 0 ? t('topbar.timeoutOff') : `${timeoutMinutes} min`}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400 mb-2 leading-tight">
@@ -684,7 +697,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
                   >
                     <LogOut size={15} />
-                    Sign Out
+                    {t('topbar.signOut')}
                   </button>
                 </div>
               </div>
