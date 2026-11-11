@@ -4,7 +4,9 @@
   "description": "Hotel Stock Management System",
   "main": "server/server.js",
   "scripts": {
-    "build": "npm install --prefix client --legacy-peer-deps && npm run build --prefix client && npm install --prefix server --omit=dev",
+    "build": "node scripts/build.js",
+    "build:client": "npm run build --prefix client",
+    "build:full": "npm install --prefix client --legacy-peer-deps && npm run build --prefix client && npm install --prefix server --omit=dev",
     "start": "node server/server.js",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client"
