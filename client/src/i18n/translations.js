@@ -240,6 +240,16 @@ export const translations = {
       postToLedger: 'Post to Ledger',
       goodsDisposal: 'Goods Disposal',
       adjustment: 'Stock Adjustment',
+      allTime: 'All Time',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      last7Days: '7 Days',
+      thisMonth: 'This Month',
+      customRange: 'Custom',
+      from: 'From',
+      to: 'To',
+      filterByDate: 'Filter by date',
+      recordsFound: 'records found',
     },
 
     // ── Monthly Inventory Count ──
@@ -536,6 +546,16 @@ export const translations = {
       postToLedger: 'ወደ ሌጀር መዝግብ (የመጨረሻ)',
       goodsDisposal: 'የተበላሸ ዕቃ ማስወገጃ',
       adjustment: 'የዕቃ ስቶክ ማስተካከያ',
+      allTime: 'ሁሉም ጊዜ',
+      today: 'ዛሬ',
+      yesterday: 'ትናንት',
+      last7Days: 'ባለፉት 7 ቀናት',
+      thisMonth: 'በዚህ ወር',
+      customRange: 'ብጁ ቀን',
+      from: 'ከቀን',
+      to: 'እስከ ቀን',
+      filterByDate: 'በቀን ይፈልጉ',
+      recordsFound: 'ዝውውሮች ተገኝተዋል',
     },
 
     // ── Monthly Inventory Count ──
@@ -595,3 +615,4 @@ export const translations = {
 };
 
 export default translations;
+

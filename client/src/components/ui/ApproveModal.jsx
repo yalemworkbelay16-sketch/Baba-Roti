@@ -63,20 +63,17 @@ const ACTION_CONFIG = {
     isDangerous: true,
   },
 };
-
 // ── Workflow steps per mode ───────────────────────────────────────────
 const PURCHASE_STEPS = ['draft', 'checked', 'approved', 'received'];
-const TXN_STEPS      = ['pending', 'checked', 'approved', 'posted'];
-
+const TXN_STEPS = ['pending', 'checked', 'approved', 'posted'];
 const STEP_ICON = {
-  draft:    FileText,
-  pending:  Clock,
-  checked:  CheckCircle,
+  draft: FileText,
+  pending: Clock,
+  checked: CheckCircle,
   approved: ShieldCheck,
   received: PackageCheck,
-  posted:   PackageOpen,
+  posted: PackageOpen,
 };
-
 // ── Workflow stepper ──────────────────────────────────────────────────
 function WorkflowStepper({ currentStatus, mode }) {
   const steps = mode === 'purchase' ? PURCHASE_STEPS : TXN_STEPS;
@@ -85,8 +82,8 @@ function WorkflowStepper({ currentStatus, mode }) {
   return (
     <div className="flex items-center">
       {steps.map((step, idx) => {
-        const done    = idx < currentIdx;
-        const active  = idx === currentIdx;
+        const done = idx < currentIdx;
+        const active = idx === currentIdx;
         const upcoming = idx > currentIdx;
         const Icon = STEP_ICON[step] ?? CheckCircle;
 
@@ -94,14 +91,14 @@ function WorkflowStepper({ currentStatus, mode }) {
           <React.Fragment key={step}>
             <div className="flex flex-col items-center gap-1 min-w-[56px]">
               <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all
-                ${done    ? 'border-emerald-500 bg-emerald-500 text-white' : ''}
-                ${active  ? 'border-blue-600 bg-blue-600 text-white shadow-md' : ''}
+                ${done ? 'border-emerald-500 bg-emerald-500 text-white' : ''}
+                ${active ? 'border-blue-600 bg-blue-600 text-white shadow-md' : ''}
                 ${upcoming ? 'border-ink-200 bg-white text-ink-300' : ''}`}>
                 <Icon size={14} />
               </div>
               <span className={`text-xs font-medium capitalize leading-none text-center
-                ${done    ? 'text-emerald-600' : ''}
-                ${active  ? 'text-blue-700 font-semibold' : ''}
+                ${done ? 'text-emerald-600' : ''}
+                ${active ? 'text-blue-700 font-semibold' : ''}
                 ${upcoming ? 'text-ink-400' : ''}`}>
                 {step}
               </span>
@@ -116,7 +113,6 @@ function WorkflowStepper({ currentStatus, mode }) {
     </div>
   );
 }
-
 // ── Audit trail timeline ──────────────────────────────────────────────
 export function TrailTimeline({ trail = [] }) {
   if (!trail.length) return null;
@@ -142,7 +138,6 @@ export function TrailTimeline({ trail = [] }) {
     </div>
   );
 }
-
 // ── Main ApproveModal ─────────────────────────────────────────────────
 export default function ApproveModal({
   open, onClose, onConfirm,
@@ -152,10 +147,10 @@ export default function ApproveModal({
   trail = [],
 }) {
   const [password, setPassword] = useState('');
-  const [showPw,   setShowPw]   = useState(false);
-  const [note,     setNote]     = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [note, setNote] = useState('');
 
-  const cfg  = ACTION_CONFIG[action] ?? ACTION_CONFIG.check;
+  const cfg = ACTION_CONFIG[action] ?? ACTION_CONFIG.check;
   const Icon = cfg.icon;
 
   const handleSubmit = async (e) => {

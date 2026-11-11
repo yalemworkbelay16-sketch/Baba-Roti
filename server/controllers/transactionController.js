@@ -43,8 +43,17 @@ const getTransactions = asyncHandler(async (req, res) => {
   if (material)    filter.$or = [{ material }, { 'items.material': material }];
   if (from || to) {
     filter.date = {};
-    if (from) filter.date.$gte = new Date(from);
-    if (to)   filter.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+    if (from) {
+      filter.date.$gte = new Date(from);
+    }
+    if (to) {
+      const toD = new Date(to);
+      // If 'to' is just a date string like YYYY-MM-DD, extend to end of day
+      if (typeof to === 'string' && to.trim().length === 10) {
+        toD.setHours(23, 59, 59, 999);
+      }
+      filter.date.$lte = toD;
+    }
   }
 
   const transactions = await StockTransaction.find(filter)
