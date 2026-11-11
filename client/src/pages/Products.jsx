@@ -12,10 +12,10 @@ import ProductImageModal from '../components/products/ProductImageModal';
 const emptyForm = {
   code: '',
   name: '',
-  category: '',
+  category: 'General',
   parentCategory: 'FOOD',
   uom: 'Pcs',
-  description: '',
+  description: 'Freshly prepared Baba Roti signature menu item',
   sellingPrice: 0,
   imageUrl: '',
   ingredients: [],
@@ -107,11 +107,35 @@ const Products = () => {
     return `P-${String(nextNum).padStart(padLength, '0')}`;
   };
 
+  const suggestedCategories = useMemo(() => {
+    const defaults = [
+      'General',
+      'Bakery & Pastry',
+      'Hot Drink',
+      'Soft drink',
+      'Breakfast',
+      'Lunch & Dinner',
+      'Burger & Sandwich',
+      'Juice',
+      'Pasta',
+      'Dessert',
+    ];
+    const fromProds = (products || []).map((p) => p.category).filter(Boolean);
+    return Array.from(new Set([...defaults, ...fromProds]));
+  }, [products]);
+
   const openCreate = () => {
     setEditing(null);
     setFormError('');
     const autoCode = getNextProductCode();
-    setForm({ ...emptyForm, code: autoCode, imageUrl: '' });
+    setForm({
+      ...emptyForm,
+      code: autoCode,
+      category: 'General',
+      parentCategory: 'FOOD',
+      description: 'Freshly prepared Baba Roti signature menu item',
+      imageUrl: '',
+    });
     setModalOpen(true);
   };
 
@@ -125,11 +149,11 @@ const Products = () => {
     setForm({
       code: p.code || '',
       name: p.name,
-      category: p.category,
+      category: p.category || 'General',
       parentCategory: p.parentCategory || 'FOOD',
       uom: p.uom || 'Pcs',
-      description: p.description,
-      sellingPrice: p.sellingPrice,
+      description: p.description || 'Freshly prepared Baba Roti signature menu item',
+      sellingPrice: p.sellingPrice ?? 0,
       imageUrl: p.imageUrl || '',
       ingredients: (p.ingredients || []).map((ing) => ({
         material: ing.material?._id ?? ing.material,
@@ -984,15 +1008,34 @@ const Products = () => {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Child Category</label>
-              <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. Lunch & Dinner"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+              <input
+                list="product-child-categories-list"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. General, Lunch & Dinner"
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+              <datalist id="product-child-categories-list">
+                {suggestedCategories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Parent Category</label>
-              <input value={form.parentCategory} onChange={(e) => setForm({ ...form, parentCategory: e.target.value })}
+              <input
+                list="product-parent-categories-list"
+                value={form.parentCategory}
+                onChange={(e) => setForm({ ...form, parentCategory: e.target.value })}
                 placeholder="e.g. FOOD"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+              <datalist id="product-parent-categories-list">
+                <option value="FOOD" />
+                <option value="BEVERAGE" />
+                <option value="DESSERT" />
+                <option value="OTHER" />
+              </datalist>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Selling price (ETB)</label>
@@ -1002,8 +1045,12 @@ const Products = () => {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Description</label>
-              <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+              <input
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="e.g. Freshly prepared Baba Roti signature menu item"
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
             </div>
 
             {/* Product Image (Manual & AI) */}

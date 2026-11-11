@@ -342,7 +342,12 @@ const printTestPageEndpoint = asyncHandler(async (req, res) => {
         message: `Queued for Local Relay Agent to ${printer.ipAddress}:${printer.port || 9100}`,
       });
     }
-    res.status(500).json({ ok: false, error: err.message, queuedForRelay: true, jobId: job.id });
+    res.status(500).json({
+      ok: false,
+      error: `Cloud cannot connect directly to local LAN printer at ${printer.ipAddress}:${printer.port || 9100}. Please run setup-printer.bat on the POS terminal to bridge cloud orders to your printer.`,
+      queuedForRelay: true,
+      jobId: job.id,
+    });
   }
 });
 

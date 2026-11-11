@@ -671,7 +671,7 @@ export default function POS() {
   // Errors are non-blocking — ordering always continues smoothly.
   const firePrinter = async (type, order, opts = {}) => {
     try {
-      await dispatchPrint(type, order, { ...opts, fallbackBrowser: false });
+      await dispatchPrint(type, order, { ...opts, fallbackBrowser: true });
     } catch (_) {
       // silent — printer errors must never block ordering
     }
@@ -720,10 +720,7 @@ export default function POS() {
         showToast(`Order #${savedOrder.orderNo} placed & held for ${selectedTable || "Counter"}!`);
       }
 
-      // Print KOT on browser (browser print dialog fallback)
-      posPrint.printKOT(savedOrder, { businessName: "Baba Roti Café" });
-
-      // Auto-fire to network thermal printer (silent, non-blocking)
+      // Auto-fire KOT to thermal printer (silent) with browser fallback if offline
       firePrinter('kot', savedOrder, { businessName: "Baba Roti Café" });
 
       // Reset cart
@@ -796,13 +793,7 @@ export default function POS() {
 
       showToast(`Sale #${savedSale.orderNo} completed & converted to Cash Sales! Stock deducted.`);
 
-      // Print receipt in browser (browser print dialog fallback)
-      posPrint.printReceipt(savedSale, {
-        hotelName: "Baba Roti Café",
-        taxRate: settings.taxRate,
-      });
-
-      // Auto-fire to network thermal printer (silent, non-blocking)
+      // Auto-fire receipt to thermal printer (silent) with browser fallback if offline
       firePrinter('receipt', savedSale, {
         hotelName: "Baba Roti Café",
         taxRate: settings.taxRate,

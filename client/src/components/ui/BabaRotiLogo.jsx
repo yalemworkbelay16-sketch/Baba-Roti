@@ -26,7 +26,6 @@ export const BabaRotiIcon = ({ size = 36, className = '', alt = 'Baba Roti Café
     </div>
   );
 };
-
 /**
  * Full Baba Roti Café Brand Component (used in Sidebar, Mobile Header, etc.)
  */
@@ -44,9 +43,7 @@ export default function BabaRotiLogo({
     md: 40,
     lg: 52,
   };
-
   const iconPx = typeof size === 'number' ? size : iconSizes[size] || 40;
-
   if (collapsed) {
     return (
       <div className={`flex items-center justify-center ${className}`} title="Baba Roti Café">
@@ -54,17 +51,14 @@ export default function BabaRotiLogo({
       </div>
     );
   }
-
   const brandTextColor = textColor || (isLight ? 'text-slate-900' : 'text-white');
   const subTextColor = isLight ? 'text-slate-500' : 'text-amber-200/80';
-
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
       {/* Icon Emblem */}
       <div className="relative group transition-transform duration-200 hover:scale-105">
         <BabaRotiIcon size={iconPx} className="ring-2 ring-amber-400/60 shadow-lg" />
       </div>
-
       {/* Brand Typography */}
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -75,7 +69,6 @@ export default function BabaRotiLogo({
             Café
           </span>
         </div>
-
         {showSubtitle && (
           <p className={`mt-1 flex items-center gap-1.5 text-[10px] font-medium tracking-wide leading-none transition-colors ${subTextColor}`}>
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />

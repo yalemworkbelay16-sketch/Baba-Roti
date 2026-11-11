@@ -111,10 +111,10 @@ export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', addr
     </thead>
     <tbody>
       ${orderItems.map(it => {
-        const qty = Number(it.quantity || 1);
-        const price = Number(it.unitPrice || 0);
-        const lineTot = Number(it.totalPrice != null ? it.totalPrice : (qty * price));
-        return `
+    const qty = Number(it.quantity || 1);
+    const price = Number(it.unitPrice || 0);
+    const lineTot = Number(it.totalPrice != null ? it.totalPrice : (qty * price));
+    return `
         <tr>
           <td class="text-left bold">${it.productName || 'Item'}</td>
           <td class="text-center">${qty}</td>
@@ -123,7 +123,7 @@ export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', addr
         </tr>
         ${it.notes ? `<tr><td colspan="4" class="item-notes">↳ Note: ${it.notes}</td></tr>` : ''}
         `;
-      }).join('')}
+  }).join('')}
     </tbody>
   </table>
 
@@ -338,7 +338,7 @@ function executePrint(html, frameId = 'pos_print_frame') {
         openPopupPrint(html);
       } finally {
         setTimeout(() => {
-          try { iframe.remove(); } catch (_) {}
+          try { iframe.remove(); } catch (_) { }
         }, 30000); // 30s cleanup
       }
     };
@@ -371,7 +371,7 @@ function openPopupPrint(html) {
         setTimeout(() => w.close(), 2000);
       }, 250);
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export const posPrint = {

@@ -8,5 +8,10 @@ Set FSO = CreateObject("Scripting.FileSystemObject")
 scriptDir = FSO.GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = scriptDir
 
+nodeExe = "node"
+If FSO.FileExists("C:\Program Files\nodejs\node.exe") Then
+    nodeExe = """C:\Program Files\nodejs\node.exe"""
+End If
+
 ' Launch node pos-agent.js with window hidden (0) without waiting (False)
-WshShell.Run "node pos-agent.js", 0, False
+WshShell.Run nodeExe & " pos-agent.js", 0, False

@@ -24,6 +24,21 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
+// ── Persistent File Logger ──────────────────────────────────────────────────
+const logFile = path.join(__dirname, 'agent.log');
+function logToFile(level, ...args) {
+  const line = `[${new Date().toISOString()}] [${level}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}\n`;
+  try {
+    fs.appendFileSync(logFile, line);
+  } catch (_) { }
+}
+const origLog = console.log;
+const origWarn = console.warn;
+const origErr = console.error;
+console.log = (...args) => { origLog(...args); logToFile('INFO', ...args); };
+console.warn = (...args) => { origWarn(...args); logToFile('WARN', ...args); };
+console.error = (...args) => { origErr(...args); logToFile('ERROR', ...args); };
+
 // ── Configuration Loader ────────────────────────────────────────────────────
 let fileConfig = {};
 const configPath = path.join(__dirname, 'agent-config.json');
@@ -48,8 +63,8 @@ const PREFERRED_PORT = parseInt(process.argv[3] || process.env.LOCAL_PORT || fil
 const FALLBACK_PORT = parseInt(fileConfig.fallbackBridgePort || '9102', 10);
 const AGENT_NAME = `POSAgent@${os.hostname()}`;
 const CONNECT_TIMEOUT_MS = parseInt(fileConfig.connectTimeoutMs || '2500', 10);
-const WRITE_TIMEOUT_MS   = parseInt(fileConfig.writeTimeoutMs || '8000', 10);
-const CLOSE_FALLBACK_MS  = 1500;
+const WRITE_TIMEOUT_MS = parseInt(fileConfig.writeTimeoutMs || '8000', 10);
+const CLOSE_FALLBACK_MS = 1500;
 
 console.log('='.repeat(70));
 console.log(`  ${RESTAURANT_NAME.toUpperCase()} - HYBRID CLOUD PRINT BRIDGE AGENT`);
@@ -118,7 +133,7 @@ function sendRawToPrinter(ip, port = 9100, buffer) {
       socket.removeAllListeners();
       try {
         socket.destroy();
-      } catch (_) {}
+      } catch (_) { }
     };
 
     const done = (err) => {
@@ -174,7 +189,7 @@ function sendRawToPrinter(ip, port = 9100, buffer) {
 function isLaser(printer = {}) {
   const brand = String(printer.brand || '').toLowerCase();
   const model = String(printer.model || '').toLowerCase();
-  const name  = String(printer.name || '').toLowerCase();
+  const name = String(printer.name || '').toLowerCase();
   const paper = String(printer.paperWidth || '').toLowerCase();
   const laserKeywords = ['hp', 'laser', 'laserjet', 'm402', 'm404', 'm428', 'm118', 'pcl', 'lexmark', 'brother', 'samsung', 'xerox'];
   return paper === 'a4' || laserKeywords.some(k => brand.includes(k) || model.includes(k) || name.includes(k));
@@ -203,12 +218,30 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
   const dateStr = now.toLocaleDateString();
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  // If order items missing (e.g. Test Page action), provide clean sample items
+  if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+    order = {
+      ...order,
+      orderNo: order.orderNo || 'TEST-001',
+      orderType: order.orderType || 'dine_in',
+      tableNo: order.tableNo || 'Table 1',
+      waiterName: order.waiterName || 'Test Server',
+      customerName: order.customerName || 'Test Customer',
+      paymentMethod: order.paymentMethod || 'Cash',
+      items: [
+        { productName: 'Baba Roti Bun (Special)', quantity: 2, unitPrice: 35 },
+        { productName: 'Hot Ethiopian Coffee', quantity: 1, unitPrice: 30 },
+      ],
+      grandTotal: order.grandTotal || 100,
+    };
+  }
+
   if (isPCL) {
     // ── HP LaserJet / PCL Plain ASCII Mode ──
     const W = 60;
     const PCL_RESET = '\x1bE';
     const PCL_SETUP = '\x1b&l0O\x1b(s12V\x1b&k2G';
-    const PCL_FF    = '\x0c';
+    const PCL_FF = '\x0c';
     const lines = [PCL_RESET + PCL_SETUP, ''];
 
     if (type === 'kot') {
@@ -260,13 +293,13 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
   const ESC = 0x1b, GS = 0x1d;
   const INIT = Buffer.from([ESC, 0x40]);
   const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
-  const ALIGN_LEFT   = Buffer.from([ESC, 0x61, 0x00]);
-  const BOLD_ON      = Buffer.from([ESC, 0x45, 0x01]);
-  const BOLD_OFF     = Buffer.from([ESC, 0x45, 0x00]);
-  const DBL_ON       = Buffer.from([ESC, 0x21, 0x30]);
-  const DBL_OFF      = Buffer.from([ESC, 0x21, 0x00]);
-  const FEED_5       = Buffer.from([ESC, 0x64, 5]);
-  const CUT_FULL     = Buffer.from([GS, 0x56, 0x00]);
+  const ALIGN_LEFT = Buffer.from([ESC, 0x61, 0x00]);
+  const BOLD_ON = Buffer.from([ESC, 0x45, 0x01]);
+  const BOLD_OFF = Buffer.from([ESC, 0x45, 0x00]);
+  const DBL_ON = Buffer.from([ESC, 0x21, 0x30]);
+  const DBL_OFF = Buffer.from([ESC, 0x21, 0x00]);
+  const FEED_5 = Buffer.from([ESC, 0x64, 5]);
+  const CUT_FULL = Buffer.from([GS, 0x56, 0x00]);
 
   const txt = (s) => Buffer.from(s + '\n', 'latin1');
   const chunks = [INIT, ALIGN_CENTER];
@@ -376,7 +409,7 @@ async function sendHeartbeat() {
       platform: os.platform(),
       version: '2.5.0',
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function reportJobStatus(jobId, status, error = null, extra = {}) {
@@ -534,12 +567,22 @@ function createLoopbackServer(port, onListening) {
           if (pathname.includes('/kot')) type = 'kot';
           if (pathname.includes('/receipt') || pathname.includes('/test-page')) type = 'receipt';
 
+          let orderData = payload.order || {};
+          let printOpts = payload.opts || {};
+          if (pathname.includes('/test-page')) {
+            printOpts = {
+              ...printOpts,
+              hotelName: 'Baba Roti Café - Test Print',
+              footerLine: `Print Test Passed • ${payload.printer?.brand || ''} ${payload.printer?.model || ''}`.trim() || 'Ready for Orders & Receipts!',
+            };
+          }
+
           let printBuffer;
           if (payload.dataHex) {
             printBuffer = Buffer.from(payload.dataHex, 'hex');
           } else {
             const printerObj = payload.printer || { ipAddress: ip, port: targetPort, brand: payload.brand, model: payload.model };
-            printBuffer = generatePrintBuffer(type, printerObj, payload.order || {}, payload.opts || {});
+            printBuffer = generatePrintBuffer(type, printerObj, orderData, printOpts);
           }
 
           const copies = Math.max(1, Math.min(5, Number(payload.printer?.copies) || 1));
