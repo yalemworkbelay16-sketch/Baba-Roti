@@ -33,6 +33,7 @@ const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -121,12 +122,17 @@ const Products = () => {
       'Dessert',
     ];
     const fromProds = (products || []).map((p) => p.category).filter(Boolean);
-    return Array.from(new Set([...defaults, ...fromProds]));
-  }, [products]);
+    const combined = Array.from(new Set([...defaults, ...fromProds]));
+    if (form.category && !combined.includes(form.category)) {
+      combined.push(form.category);
+    }
+    return combined;
+  }, [products, form.category]);
 
   const openCreate = () => {
     setEditing(null);
     setFormError('');
+    setIsCustomCategory(false);
     const autoCode = getNextProductCode();
     setForm({
       ...emptyForm,
@@ -146,6 +152,7 @@ const Products = () => {
 
   const openEdit = (p) => {
     setEditing(p);
+    setIsCustomCategory(false);
     setForm({
       code: p.code || '',
       name: p.name,
@@ -1007,35 +1014,65 @@ const Products = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Child Category</label>
-              <input
-                list="product-child-categories-list"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. General, Lunch & Dinner"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              />
-              <datalist id="product-child-categories-list">
-                {suggestedCategories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-sm font-medium text-ink-600">Child Category</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCustomCategory;
+                    setIsCustomCategory(next);
+                    if (!next && !form.category) {
+                      setForm(f => ({ ...f, category: 'General' }));
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  {isCustomCategory ? '← Choose from list' : '+ Type new'}
+                </button>
+              </div>
+              {isCustomCategory ? (
+                <input
+                  type="text"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="Type new category..."
+                  autoFocus
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+              ) : (
+                <select
+                  value={form.category || 'General'}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setIsCustomCategory(true);
+                      setForm({ ...form, category: '' });
+                    } else {
+                      setForm({ ...form, category: e.target.value });
+                    }
+                  }}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {suggestedCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  <option value="__custom__">+ Enter custom category...</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Parent Category</label>
-              <input
-                list="product-parent-categories-list"
-                value={form.parentCategory}
+              <select
+                value={form.parentCategory || 'FOOD'}
                 onChange={(e) => setForm({ ...form, parentCategory: e.target.value })}
-                placeholder="e.g. FOOD"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              />
-              <datalist id="product-parent-categories-list">
-                <option value="FOOD" />
-                <option value="BEVERAGE" />
-                <option value="DESSERT" />
-                <option value="OTHER" />
-              </datalist>
+                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="FOOD">FOOD</option>
+                <option value="BEVERAGE">BEVERAGE</option>
+                <option value="DESSERT">DESSERT</option>
+                <option value="OTHER">OTHER</option>
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Selling price (ETB)</label>
