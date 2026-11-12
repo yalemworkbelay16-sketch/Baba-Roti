@@ -11,8 +11,16 @@ import ModuleLocked from './ui/ModuleLocked';
  */
 const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => {
   const { user, loading, can, isModuleLicensed, hasRole } = useAuth();
+  const [safetyTimeoutPassed, setSafetyTimeoutPassed] = React.useState(false);
 
-  if (loading) {
+  React.useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setSafetyTimeoutPassed(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  if (loading && !safetyTimeoutPassed) {
     return (
       <div className="flex h-screen items-center justify-center bg-ink-50">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-ink-200 border-t-brass-400" />

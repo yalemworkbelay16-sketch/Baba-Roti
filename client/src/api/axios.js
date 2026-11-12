@@ -9,6 +9,7 @@ if (typeof window !== 'undefined' && window.location?.hostname && window.locatio
 
 const api = axios.create({
   baseURL: apiBase,
+  timeout: 15000, // 15-second timeout prevents indefinite hangs
 });
 
 api.interceptors.request.use((config) => {
