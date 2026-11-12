@@ -327,16 +327,25 @@ export default function SalesImport() {
         notes: 'Imported via POS Sales Report',
         reference: `POS Import — ${new Date().toLocaleDateString()}`,
         saleDate: new Date().toISOString(),
-      });
+      }, { timeout: 120000 });
       setResult({ success: true, data: res.data });
       setFileData(null); setParsed(null);
     } catch (err) {
       const serverMsg = err.response?.data?.message || err.response?.data?.error;
-      const networkMsg = err.message || 'Failed to import sales.';
+      let displayMsg = serverMsg;
+      if (!displayMsg) {
+        if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+          displayMsg = 'Network Error: Server is currently deploying / restarting. Please wait 15 seconds and click Try Again.';
+        } else if (err.code === 'ECONNABORTED') {
+          displayMsg = 'Import request timed out. Please retry.';
+        } else {
+          displayMsg = err.message || 'Failed to import sales.';
+        }
+      }
       const statusText = err.response?.status ? ` (${err.response.status})` : '';
       setResult({
         success: false,
-        message: serverMsg ? `${serverMsg}${statusText}` : `${networkMsg}${statusText}`,
+        message: `${displayMsg}${statusText}`,
         unmatched: err.response?.data?.unmatchedProducts || [],
       });
     } finally { setLoading(false); }
@@ -364,16 +373,25 @@ export default function SalesImport() {
         notes: 'Imported via POS/Excel Report',
         reference: `POS Import — ${detectedDate ? new Date(detectedDate).toLocaleDateString() : new Date().toLocaleDateString()}`,
         saleDate: detectedDate || new Date().toISOString(),
-      });
+      }, { timeout: 120000 });
       setResult({ success: true, data: res.data });
       setFileData(null);
     } catch (err) {
       const serverMsg = err.response?.data?.message || err.response?.data?.error;
-      const networkMsg = err.message || 'Failed to import sales.';
+      let displayMsg = serverMsg;
+      if (!displayMsg) {
+        if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+          displayMsg = 'Network Error: Server is currently deploying / restarting. Please wait 15 seconds and click Try Again.';
+        } else if (err.code === 'ECONNABORTED') {
+          displayMsg = 'Import request timed out. Please retry.';
+        } else {
+          displayMsg = err.message || 'Failed to import sales.';
+        }
+      }
       const statusText = err.response?.status ? ` (${err.response.status})` : '';
       setResult({
         success: false,
-        message: serverMsg ? `${serverMsg}${statusText}` : `${networkMsg}${statusText}`,
+        message: `${displayMsg}${statusText}`,
         unmatched: err.response?.data?.unmatchedProducts || [],
       });
     } finally { setLoading(false); }

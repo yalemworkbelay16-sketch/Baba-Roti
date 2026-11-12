@@ -56,7 +56,10 @@ connectDB()
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
+app.use(cors({
+  origin: true, // Allow all valid web clients and origins safely
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));

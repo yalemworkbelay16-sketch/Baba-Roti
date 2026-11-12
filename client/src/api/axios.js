@@ -1,15 +1,22 @@
 import axios from 'axios';
 
 let apiBase = import.meta.env.VITE_API_URL || '/api';
-if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost') {
-  if (apiBase.includes('localhost:5000')) {
-    apiBase = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+
+// On any non-localhost domain (cloud hosting like Aletcloud, Render, VPS),
+// frontend and backend are reverse-proxied together under standard HTTPS.
+// Never append ':5000' or route to localhost; always use relative '/api'.
+if (typeof window !== 'undefined' && window.location?.hostname) {
+  const host = window.location.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') {
+    if (!apiBase || apiBase.includes('localhost') || apiBase.includes(':5000')) {
+      apiBase = '/api';
+    }
   }
 }
 
 const api = axios.create({
   baseURL: apiBase,
-  timeout: 15000, // 15-second timeout prevents indefinite hangs
+  timeout: 60000, // 60-second default timeout for stable operations
 });
 
 api.interceptors.request.use((config) => {
