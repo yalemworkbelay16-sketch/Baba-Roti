@@ -1,9 +1,9 @@
 const asyncHandler = require('express-async-handler');
-const SalesRecord  = require('../models/SalesRecord');
-const RawMaterial  = require('../models/RawMaterial');
-const Product      = require('../models/Product');
+const SalesRecord = require('../models/SalesRecord');
+const RawMaterial = require('../models/RawMaterial');
+const Product = require('../models/Product');
 const StockTransaction = require('../models/StockTransaction');
-const Expense      = require('../models/Expense');
+const Expense = require('../models/Expense');
 
 // ── Date match helper ──────────────────────────────────────────────────
 const buildDateMatch = (from, to) => {
@@ -55,15 +55,15 @@ const getProfitLoss = asyncHandler(async (req, res) => {
     Expense.find(expenseMatch).lean(),
   ]);
 
-  const totalRevenue   = records.reduce((s, r) => s + (r.totalRevenue  || 0), 0);
-  const totalCOGS      = records.reduce((s, r) => s + (r.totalCOGS     || 0), 0);
-  const grossProfit    = totalRevenue - totalCOGS;
+  const totalRevenue = records.reduce((s, r) => s + (r.totalRevenue || 0), 0);
+  const totalCOGS = records.reduce((s, r) => s + (r.totalCOGS || 0), 0);
+  const grossProfit = totalRevenue - totalCOGS;
   const totalOverheadExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const netProfit      = grossProfit - totalOverheadExpenses;
-  const profitMargin   = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-  const netMargin      = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
-  const foodCostPct    = totalRevenue > 0 ? (totalCOGS / totalRevenue) * 100 : 0;
-  
+  const netProfit = grossProfit - totalOverheadExpenses;
+  const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+  const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const foodCostPct = totalRevenue > 0 ? (totalCOGS / totalRevenue) * 100 : 0;
+
   let totalItemsSold = 0;
   records.forEach(r => {
     r.lines?.forEach(l => {
@@ -79,9 +79,9 @@ const getProfitLoss = asyncHandler(async (req, res) => {
     if (!dailyMap[day]) {
       dailyMap[day] = { date: day, revenue: 0, cogs: 0, profit: 0, itemsSold: 0 };
     }
-    dailyMap[day].revenue   += r.totalRevenue || 0;
-    dailyMap[day].cogs      += r.totalCOGS    || 0;
-    dailyMap[day].profit    += r.grossProfit  || 0;
+    dailyMap[day].revenue += r.totalRevenue || 0;
+    dailyMap[day].cogs += r.totalCOGS || 0;
+    dailyMap[day].profit += r.grossProfit || 0;
     r.lines?.forEach(l => {
       dailyMap[day].itemsSold += (l.quantitySold || 0);
     });
@@ -102,10 +102,10 @@ const getProfitLoss = asyncHandler(async (req, res) => {
           profit: 0,
         };
       }
-      productMap[key].qty     += line.quantitySold || 0;
-      productMap[key].revenue += line.revenue      || 0;
-      productMap[key].cogs    += line.cogs         || 0;
-      productMap[key].profit  += line.grossProfit  || 0;
+      productMap[key].qty += line.quantitySold || 0;
+      productMap[key].revenue += line.revenue || 0;
+      productMap[key].cogs += line.cogs || 0;
+      productMap[key].profit += line.grossProfit || 0;
     });
   });
 
@@ -179,16 +179,16 @@ const getConsumption = asyncHandler(async (req, res) => {
         const key = ing.materialId?.toString() || ing.materialName;
         if (!ingredientMap[key]) {
           ingredientMap[key] = {
-            materialId:   ing.materialId,
+            materialId: ing.materialId,
             materialName: ing.materialName,
-            unit:         ing.unit || 'unit',
-            totalQty:     0,
-            totalCost:    0,
-            unitCost:     ing.unitCost || 0,
+            unit: ing.unit || 'unit',
+            totalQty: 0,
+            totalCost: 0,
+            unitCost: ing.unitCost || 0,
           };
         }
-        ingredientMap[key].totalQty  += ing.quantityUsed || 0;
-        ingredientMap[key].totalCost += ing.totalCost    || 0;
+        ingredientMap[key].totalQty += ing.quantityUsed || 0;
+        ingredientMap[key].totalCost += ing.totalCost || 0;
       });
     });
   });
@@ -236,12 +236,12 @@ const getConsumption = asyncHandler(async (req, res) => {
         const iKey = ing.materialId?.toString() || ing.materialName;
         if (!productMap[key].ingredients[iKey]) {
           productMap[key].ingredients[iKey] = {
-            materialId:   ing.materialId,
+            materialId: ing.materialId,
             materialName: ing.materialName,
-            unit:         ing.unit || 'unit',
-            totalUsed:    0,
-            unitCost:     ing.unitCost || 0,
-            totalCost:    0,
+            unit: ing.unit || 'unit',
+            totalUsed: 0,
+            unitCost: ing.unitCost || 0,
+            totalCost: 0,
           };
         }
         productMap[key].ingredients[iKey].totalUsed += ing.quantityUsed || 0;
@@ -255,17 +255,17 @@ const getConsumption = asyncHandler(async (req, res) => {
       ...i,
       // One unit of product uses:
       perUnitQuantity: p.qtySold > 0 ? i.totalUsed / p.qtySold : 0,
-      perUnitCost:     p.qtySold > 0 ? i.totalCost / p.qtySold : 0,
+      perUnitCost: p.qtySold > 0 ? i.totalCost / p.qtySold : 0,
     }));
     return {
-      productName:         p.productName,
-      productId:           p.productId,
-      qtySold:             p.qtySold,
-      revenue:             p.revenue,
+      productName: p.productName,
+      productId: p.productId,
+      qtySold: p.qtySold,
+      revenue: p.revenue,
       totalIngredientCost: p.totalIngredientCost,
-      grossProfit:         p.revenue - p.totalIngredientCost,
-      margin:              p.revenue > 0 ? ((p.revenue - p.totalIngredientCost) / p.revenue) * 100 : 0,
-      ingredients:         ings,
+      grossProfit: p.revenue - p.totalIngredientCost,
+      margin: p.revenue > 0 ? ((p.revenue - p.totalIngredientCost) / p.revenue) * 100 : 0,
+      ingredients: ings,
     };
   }).sort((a, b) => b.totalIngredientCost - a.totalIngredientCost);
 
@@ -291,7 +291,7 @@ const getPrediction = asyncHandler(async (req, res) => {
     const day = r.saleDate.toISOString().slice(0, 10);
     if (!dailyMap[day]) dailyMap[day] = { date: day, revenue: 0, cogs: 0 };
     dailyMap[day].revenue += r.totalRevenue || 0;
-    dailyMap[day].cogs    += r.totalCOGS    || 0;
+    dailyMap[day].cogs += r.totalCOGS || 0;
   });
 
   // Fill missing days with 0 for smooth time series
@@ -308,7 +308,7 @@ const getPrediction = asyncHandler(async (req, res) => {
     if (i < 6) return { ...d, avgRevenue: null, avgCogs: null };
     const window = days.slice(i - 6, i + 1);
     const avgRevenue = window.reduce((s, w) => s + w.revenue, 0) / 7;
-    const avgCogs    = window.reduce((s, w) => s + w.cogs,    0) / 7;
+    const avgCogs = window.reduce((s, w) => s + w.cogs, 0) / 7;
     return { ...d, avgRevenue, avgCogs };
   });
 
@@ -319,7 +319,7 @@ const getPrediction = asyncHandler(async (req, res) => {
   const totalCogs = days.reduce((s, d) => s + d.cogs, 0);
 
   const predictedRevenue = last7.reduce((s, d) => s + d.revenue, 0) / 7 || (totalRev / activeDays);
-  const predictedCOGS    = last7.reduce((s, d) => s + d.cogs, 0) / 7 || (totalCogs / activeDays);
+  const predictedCOGS = last7.reduce((s, d) => s + d.cogs, 0) / 7 || (totalCogs / activeDays);
 
   const predictions = [];
   for (let i = 1; i <= 7; i++) {
@@ -362,25 +362,25 @@ const getPrediction = asyncHandler(async (req, res) => {
     // Use active 30-day usage rate
     const avgDailyUsage = ing.totalUsed / 30;
     const daysRemaining = avgDailyUsage > 0 ? mat.currentStock / avgDailyUsage : 999;
-    
+
     // Par level calculation: suggest enough for 14 days minus current stock
     const targetParLevel = avgDailyUsage * 14;
     const reorderSuggested = Math.max(0, targetParLevel - mat.currentStock);
     const estimatedCost = reorderSuggested * (mat.unitCost || 0);
 
     stockCoverage.push({
-      materialId:       mat._id,
-      materialName:     mat.name,
-      category:         mat.category || 'General',
-      unit:             mat.unit,
-      currentStock:     mat.currentStock,
-      unitCost:         mat.unitCost || 0,
-      avgDailyUsage:    Number(avgDailyUsage.toFixed(3)),
-      daysRemaining:    daysRemaining > 365 ? '> 1 Year' : Math.max(0, Math.floor(daysRemaining)),
-      daysNum:          daysRemaining,
-      status:           daysRemaining < 3 ? 'critical' : daysRemaining < 7 ? 'warning' : 'ok',
+      materialId: mat._id,
+      materialName: mat.name,
+      category: mat.category || 'General',
+      unit: mat.unit,
+      currentStock: mat.currentStock,
+      unitCost: mat.unitCost || 0,
+      avgDailyUsage: Number(avgDailyUsage.toFixed(3)),
+      daysRemaining: daysRemaining > 365 ? '> 1 Year' : Math.max(0, Math.floor(daysRemaining)),
+      daysNum: daysRemaining,
+      status: daysRemaining < 3 ? 'critical' : daysRemaining < 7 ? 'warning' : 'ok',
       reorderSuggested: Number(reorderSuggested.toFixed(2)),
-      estimatedCost:    Number(estimatedCost.toFixed(2)),
+      estimatedCost: Number(estimatedCost.toFixed(2)),
     });
   }
   stockCoverage.sort((a, b) => a.daysNum - b.daysNum);
@@ -391,10 +391,10 @@ const getPrediction = asyncHandler(async (req, res) => {
     stockCoverage,
     summary: {
       predictedDailyRevenue: predictedRevenue,
-      predictedDailyCOGS:    predictedCOGS,
-      predictedDailyProfit:  predictedRevenue - predictedCOGS,
-      criticalItemsCount:    stockCoverage.filter(s => s.status === 'critical').length,
-      warningItemsCount:     stockCoverage.filter(s => s.status === 'warning').length,
+      predictedDailyCOGS: predictedCOGS,
+      predictedDailyProfit: predictedRevenue - predictedCOGS,
+      criticalItemsCount: stockCoverage.filter(s => s.status === 'critical').length,
+      warningItemsCount: stockCoverage.filter(s => s.status === 'warning').length,
     },
   });
 });
@@ -447,7 +447,7 @@ const deleteSalesRecord = asyncHandler(async (req, res) => {
   try {
     const { invalidateDashboardCache } = require('./dashboardController');
     invalidateDashboardCache?.();
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ success: true, message: 'Sales record and associated batch deleted successfully' });
 });

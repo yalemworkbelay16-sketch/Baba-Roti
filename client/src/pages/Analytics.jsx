@@ -176,42 +176,42 @@ export default function Analytics() {
   const exportData = useMemo(() => {
     if (activeTab === 'pl' && plData) {
       return (plData.products || []).map(p => ({
-        'Product':      p.name,
-        'Units Sold':   p.unitsSold ?? 0,
+        'Product': p.name,
+        'Units Sold': p.unitsSold ?? 0,
         'Revenue (ETB)': Number(p.revenue || 0).toFixed(2),
-        'COGS (ETB)':   Number(p.cogs || 0).toFixed(2),
+        'COGS (ETB)': Number(p.cogs || 0).toFixed(2),
         'Gross Profit (ETB)': Number((p.revenue || 0) - (p.cogs || 0)).toFixed(2),
-        'Food Cost %':  Number(p.foodCostPct || 0).toFixed(1) + '%',
-        'Margin %':     Number(p.marginPct || 0).toFixed(1) + '%',
+        'Food Cost %': Number(p.foodCostPct || 0).toFixed(1) + '%',
+        'Margin %': Number(p.marginPct || 0).toFixed(1) + '%',
       }));
     }
     if (activeTab === 'consumption' && consumptionData) {
       return (consumptionData.materials || []).map(m => ({
-        'Material':       m.name,
-        'Unit':           m.unit || '',
+        'Material': m.name,
+        'Unit': m.unit || '',
         'Total Consumed': Number(m.totalConsumed || 0).toFixed(3),
         'Total Cost (ETB)': Number(m.totalCost || 0).toFixed(2),
-        'Avg per Day':    Number(m.avgPerDay || 0).toFixed(3),
+        'Avg per Day': Number(m.avgPerDay || 0).toFixed(3),
       }));
     }
     if (activeTab === 'prediction' && predictionData) {
       return (predictionData.predictions || []).map(p => ({
-        'Material':         p.name,
-        'Unit':             p.unit || '',
-        'Current Stock':    Number(p.currentStock || 0).toFixed(2),
-        'Avg Daily Use':    Number(p.avgDailyUse || 0).toFixed(3),
-        'Days Remaining':   Number(p.daysRemaining || 0).toFixed(1),
-        'Reorder Qty':      Number(p.reorderQty || 0).toFixed(2),
-        'Status':           p.status || '',
+        'Material': p.name,
+        'Unit': p.unit || '',
+        'Current Stock': Number(p.currentStock || 0).toFixed(2),
+        'Avg Daily Use': Number(p.avgDailyUse || 0).toFixed(3),
+        'Days Remaining': Number(p.daysRemaining || 0).toFixed(1),
+        'Reorder Qty': Number(p.reorderQty || 0).toFixed(2),
+        'Status': p.status || '',
       }));
     }
     if (activeTab === 'records') {
       return recordsData.map(r => ({
-        'Date':           new Date(r.importedAt || r.createdAt).toLocaleDateString(),
-        'Product':        r.productName || '—',
-        'Units Sold':     r.unitsSold ?? 0,
-        'Revenue (ETB)':  Number(r.revenue || 0).toFixed(2),
-        'Imported By':    r.importedBy?.name || '—',
+        'Date': new Date(r.importedAt || r.createdAt).toLocaleDateString(),
+        'Product': r.productName || '—',
+        'Units Sold': r.unitsSold ?? 0,
+        'Revenue (ETB)': Number(r.revenue || 0).toFixed(2),
+        'Imported By': r.importedBy?.name || '—',
       }));
     }
     return [];
@@ -316,11 +316,10 @@ export default function Analytics() {
                 <button
                   key={btn.id}
                   onClick={() => setDateRange(btn.id)}
-                  className={`rounded-lg px-3 py-1.5 transition ${
-                    dateRange === btn.id || (btn.id === 'daily' && dateRange === 'today')
+                  className={`rounded-lg px-3 py-1.5 transition ${dateRange === btn.id || (btn.id === 'daily' && dateRange === 'today')
                       ? 'bg-white text-blue-600 shadow-sm font-bold'
                       : 'hover:text-ink-900'
-                  }`}
+                    }`}
                 >
                   {btn.label}
                 </button>
@@ -481,11 +480,10 @@ export default function Analytics() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 border-b-2 px-4 py-3 font-semibold transition whitespace-nowrap ${
-                isActive
+              className={`flex items-center gap-2 border-b-2 px-4 py-3 font-semibold transition whitespace-nowrap ${isActive
                   ? 'border-blue-600 text-blue-600 font-bold'
                   : 'border-transparent text-ink-500 hover:text-ink-800'
-              }`}
+                }`}
             >
               <Icon size={16} />
               {tab.label}
@@ -545,9 +543,8 @@ export default function Analytics() {
             <div className="rounded-2xl border border-teal-100 bg-gradient-to-b from-teal-50/60 to-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-teal-700">Net Profit</p>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                  (plData?.summary?.netProfit || 0) >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
-                }`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${(plData?.summary?.netProfit || 0) >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
+                  }`}>
                   {pct(plData?.summary?.netMargin)}
                 </span>
               </div>
@@ -560,9 +557,8 @@ export default function Analytics() {
             <div className="rounded-2xl border border-violet-100 bg-gradient-to-b from-violet-50/60 to-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-violet-600">Food Cost %</p>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                  (plData?.summary?.foodCostPct || 0) <= 35 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                }`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${(plData?.summary?.foodCostPct || 0) <= 35 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                  }`}>
                   {(plData?.summary?.foodCostPct || 0) <= 35 ? 'Optimal' : 'High'}
                 </span>
               </div>
@@ -601,16 +597,16 @@ export default function Analytics() {
                   <AreaChart data={plData.dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorCogs" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -650,14 +646,14 @@ export default function Analytics() {
                     {dateRange === 'daily' || dateRange === 'today'
                       ? `Daily Report: ${selectedDay}`
                       : dateRange === 'monthly'
-                      ? `Monthly Report: ${selectedMonth}`
-                      : dateRange === '7d'
-                      ? 'Last 7 Days'
-                      : dateRange === '30d'
-                      ? 'Last 30 Days'
-                      : dateRange === 'custom'
-                      ? `Custom: ${customFrom || 'Start'} → ${customTo || 'Now'}`
-                      : 'All Time Summary'}
+                        ? `Monthly Report: ${selectedMonth}`
+                        : dateRange === '7d'
+                          ? 'Last 7 Days'
+                          : dateRange === '30d'
+                            ? 'Last 30 Days'
+                            : dateRange === 'custom'
+                              ? `Custom: ${customFrom || 'Start'} → ${customTo || 'Now'}`
+                              : 'All Time Summary'}
                   </span>
                 </p>
               </div>
@@ -669,44 +665,40 @@ export default function Analytics() {
                   <button
                     type="button"
                     onClick={() => setDateRange('daily')}
-                    className={`rounded-lg px-2.5 py-1 text-xs transition ${
-                      dateRange === 'daily' || dateRange === 'today'
+                    className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'daily' || dateRange === 'today'
                         ? 'bg-white text-blue-600 shadow-sm font-bold'
                         : 'text-ink-600 hover:text-ink-900'
-                    }`}
+                      }`}
                   >
                     Daily
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateRange('monthly')}
-                    className={`rounded-lg px-2.5 py-1 text-xs transition ${
-                      dateRange === 'monthly'
+                    className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'monthly'
                         ? 'bg-white text-blue-600 shadow-sm font-bold'
                         : 'text-ink-600 hover:text-ink-900'
-                    }`}
+                      }`}
                   >
                     Monthly
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateRange('30d')}
-                    className={`rounded-lg px-2.5 py-1 text-xs transition ${
-                      dateRange === '30d'
+                    className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === '30d'
                         ? 'bg-white text-blue-600 shadow-sm font-bold'
                         : 'text-ink-600 hover:text-ink-900'
-                    }`}
+                      }`}
                   >
                     30D
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateRange('all')}
-                    className={`rounded-lg px-2.5 py-1 text-xs transition ${
-                      dateRange === 'all'
+                    className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'all'
                         ? 'bg-white text-blue-600 shadow-sm font-bold'
                         : 'text-ink-600 hover:text-ink-900'
-                    }`}
+                      }`}
                   >
                     All
                   </button>
@@ -895,9 +887,8 @@ export default function Analytics() {
                           ETB {fmt(item.profit)}
                         </td>
                         <td className="py-3 px-3 text-right font-mono">
-                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
-                            item.costRatio <= 35 ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
-                          }`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${item.costRatio <= 35 ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
+                            }`}>
                             {pct(item.costRatio)}
                           </span>
                         </td>
@@ -939,15 +930,13 @@ export default function Analytics() {
                       <td className="py-3.5 px-3 text-right font-mono font-black text-ink-900 text-sm">
                         ETB {fmt(matrixTotals.totalRevenue)}
                       </td>
-                      <td className={`py-3.5 px-3 text-right font-mono font-black text-sm ${
-                        matrixTotals.totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700'
-                      }`}>
+                      <td className={`py-3.5 px-3 text-right font-mono font-black text-sm ${matrixTotals.totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700'
+                        }`}>
                         ETB {fmt(matrixTotals.totalProfit)}
                       </td>
                       <td className="py-3.5 px-3 text-right font-mono">
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                          matrixTotals.overallFoodCostPct <= 35 ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${matrixTotals.overallFoodCostPct <= 35 ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
+                          }`}>
                           {pct(matrixTotals.overallFoodCostPct)}
                         </span>
                       </td>
@@ -1012,9 +1001,8 @@ export default function Analytics() {
                     >
                       <button
                         onClick={() => setExpandedProduct(isExpanded ? null : prod.productName)}
-                        className={`w-full flex items-center justify-between p-3.5 text-left transition ${
-                          isExpanded ? 'bg-ink-50/80 font-bold' : 'hover:bg-ink-50/40'
-                        }`}
+                        className={`w-full flex items-center justify-between p-3.5 text-left transition ${isExpanded ? 'bg-ink-50/80 font-bold' : 'hover:bg-ink-50/40'
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-xs font-bold">
@@ -1269,8 +1257,8 @@ export default function Analytics() {
                   {predictionData?.stockCoverage?.map((item, idx) => {
                     const statusBadge = {
                       critical: { bg: 'bg-red-100 text-red-800 border-red-200', label: 'CRITICAL (<3d)' },
-                      warning:  { bg: 'bg-amber-100 text-amber-800 border-amber-200', label: 'REORDER (3-7d)' },
-                      ok:       { bg: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'HEALTHY (>7d)' },
+                      warning: { bg: 'bg-amber-100 text-amber-800 border-amber-200', label: 'REORDER (3-7d)' },
+                      ok: { bg: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'HEALTHY (>7d)' },
                     }[item.status];
 
                     return (
