@@ -122,7 +122,6 @@ const DEFAULT_PAYMENT_METHODS = [
   'Check',
   'Other',
 ];
-
 const QUICK_EXPENSE_TEMPLATES = [
   { title: 'Electricity / Power Bill', category: 'Utilities (Power, Water, Gas)' },
   { title: 'Water Utility Bill', category: 'Utilities (Power, Water, Gas)' },
@@ -139,7 +138,6 @@ const formatETB = (n) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-
 // ── Print Voucher (iframe injection – no popup needed) ────────────────────────
 function printVoucher(voucher, formatETB) {
   const date = voucher.date ? new Date(voucher.date).toLocaleDateString() : '—';
@@ -210,20 +208,18 @@ function printVoucher(voucher, formatETB) {
       </div>
       ${voucher.notes ? `<div class="notes-lbl">Notes / Purpose</div><div class="notes-box">${voucher.notes}</div>` : ''}
       ${voucher.receiptUrl ? (
-        isPdfDocument(voucher.receiptUrl)
-          ? `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt (PDF Document)</div><div style="font-size:11px;color:#475569;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0">PDF Receipt Attached: ${voucher.receiptUrl}</div></div>`
-          : `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt</div><img src="${normalizeFileUrl(voucher.receiptUrl)}" alt="Receipt" class="receipt-img"/></div>`
-      ) : ''}
+      isPdfDocument(voucher.receiptUrl)
+        ? `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt (PDF Document)</div><div style="font-size:11px;color:#475569;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0">PDF Receipt Attached: ${voucher.receiptUrl}</div></div>`
+        : `<div style="margin-top:14px"><div class="notes-lbl">Attached Receipt</div><img src="${normalizeFileUrl(voucher.receiptUrl)}" alt="Receipt" class="receipt-img"/></div>`
+    ) : ''}
     </div>
     <div class="footer">Baba Roti Café &middot; ${voucherId} &middot; Printed ${new Date().toLocaleString()}</div>
   </div>
 </body>
 </html>`;
-
   // Remove any stale print iframe
   const old = document.getElementById('__voucher_print_frame__');
   if (old) old.remove();
-
   // Create hidden iframe, inject content, then print it
   const iframe = document.createElement('iframe');
   iframe.id = '__voucher_print_frame__';
@@ -248,7 +244,7 @@ function VoucherReceiptPreview({ rawUrl, voucherId, onReuploaded }) {
   const [hasError, setHasError] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const safeUrl = normalizeFileUrl(rawUrl);
-  const isPdf   = isPdfDocument(safeUrl);
+  const isPdf = isPdfDocument(safeUrl);
 
   const handleReupload = async (e) => {
     const file = e.target.files?.[0];
@@ -853,11 +849,10 @@ export default function Expenses() {
               <button
                 key={p.id}
                 onClick={() => setDatePreset(p.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  datePreset === p.id
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${datePreset === p.id
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-ink-50 text-ink-600 hover:bg-ink-100'
-                }`}
+                  }`}
               >
                 {p.label}
               </button>
@@ -1276,7 +1271,7 @@ export default function Expenses() {
               {formData.receiptUrl ? (
                 (() => {
                   const safeUrl = normalizeFileUrl(formData.receiptUrl);
-                  const isPdf   = isPdfDocument(safeUrl);
+                  const isPdf = isPdfDocument(safeUrl);
                   return (
                     <div className="flex items-center gap-3 p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
                       {isPdf ? (

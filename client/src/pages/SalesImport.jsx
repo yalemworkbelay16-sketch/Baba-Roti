@@ -133,7 +133,15 @@ export default function SalesImport() {
   const [manualRef, setManualRef] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState('');
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('baba_roti_pos_products_cache_v2');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [productsLoading, setProductsLoading] = useState(false);
 
   // Telegram report dispatch state
   const [telegramSending, setTelegramSending] = useState(false);
@@ -166,12 +174,34 @@ export default function SalesImport() {
   const fmt = (n) =>
     Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Load products for manual entry dropdown
-  useEffect(() => {
-    api.get('/products')
-      .then(r => setProducts(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setProducts([]));
+  // Reliable product loader for manual entry dropdown with fallback
+  const fetchProductsList = useCallback(async () => {
+    setProductsLoading(true);
+    try {
+      let prods = [];
+      try {
+        const res = await api.get('/products?pos=true');
+        prods = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+      } catch {
+        const res2 = await api.get('/products');
+        prods = Array.isArray(res2.data) ? res2.data : (res2.data?.products || []);
+      }
+      if (prods && prods.length > 0) {
+        setProducts(prods);
+        try {
+          localStorage.setItem('baba_roti_pos_products_cache_v2', JSON.stringify(prods));
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.warn('Could not load products for manual sales entry:', err);
+    } finally {
+      setProductsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchProductsList();
+  }, [fetchProductsList]);
 
   /* ── manual row helpers ── */
   const updateManualRow = (id, field, value) => {
@@ -179,14 +209,37 @@ export default function SalesImport() {
       if (r._id !== id) return r;
       const updated = { ...r, [field]: value };
 
-      // When name is typed/selected from datalist, try to find matching product
+      // When name is typed/selected, auto-populate code and unit price
       if (field === 'name') {
-        const prod = products.find(p =>
-          p.name.toLowerCase() === value.toLowerCase() ||
-          (p.code && p.code.toLowerCase() === value.toLowerCase())
-        );
+        const valStr = String(value || '').trim().toLowerCase();
+        const codeInBrackets = valStr.match(/^\[([^\]]+)\]/);
+        const extractedCode = codeInBrackets ? codeInBrackets[1].trim().toLowerCase() : null;
+
+        const prod = products.find(p => {
+          const pName = String(p.name || '').trim().toLowerCase();
+          const pCode = String(p.code || '').trim().toLowerCase();
+          return pName === valStr ||
+            pCode === valStr ||
+            (extractedCode && pCode === extractedCode) ||
+            (valStr.length > 2 && pName.includes(valStr));
+        });
         if (prod) {
           updated.code = prod.code || updated.code;
+          updated.name = prod.name;
+          updated.avgAmt = prod.sellingPrice || 0;
+          updated.totalAmt = (prod.sellingPrice || 0) * (parseFloat(updated.qty) || 1);
+        }
+      }
+
+      // When code is typed/selected, auto-populate name and unit price
+      if (field === 'code') {
+        const norm = String(value || '').trim().replace(/-+$/, '').toLowerCase();
+        const prod = products.find(p => {
+          const pc = String(p.code || '').replace(/-+$/, '').toLowerCase();
+          return pc === norm;
+        });
+        if (prod) {
+          updated.name = prod.name || updated.name;
           updated.avgAmt = prod.sellingPrice || 0;
           updated.totalAmt = (prod.sellingPrice || 0) * (parseFloat(updated.qty) || 1);
         }
@@ -196,7 +249,6 @@ export default function SalesImport() {
       if (field === 'qty' || field === 'avgAmt') {
         updated.totalAmt = parseFloat(updated.avgAmt || 0) * parseFloat(updated.qty || 0);
       }
-      // totalAmt can be manually overridden — no side effects
       return updated;
     }));
   };
@@ -233,6 +285,7 @@ export default function SalesImport() {
     setManualRef('');
     setManualError('');
     setManualOpen(true);
+    fetchProductsList(); // Ensure fresh products on open
   };
 
   /* ── manual submit ── */
@@ -1207,15 +1260,51 @@ export default function SalesImport() {
               {/* Products table */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-ink-700">
-                    Products Sold <span className="text-red-500">*</span>
-                    <span className="ml-2 text-ink-400 font-normal">({manualRows.filter(r => r.code || r.name).length} items)</span>
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-ink-700">
+                      Products Sold <span className="text-red-500">*</span>
+                      <span className="ml-2 text-ink-400 font-normal">({manualRows.filter(r => r.code || r.name).length} items)</span>
+                    </label>
+                    {products.length > 0 ? (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        ✓ {products.length} Products Loaded
+                      </span>
+                    ) : productsLoading ? (
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-pulse">
+                        Loading Menu Products…
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={fetchProductsList}
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline"
+                      >
+                        ↻ Reload Products
+                      </button>
+                    )}
+                  </div>
                   <button type="button" onClick={addManualRow}
                     className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition">
                     <Plus size={12} /> Add Row
                   </button>
                 </div>
+
+                {/* Master datalists for instant autocomplete */}
+                <datalist id="manual-products-datalist">
+                  {products.map(p => (
+                    <option key={p._id} value={p.name}>
+                      {p.code ? `[${p.code}] ` : ''}{p.name}{p.sellingPrice ? ` — ETB ${p.sellingPrice}` : ''}
+                    </option>
+                  ))}
+                </datalist>
+                <datalist id="manual-codes-datalist">
+                  {products.filter(p => p.code).map(p => (
+                    <option key={p._id} value={p.code}>
+                      {p.name}{p.sellingPrice ? ` — ETB ${p.sellingPrice}` : ''}
+                    </option>
+                  ))}
+                </datalist>
+
                 {/* Column headers */}
                 <div className="grid gap-2 mb-1 px-1 text-[10px] font-bold text-ink-400 uppercase tracking-wider"
                   style={{ gridTemplateColumns: '2fr 3fr 80px 110px 110px 32px' }}>
@@ -1234,6 +1323,7 @@ export default function SalesImport() {
                       <input value={row.code}
                         onChange={e => updateManualRow(row._id, 'code', e.target.value)}
                         onBlur={e => handleCodeBlur(row._id, e.target.value)}
+                        list="manual-codes-datalist"
                         placeholder="P-0022"
                         className="rounded-lg border border-ink-200 px-2 py-2 text-xs outline-none focus:border-blue-500 font-mono" />
 
@@ -1241,14 +1331,9 @@ export default function SalesImport() {
                       <div className="relative">
                         <input value={row.name}
                           onChange={e => updateManualRow(row._id, 'name', e.target.value)}
-                          list={`prod-list-${row._id}`}
+                          list="manual-products-datalist"
                           placeholder="Select or type product name…"
                           className="w-full rounded-lg border border-ink-200 px-2 py-2 text-xs outline-none focus:border-blue-500" />
-                        <datalist id={`prod-list-${row._id}`}>
-                          {products.map(p => (
-                            <option key={p._id} value={p.name}>{p.code ? `[${p.code}] ` : ''}{p.name}</option>
-                          ))}
-                        </datalist>
                       </div>
                       {/* Qty */}
                       <input type="number" step="0.5" min="0.5" value={row.qty}
