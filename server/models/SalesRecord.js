@@ -49,4 +49,8 @@ const salesRecordSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+salesRecordSchema.index({ 'lines.productCode': 1 });
+salesRecordSchema.index({ saleDate: -1 });
+salesRecordSchema.index({ importDate: -1 });
+
 module.exports = mongoose.model('SalesRecord', salesRecordSchema);

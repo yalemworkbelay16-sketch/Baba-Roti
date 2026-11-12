@@ -1164,6 +1164,33 @@ function notifyWaiterCall({ tableNo, action, customerName }) {
   );
 }
 
+function notifySalesImported(record, summary, user) {
+  const count = record?.lines?.length || summary?.totalSoldProducts || 0;
+  const rev = Number(record?.totalRevenue || summary?.totalRevenue || 0);
+  const ref = escapeHtml(record?.reference || 'POS Sales Import');
+  const uName = escapeHtml(user?.name || 'Administrator');
+  const skipped = summary?.skippedDuplicates || 0;
+  const matched = summary?.matchedCount || 0;
+
+  const formatBirr = (num) =>
+    Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ETB';
+
+  sendTelegram(
+    `🏨 <b>${HOTEL}</b>\n` +
+    `📥 <b>NEW SALES REPORT IMPORTED</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `📊 <b>Batch / Ref:</b> <code>${ref}</code>\n` +
+    `💰 <b>Total POS Revenue:</b> <b>${formatBirr(rev)}</b>\n` +
+    `🧾 <b>Items Processed:</b> <b>${count}</b> sold products\n` +
+    (matched > 0 ? `🥗 <b>Recipe Deductions:</b> <b>${matched}</b> items with stock updated\n` : '') +
+    (skipped > 0 ? `⚠️ <b>Duplicates Skipped:</b> <b>${skipped}</b> existing codes jumped\n` : '') +
+    `👤 <b>Imported By:</b> ${uName}\n` +
+    `🕐 <b>Date & Time:</b> ${now()}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚡ <i>Daily live revenue & Menu Engineering updated.</i>`
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 module.exports = {
   HOTEL,
@@ -1203,6 +1230,7 @@ module.exports = {
   notifyStockRequestCreated,
   notifyStockRequestApproved,
   notifyStockIssued,
+  notifySalesImported,
   // New
   notifyPurchaseCreated,
   notifyPurchaseAdvanced,

@@ -9,17 +9,22 @@ const Expense      = require('../models/Expense');
 const buildDateMatch = (from, to) => {
   const match = {};
   if (from || to) {
-    match.saleDate = {};
+    const range = {};
     if (from) {
       const dFrom = new Date(from);
       dFrom.setHours(0, 0, 0, 0);
-      match.saleDate.$gte = dFrom;
+      range.$gte = dFrom;
     }
     if (to) {
       const dTo = new Date(to);
       dTo.setHours(23, 59, 59, 999);
-      match.saleDate.$lte = dTo;
+      range.$lte = dTo;
     }
+    match.$or = [
+      { saleDate: range },
+      { importDate: range },
+      { createdAt: range },
+    ];
   }
   return match;
 };
@@ -69,7 +74,8 @@ const getProfitLoss = asyncHandler(async (req, res) => {
   // Daily trend for chart
   const dailyMap = {};
   records.forEach(r => {
-    const day = r.saleDate.toISOString().slice(0, 10);
+    const dObj = r.saleDate ? new Date(r.saleDate) : (r.createdAt ? new Date(r.createdAt) : new Date());
+    const day = dObj.toISOString().slice(0, 10);
     if (!dailyMap[day]) {
       dailyMap[day] = { date: day, revenue: 0, cogs: 0, profit: 0, itemsSold: 0 };
     }
@@ -86,7 +92,7 @@ const getProfitLoss = asyncHandler(async (req, res) => {
   const productMap = {};
   records.forEach(r => {
     r.lines?.forEach(line => {
-      const key = line.productName;
+      const key = (line.productName || line.productCode || 'Unspecified Item').trim();
       if (!productMap[key]) {
         productMap[key] = {
           productName: key,
@@ -211,7 +217,7 @@ const getConsumption = asyncHandler(async (req, res) => {
   const productMap = {};
   records.forEach(r => {
     r.lines?.forEach(line => {
-      const key = line.productName;
+      const key = (line.productName || line.productCode || 'Unspecified Item').trim();
       if (!productMap[key]) {
         productMap[key] = {
           productName: key,

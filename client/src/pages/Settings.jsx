@@ -2559,7 +2559,17 @@ export default function Settings() {
               </div>
 
               <div>
-                <label className="block font-semibold text-ink-700 mb-1">Today's Live Revenue</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-ink-700">Today's Live Revenue</label>
+                  <button
+                    type="button"
+                    onClick={loadTgReportPreview}
+                    disabled={tgReportLoading}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline flex items-center gap-1"
+                  >
+                    {tgReportLoading ? 'Refreshing…' : '🔄 Refresh Live'}
+                  </button>
+                </div>
                 <p className="text-base font-black text-emerald-700 font-mono">
                   {tgReportPreview?.metrics?.totalSales ? `${tgReportPreview.metrics.totalSales.toLocaleString()} ETB` : '0.00 ETB'}
                 </p>

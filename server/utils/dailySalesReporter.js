@@ -31,6 +31,7 @@ async function computeDailySalesMetrics(startDate, endDate) {
   const importedSales = await SalesRecord.find({
     $or: [
       { saleDate: { $gte: start, $lte: end } },
+      { importDate: { $gte: start, $lte: end } },
       { createdAt: { $gte: start, $lte: end } },
     ],
   }).lean();

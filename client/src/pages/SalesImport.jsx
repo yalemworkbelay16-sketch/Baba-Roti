@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   UploadCloud, CheckCircle, AlertTriangle, ArrowRight, XCircle,
   TrendingUp, Search, Download, FileSpreadsheet, Scale, X,
-  ChevronDown, ChevronUp, Zap, PenLine, Plus, Trash2, Camera, ScanLine,
+  ChevronDown, ChevronUp, Zap, PenLine, Plus, Trash2, Camera, ScanLine, Send,
 } from 'lucide-react';
 
 /* ── empty manual sale row ── */
@@ -134,6 +134,29 @@ export default function SalesImport() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState('');
   const [products, setProducts] = useState([]);
+
+  // Telegram report dispatch state
+  const [telegramSending, setTelegramSending] = useState(false);
+  const [telegramNotice, setTelegramNotice] = useState('');
+
+  const handleSendTelegramReport = async () => {
+    setTelegramSending(true);
+    setTelegramNotice('');
+    try {
+      const res = await api.post('/telegram/send-daily-report');
+      if (res.data?.success) {
+        setTelegramNotice(`Live daily report dispatched to Telegram bot & subscribers (${res.data.sentCount || 1} sent)!`);
+      } else {
+        setTelegramNotice(res.data?.message || 'Daily sales report sent to Telegram!');
+      }
+      setTimeout(() => setTelegramNotice(''), 6000);
+    } catch (err) {
+      setTelegramNotice(err.response?.data?.message || 'Failed to dispatch report to Telegram.');
+      setTimeout(() => setTelegramNotice(''), 6000);
+    } finally {
+      setTelegramSending(false);
+    }
+  };
 
   // Result filters
   const [soldSearch, setSoldSearch] = useState('');
@@ -331,10 +354,12 @@ export default function SalesImport() {
 
     setLoading(true); setResult(null);
     try {
+      const detectedDate = dateCol ? fileData.find(r => r[dateCol])?.[dateCol] : null;
       const res = await api.post('/transactions/import-sales', {
         sales: salesData,
         notes: 'Imported via POS/Excel Report',
-        reference: `POS Import — ${new Date().toLocaleDateString()}`,
+        reference: `POS Import — ${detectedDate ? new Date(detectedDate).toLocaleDateString() : new Date().toLocaleDateString()}`,
+        saleDate: detectedDate || new Date().toISOString(),
       });
       setResult({ success: true, data: res.data });
       setFileData(null);
@@ -731,7 +756,16 @@ export default function SalesImport() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendTelegramReport}
+                  disabled={telegramSending}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white px-3.5 py-2 text-xs font-bold hover:bg-emerald-700 transition shadow-xs disabled:opacity-50"
+                  title="Dispatch daily live sales digest to Telegram subscribers"
+                >
+                  <Send size={13} /> {telegramSending ? 'Sending to Telegram…' : 'Send to Telegram'}
+                </button>
                 <button onClick={handleExportSoldExcel}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 px-3.5 py-2 text-xs font-bold hover:bg-emerald-100 transition shadow-xs">
                   <Download size={14} /> Export to Excel
@@ -742,6 +776,43 @@ export default function SalesImport() {
                 </Button>
               </div>
             </div>
+
+            {/* Telegram dispatch feedback notice */}
+            {telegramNotice && (
+              <div className="p-3.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-emerald-950 text-xs font-semibold flex items-center justify-between shadow-xs">
+                <span className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-emerald-700 shrink-0" />
+                  {telegramNotice}
+                </span>
+                <button onClick={() => setTelegramNotice('')} className="text-emerald-700 hover:text-emerald-950 p-1">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Duplicate validation notice (Jumped duplicates) */}
+            {(result.data?.skippedDuplicates > 0 || result.data?.allDuplicates) && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs shadow-xs">
+                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-amber-900">
+                    {result.data.allDuplicates
+                      ? `Validation Alert: All ${result.data.skippedDuplicates} record(s) already existed in the system and were skipped.`
+                      : `Validation Notice: Jumped ${result.data.skippedDuplicates} duplicate record(s) already in the database.`}
+                  </p>
+                  <p className="text-amber-800 mt-0.5 leading-relaxed">
+                    To prevent duplicate sales revenue and double inventory deductions, existing codes were automatically jumped without affecting your reports.
+                  </p>
+                  {result.data.skippedCodes?.length > 0 && (
+                    <div className="mt-2.5 p-2.5 bg-amber-100/70 rounded-lg border border-amber-200 text-amber-900 font-mono text-[11px] max-h-24 overflow-y-auto">
+                      <strong>Jumped Code(s) ({result.data.skippedDuplicates}):</strong>{' '}
+                      {result.data.skippedCodes.slice(0, 15).join(', ')}
+                      {result.data.skippedCodes.length > 15 ? ` …and ${result.data.skippedCodes.length - 15} more` : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* KPI cards */}
             {result.data.summary && (

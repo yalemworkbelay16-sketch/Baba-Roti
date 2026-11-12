@@ -539,7 +539,8 @@ const advanceTransaction = asyncHandler(async (req, res) => {
 
 
 // ── POST /api/transactions/import-sales ──────────────────────────────
-// Enhanced: matches by product code OR name, deducts stock if matched, records complete sold POS products list
+// Enhanced: matches by product code OR name, deducts stock if matched, records complete sold POS products list,
+// validates and skips duplicate codes, and updates live revenue & reports.
 const importSales = asyncHandler(async (req, res) => {
   const { sales, notes, reference, saleDate } = req.body;
   if (!sales || !sales.length) {
@@ -549,6 +550,7 @@ const importSales = asyncHandler(async (req, res) => {
 
   const Product = require('../models/Product');
   const SalesRecord = require('../models/SalesRecord');
+  const tg = require('../utils/telegramNotifier');
 
   // Pre-load all active products and raw materials in ONE parallel batch
   const [allProducts, allRawMaterials] = await Promise.all([
@@ -583,10 +585,47 @@ const importSales = asyncHandler(async (req, res) => {
     }
   }
 
+  // ── Duplicate code validation: check previously imported codes in DB ──
+  const incomingCodes = sales
+    .map(s => (s.productCode || '').trim())
+    .filter(Boolean);
+
+  const existingCodesSet = new Set();
+  if (incomingCodes.length > 0) {
+    const existingRecords = await SalesRecord.find(
+      { 'lines.productCode': { $in: incomingCodes } },
+      { 'lines.productCode': 1 }
+    ).lean();
+
+    for (const r of existingRecords) {
+      for (const l of (r.lines || [])) {
+        if (l.productCode) {
+          existingCodesSet.add(l.productCode.trim().toLowerCase());
+        }
+      }
+    }
+  }
+
+  // Resolve best saleDate (either top-level, or from row timestamps, or current time)
+  let resolvedSaleDate = saleDate ? new Date(saleDate) : null;
+  if (!resolvedSaleDate || isNaN(resolvedSaleDate.getTime())) {
+    const rowWithDate = sales.find(s => s.saleDate);
+    if (rowWithDate && rowWithDate.saleDate) {
+      const d = new Date(rowWithDate.saleDate);
+      if (!isNaN(d.getTime())) resolvedSaleDate = d;
+    }
+  }
+  if (!resolvedSaleDate || isNaN(resolvedSaleDate.getTime())) {
+    resolvedSaleDate = new Date();
+  }
+
   const materialDeductions = {};
   const saleLines = [];
   const allSoldProducts = [];
   const notFound = [];
+  const seenInBatch = new Set();
+  let skippedDuplicates = 0;
+  const skippedCodes = [];
 
   for (const sale of sales) {
     const { productName, productCode, quantity, revenue, unitPrice } = sale;
@@ -594,6 +633,18 @@ const importSales = asyncHandler(async (req, res) => {
     const codeStr = (productCode || '').trim();
 
     if (!nameStr && !codeStr) continue;
+
+    // ── Validation: if code already imported before or duplicated within batch, jump it! ──
+    const rawCode = codeStr;
+    const cleanCode = rawCode.toLowerCase();
+    if (cleanCode) {
+      if (existingCodesSet.has(cleanCode) || seenInBatch.has(cleanCode)) {
+        skippedDuplicates++;
+        if (skippedCodes.length < 100) skippedCodes.push(rawCode);
+        continue; // JUMP duplicate record
+      }
+      seenInBatch.add(cleanCode);
+    }
 
     const qty = Math.max(0.001, Number(quantity) || 1);
     const rev = Number(revenue) || 0;
@@ -723,7 +774,7 @@ const importSales = asyncHandler(async (req, res) => {
       continue;
     }
 
-    // 3. Unmatched product
+    // 3. Unmatched product (Record in saleLines with cogs=0 so revenue, P&L, and Menu Engineering receive it)
     const identifier = nameStr || codeStr;
     notFound.push(identifier);
 
@@ -746,18 +797,44 @@ const importSales = asyncHandler(async (req, res) => {
       matchStatus: 'unmatched',
       ingredientsUsed: [],
     };
+    saleLines.push(unmatchedLine);
     allSoldProducts.push(unmatchedLine);
   }
 
-  // Aggregate totals
+  // If everything uploaded was duplicate and skipped, notify user cleanly
+  if (saleLines.length === 0 && skippedDuplicates > 0) {
+    return res.status(200).json({
+      message: `Validation Alert: All ${skippedDuplicates} record(s) already existed in the system and were skipped to avoid duplicates.`,
+      skippedDuplicates,
+      skippedCodes,
+      allDuplicates: true,
+      salesRecord: null,
+      summary: {
+        totalRevenue: 0,
+        totalCOGS: 0,
+        grossProfit: 0,
+        profitMargin: '0.0%',
+        totalSoldProducts: 0,
+        matchedCount: 0,
+        unmatchedCount: 0,
+        skippedDuplicates,
+      },
+      items: [],
+      unmatchedProducts: [],
+    });
+  }
+
+  // Aggregate totals from all sold lines (including matched and unmatched items)
   const totalRevenue = saleLines.reduce((s, l) => s + (l.revenue || 0), 0);
   const totalCOGS = saleLines.reduce((s, l) => s + (l.cogs || 0), 0);
   const grossProfit = totalRevenue - totalCOGS;
   const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+  const matchedCount = saleLines.filter(l => l.matchStatus !== 'unmatched').length;
 
-  // Create SalesRecord
+  // Create SalesRecord with all lines and accurate totals
   const salesRecord = await SalesRecord.create({
-    saleDate: saleDate ? new Date(saleDate) : new Date(),
+    saleDate: resolvedSaleDate,
+    importDate: new Date(),
     reference: reference || '',
     notes: notes || 'Imported from POS/Excel report',
     source: 'excel_import',
@@ -810,7 +887,7 @@ const importSales = asyncHandler(async (req, res) => {
       reason: resolvedReason,
       reference: reference || '',
       notes: notes || (isManual ? 'Manual Sales Registration' : 'Automated stock deduction from sales report'),
-      date: saleDate ? new Date(saleDate) : new Date(),
+      date: resolvedSaleDate,
       performedBy: req.user._id,
       totalAmount,
       status: 'pending',
@@ -828,42 +905,36 @@ const importSales = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
 
-  res.status(201).json({
-    message: 'Sales imported. Stock deducted and P&L recorded.',
-    salesRecord,
-    transactionId: transaction?._id,
-    summary: {
-      totalRevenue,
-      totalCOGS,
-      grossProfit,
-      profitMargin: profitMargin.toFixed(1) + '%',
-      totalSoldProducts: allSoldProducts.length,
-      matchedCount: saleLines.length,
-      unmatchedCount: notFound.length,
-    },
-    items: allSoldProducts,
-    unmatchedProducts: notFound,
-  });
-});
-
-invalidateDashboardCache();
-
-res.status(201).json({
-  message: 'Sales imported. Stock deducted and P&L recorded.',
-  salesRecord,
-  transactionId: transaction?._id,
-  summary: {
+  // Send real-time notification to Telegram bot
+  const summaryPayload = {
     totalRevenue,
     totalCOGS,
     grossProfit,
     profitMargin: profitMargin.toFixed(1) + '%',
     totalSoldProducts: allSoldProducts.length,
-    matchedCount: saleLines.length,
+    matchedCount,
     unmatchedCount: notFound.length,
-  },
-  items: allSoldProducts,
-  unmatchedProducts: notFound,
-});
+    skippedDuplicates,
+  };
+
+  try {
+    tg.notifySalesImported(salesRecord, summaryPayload, req.user);
+  } catch (tgErr) {
+    console.warn('[Telegram] notifySalesImported warning:', tgErr.message);
+  }
+
+  res.status(201).json({
+    message: skippedDuplicates > 0
+      ? `Sales imported: ${allSoldProducts.length} items recorded. ${skippedDuplicates} duplicate records were jumped.`
+      : 'Sales imported. Stock deducted and P&L recorded.',
+    salesRecord,
+    transactionId: transaction?._id,
+    skippedDuplicates,
+    skippedCodes,
+    summary: summaryPayload,
+    items: allSoldProducts,
+    unmatchedProducts: notFound,
+  });
 });
 
 // ── POST /api/transactions/parse-image-sales ─────────────────────────
