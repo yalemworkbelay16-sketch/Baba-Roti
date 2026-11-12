@@ -419,13 +419,37 @@ const deleteSalesRecord = asyncHandler(async (req, res) => {
     throw new Error('Sales record not found');
   }
 
-  // If a stock transaction exists, optionally delete or leave audit
+  // If a stock transaction exists, reverse stock deductions cleanly
   if (record.stockTransaction) {
-    await StockTransaction.findByIdAndDelete(record.stockTransaction);
+    try {
+      const txn = await StockTransaction.findById(record.stockTransaction);
+      if (txn && txn.items && txn.items.length > 0) {
+        const restoreOps = txn.items
+          .filter(i => i.material && (Number(i.quantity) || 0) > 0)
+          .map(item => ({
+            updateOne: {
+              filter: { _id: item.material },
+              update: { $inc: { currentStock: Number(item.quantity) || 0 } },
+            },
+          }));
+        if (restoreOps.length > 0) {
+          await RawMaterial.bulkWrite(restoreOps);
+        }
+      }
+      await StockTransaction.findByIdAndDelete(record.stockTransaction);
+    } catch (stockErr) {
+      console.warn('[DeleteSalesRecord] Stock reversal non-fatal warning:', stockErr.message);
+    }
   }
 
   await record.deleteOne();
-  res.json({ message: 'Sales record deleted successfully' });
+
+  try {
+    const { invalidateDashboardCache } = require('./dashboardController');
+    invalidateDashboardCache?.();
+  } catch (_) {}
+
+  res.json({ success: true, message: 'Sales record and associated batch deleted successfully' });
 });
 
 module.exports = {

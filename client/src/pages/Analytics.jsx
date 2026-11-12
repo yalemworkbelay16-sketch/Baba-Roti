@@ -5,11 +5,12 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import { exportToExcel } from '../utils/exportUtils';
 import {
   TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon,
   BarChart3, Calendar, Layers, AlertTriangle, CheckCircle2,
   Package, Search, RefreshCw, Eye, Trash2, ArrowUpRight,
-  Flame, Filter, ChevronRight, ChevronLeft, ChevronDown, Download
+  Flame, Filter, ChevronRight, ChevronLeft, ChevronDown, Download, CheckCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -33,6 +34,9 @@ export default function Analytics() {
 
   // Selected item / modal
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [deletingRecordId, setDeletingRecordId] = useState(null);
+  const [batchSearch, setBatchSearch] = useState('');
+  const [expandedLineIndex, setExpandedLineIndex] = useState(null);
   const [expandedProduct, setExpandedProduct] = useState(null);
   const [productFilter, setProductFilter] = useState('');
   const [matrixFilter, setMatrixFilter] = useState('ALL'); // 'ALL' | 'Star' | 'Workhorse' | 'Puzzle' | 'Dog'
@@ -122,14 +126,48 @@ export default function Analytics() {
   }, [activeTab, dateParams]);
 
   const handleDeleteRecord = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this sales import batch?')) return;
+    if (!window.confirm('Are you sure you want to delete this sales import batch? This will remove it from your records and reverse any raw material deductions.')) return;
+    setDeletingRecordId(id);
     try {
       await api.delete(`/analytics/records/${id}`);
-      fetchData();
+      setRecordsData(prev => prev.filter(r => r._id !== id));
+      if (selectedRecord?._id === id) setSelectedRecord(null);
+      await fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete record');
+    } finally {
+      setDeletingRecordId(null);
     }
   };
+
+  const handleExportBatchLines = () => {
+    if (!selectedRecord?.lines?.length) return;
+    const exportRows = selectedRecord.lines.map((l, idx) => ({
+      '#': idx + 1,
+      'Product Code': l.productCode || '—',
+      'Product Name': l.productName,
+      'Category': l.category || 'General',
+      'Quantity Sold': l.quantitySold,
+      'Unit Price (ETB)': Number(l.sellingPrice || 0).toFixed(2),
+      'Revenue (ETB)': Number(l.revenue || 0).toFixed(2),
+      'COGS (ETB)': Number(l.cogs || 0).toFixed(2),
+      'Gross Profit (ETB)': Number(l.grossProfit || 0).toFixed(2),
+      'Status': l.matchStatus || '—',
+    }));
+    const cleanRef = String(selectedRecord.reference || 'POS_Batch').replace(/[^\w\d-_]/g, '_');
+    exportToExcel(exportRows, `Sales_Batch_${cleanRef}`, 'Sold Products');
+  };
+
+  const filteredBatchLines = useMemo(() => {
+    if (!selectedRecord?.lines) return [];
+    if (!batchSearch.trim()) return selectedRecord.lines;
+    const q = batchSearch.trim().toLowerCase();
+    return selectedRecord.lines.filter(l =>
+      String(l.productName || '').toLowerCase().includes(q) ||
+      String(l.productCode || '').toLowerCase().includes(q) ||
+      String(l.category || '').toLowerCase().includes(q)
+    );
+  }, [selectedRecord, batchSearch]);
 
   const fmt = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`;
@@ -1342,18 +1380,29 @@ export default function Analytics() {
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
-                          onClick={() => setSelectedRecord(rec)}
-                          className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 transition"
+                          type="button"
+                          onClick={() => {
+                            setSelectedRecord(rec);
+                            setBatchSearch('');
+                            setExpandedLineIndex(null);
+                          }}
+                          className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-100 transition cursor-pointer"
                           title="View Batch Details"
                         >
-                          <Eye size={15} />
+                          <Eye size={16} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteRecord(rec._id)}
-                          className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 transition"
+                          disabled={deletingRecordId === rec._id}
+                          className="rounded-lg p-1.5 text-red-500 hover:bg-red-100 transition cursor-pointer disabled:opacity-40"
                           title="Delete Batch"
                         >
-                          <Trash2 size={15} />
+                          {deletingRecordId === rec._id ? (
+                            <RefreshCw size={15} className="animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -1372,59 +1421,197 @@ export default function Analytics() {
         </Card>
       )}
 
-      {/* ── Batch Details Modal ── */}
+      {/* ── Batch Details Modal (Fully functional View & Actions) ── */}
       {selectedRecord && (
         <Modal
+          open={Boolean(selectedRecord)}
           title={`Batch Details: ${selectedRecord.reference || 'POS Import'}`}
-          onClose={() => setSelectedRecord(null)}
+          onClose={() => {
+            setSelectedRecord(null);
+            setBatchSearch('');
+            setExpandedLineIndex(null);
+          }}
+          width="max-w-4xl"
         >
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 bg-ink-50 p-3 rounded-xl">
+          <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {/* Top Stats Cards */}
+            <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 bg-ink-50/80 p-3.5 rounded-xl border border-ink-100">
               <div>
-                <p className="text-ink-400">Sale Date:</p>
-                <p className="font-bold text-ink-900">{new Date(selectedRecord.saleDate).toLocaleDateString()}</p>
+                <p className="text-ink-400 font-medium">Sale Date:</p>
+                <p className="font-bold text-ink-900 mt-0.5">{new Date(selectedRecord.saleDate).toLocaleDateString()}</p>
+                <p className="text-[10px] text-ink-500 mt-0.5">By {selectedRecord.importedBy?.name || 'System'}</p>
               </div>
               <div>
-                <p className="text-ink-400">Total Revenue:</p>
-                <p className="font-bold text-blue-700">ETB {fmt(selectedRecord.totalRevenue)}</p>
+                <p className="text-ink-400 font-medium">Total Revenue:</p>
+                <p className="font-bold text-blue-700 text-sm mt-0.5">ETB {fmt(selectedRecord.totalRevenue)}</p>
+                <p className="text-[10px] text-blue-600 font-medium mt-0.5">{selectedRecord.lines?.length || 0} product lines</p>
               </div>
               <div>
-                <p className="text-ink-400">Total COGS:</p>
-                <p className="font-bold text-orange-600">ETB {fmt(selectedRecord.totalCOGS)}</p>
+                <p className="text-ink-400 font-medium">Total Recipe COGS:</p>
+                <p className="font-bold text-orange-600 text-sm mt-0.5">ETB {fmt(selectedRecord.totalCOGS)}</p>
+                <p className="text-[10px] text-orange-700 mt-0.5">Deducted raw stock</p>
               </div>
               <div>
-                <p className="text-ink-400">Gross Profit:</p>
-                <p className="font-bold text-emerald-600">ETB {fmt(selectedRecord.grossProfit)} ({pct(selectedRecord.profitMargin)})</p>
+                <p className="text-ink-400 font-medium">Gross Profit:</p>
+                <p className={`font-bold text-sm mt-0.5 ${selectedRecord.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  ETB {fmt(selectedRecord.grossProfit)}
+                </p>
+                <p className="text-[10px] font-semibold text-emerald-700 mt-0.5">{pct(selectedRecord.profitMargin)} Margin</p>
               </div>
             </div>
 
-            <h4 className="text-xs font-bold text-ink-800">Sold Items &amp; Deducted Ingredients:</h4>
-            <div className="divide-y divide-ink-100 rounded-xl border border-ink-100">
-              {selectedRecord.lines?.map((line, lIdx) => (
-                <div key={lIdx} className="p-3 text-xs">
-                  <div className="flex items-center justify-between font-bold text-ink-900">
-                    <span>{line.productName} (×{line.quantitySold})</span>
-                    <span className="font-mono text-blue-700">ETB {fmt(line.revenue)}</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-ink-500">
-                    <span>COGS: ETB {fmt(line.cogs)}</span>
-                    <span className="text-emerald-600 font-semibold">Profit: ETB {fmt(line.grossProfit)}</span>
-                  </div>
+            {/* Action & Filter Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" />
+                <input
+                  type="text"
+                  value={batchSearch}
+                  onChange={(e) => setBatchSearch(e.target.value)}
+                  placeholder={`Search among ${selectedRecord.lines?.length || 0} items in this batch…`}
+                  className="w-full rounded-xl border border-ink-200 bg-white pl-8 pr-3 py-1.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
 
-                  {line.ingredientsUsed?.length > 0 && (
-                    <div className="mt-2 rounded-lg bg-ink-50/70 p-2 text-[10px] space-y-1">
-                      <p className="font-bold text-ink-600">Ingredients Deducted:</p>
-                      {line.ingredientsUsed.map((ing, iIdx) => (
-                        <div key={iIdx} className="flex justify-between text-ink-700">
-                          <span>• {ing.materialName}: {ing.quantityUsed} {ing.unit}</span>
-                          <span className="font-mono">ETB {fmt(ing.totalCost)}</span>
-                        </div>
-                      ))}
-                    </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedRecord.lines?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleExportBatchLines}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+                  >
+                    <Download size={13} /> Export Excel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRecord(selectedRecord._id)}
+                  disabled={deletingRecordId === selectedRecord._id}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs disabled:opacity-50"
+                >
+                  {deletingRecordId === selectedRecord._id ? (
+                    <RefreshCw size={13} className="animate-spin text-red-600" />
+                  ) : (
+                    <Trash2 size={13} />
                   )}
-                </div>
-              ))}
+                  Delete Batch
+                </button>
+              </div>
             </div>
+
+            {/* Items Table */}
+            {selectedRecord.lines?.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border border-ink-100">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-ink-100 bg-ink-50/70 font-semibold text-ink-500 text-[11px]">
+                      <th className="py-2 px-2.5 text-center w-8">#</th>
+                      <th className="py-2 px-2.5 text-left">Code</th>
+                      <th className="py-2 px-2.5 text-left">Product Name</th>
+                      <th className="py-2 px-2.5 text-right">Qty</th>
+                      <th className="py-2 px-2.5 text-right">Avg Price</th>
+                      <th className="py-2 px-2.5 text-right">Revenue</th>
+                      <th className="py-2 px-2.5 text-right">COGS</th>
+                      <th className="py-2 px-2.5 text-right">Profit</th>
+                      <th className="py-2 px-2.5 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink-50 text-ink-700">
+                    {filteredBatchLines.map((line, idx) => {
+                      const isExpanded = expandedLineIndex === idx;
+                      const hasIngredients = line.ingredientsUsed?.length > 0;
+                      return (
+                        <React.Fragment key={idx}>
+                          <tr
+                            onClick={() => hasIngredients && setExpandedLineIndex(isExpanded ? null : idx)}
+                            className={`hover:bg-ink-50/50 ${hasIngredients ? 'cursor-pointer' : ''}`}
+                          >
+                            <td className="py-2.5 px-2.5 text-center text-[10px] text-ink-400">{idx + 1}</td>
+                            <td className="py-2.5 px-2.5 font-mono text-[11px] text-ink-500">{line.productCode || '—'}</td>
+                            <td className="py-2.5 px-2.5 font-bold text-ink-900">
+                              <div className="flex items-center gap-1.5">
+                                <span>{line.productName}</span>
+                                {hasIngredients && (
+                                  <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded font-normal">
+                                    {isExpanded ? '▲ hide recipe' : '▼ recipe'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-2.5 text-right font-semibold">{line.quantitySold}</td>
+                            <td className="py-2.5 px-2.5 text-right text-ink-600 font-mono">ETB {fmt(line.sellingPrice)}</td>
+                            <td className="py-2.5 px-2.5 text-right font-mono font-bold text-blue-700">ETB {fmt(line.revenue)}</td>
+                            <td className="py-2.5 px-2.5 text-right font-mono text-orange-600">ETB {fmt(line.cogs)}</td>
+                            <td className={`py-2.5 px-2.5 text-right font-mono font-bold ${line.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              ETB {fmt(line.grossProfit)}
+                            </td>
+                            <td className="py-2.5 px-2.5 text-center">
+                              {line.matchStatus === 'recipe_deducted' ? (
+                                <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                  Recipe Deducted
+                                </span>
+                              ) : line.matchStatus === 'direct_material' ? (
+                                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                                  Direct Stock
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  Unmatched
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* Expandable ingredient breakdown */}
+                          {isExpanded && hasIngredients && (
+                            <tr className="bg-slate-50/80">
+                              <td colSpan={9} className="p-3 pl-8">
+                                <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+                                  <p className="font-bold text-ink-700 text-[11px] mb-1.5">
+                                    🥗 Ingredients Deducted for {line.productName} (×{line.quantitySold}):
+                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                    {line.ingredientsUsed.map((ing, iIdx) => (
+                                      <div key={iIdx} className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                                        <span>• {ing.materialName}: <strong>{ing.quantityUsed} {ing.unit}</strong></span>
+                                        <span className="font-mono text-orange-700">ETB {fmt(ing.totalCost)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {filteredBatchLines.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="py-6 text-center text-xs text-ink-400">
+                          No items match your search &ldquo;{batchSearch}&rdquo;.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center bg-ink-50/60 rounded-xl border border-ink-100">
+                <AlertTriangle size={24} className="mx-auto text-amber-500 mb-2" />
+                <p className="font-bold text-sm text-ink-800">0 Lines Recorded in This Batch</p>
+                <p className="text-xs text-ink-500 mt-1 max-w-md mx-auto">
+                  This batch contains 0 product lines (for example, from an empty or duplicate import). You can safely click &ldquo;Delete Batch&rdquo; to clean it up.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRecord(selectedRecord._id)}
+                  disabled={deletingRecordId === selectedRecord._id}
+                  className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs"
+                >
+                  <Trash2 size={13} /> Delete Empty Batch
+                </button>
+              </div>
+            )}
           </div>
         </Modal>
       )}

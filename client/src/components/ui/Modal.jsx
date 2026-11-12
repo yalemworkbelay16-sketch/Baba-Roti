@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 
 const Modal = ({ open, isOpen, onClose, title, children, width = 'max-w-lg' }) => {
-  const isVisible = Boolean(open !== undefined ? open : isOpen);
+  const isVisible = Boolean(open !== undefined ? open : (isOpen !== undefined ? isOpen : true));
   if (!isVisible) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
