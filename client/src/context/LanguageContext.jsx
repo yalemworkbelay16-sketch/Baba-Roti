@@ -43,7 +43,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     try {
       document.documentElement.lang = language;
-    } catch (_) {}
+    } catch (_) { }
   }, [language]);
 
   /**
@@ -111,8 +111,8 @@ export function useLanguage() {
       language: 'en',
       isAmharic: false,
       isEnglish: true,
-      setLanguage: () => {},
-      toggleLanguage: () => {},
+      setLanguage: () => { },
+      toggleLanguage: () => { },
       t: (path) => path?.split('.').pop() || '',
     };
   }

@@ -564,10 +564,10 @@ const importSales = asyncHandler(async (req, res) => {
   const rawMaterialByName = new Map();
 
   for (const mat of allRawMaterials) {
-    const idStr = mat._id.toString();
+    const idStr = String(mat._id);
     rawMaterialById.set(idStr, mat);
-    if (mat.code) rawMaterialByCode.set(mat.code.trim().toLowerCase(), mat);
-    if (mat.name) rawMaterialByName.set(mat.name.trim().toLowerCase(), mat);
+    if (mat.code) rawMaterialByCode.set(String(mat.code).trim().toLowerCase(), mat);
+    if (mat.name) rawMaterialByName.set(String(mat.name).trim().toLowerCase(), mat);
   }
 
   const productByCode = new Map();
@@ -575,34 +575,13 @@ const importSales = asyncHandler(async (req, res) => {
 
   for (const p of allProducts) {
     if (p.code) {
-      const trimmed = p.code.trim().toLowerCase();
+      const trimmed = String(p.code).trim().toLowerCase();
       productByCode.set(trimmed, p);
       // Also index stripped code without trailing dashes (e.g. "P-0001-")
       productByCode.set(trimmed.replace(/-+$/, ''), p);
     }
     if (p.name) {
-      productByName.set(p.name.trim().toLowerCase(), p);
-    }
-  }
-
-  // ── Duplicate code validation: check previously imported codes in DB ──
-  const incomingCodes = sales
-    .map(s => (s.productCode || '').trim())
-    .filter(Boolean);
-
-  const existingCodesSet = new Set();
-  if (incomingCodes.length > 0) {
-    const existingRecords = await SalesRecord.find(
-      { 'lines.productCode': { $in: incomingCodes } },
-      { 'lines.productCode': 1 }
-    ).lean();
-
-    for (const r of existingRecords) {
-      for (const l of (r.lines || [])) {
-        if (l.productCode) {
-          existingCodesSet.add(l.productCode.trim().toLowerCase());
-        }
-      }
+      productByName.set(String(p.name).trim().toLowerCase(), p);
     }
   }
 
@@ -619,6 +598,51 @@ const importSales = asyncHandler(async (req, res) => {
     resolvedSaleDate = new Date();
   }
 
+  // ── Duplicate code validation ──
+  // Check against unique transaction codes (CS_... order codes)
+  // OR codes already recorded on the SAME sale date (prevents double import of same day's file)
+  const isUniqueTxnCode = (c) => {
+    if (!c) return false;
+    const str = String(c).trim();
+    return /^cs_/i.test(str) || /^ord[-_]/i.test(str) || /^rec[-_]/i.test(str) || /^inv[-_]/i.test(str) || /_desktop/i.test(str) || /_pos/i.test(str);
+  };
+
+  const incomingCodes = sales
+    .map(s => String(s.productCode || '').trim())
+    .filter(Boolean);
+
+  const existingCodesSet = new Set();
+  if (incomingCodes.length > 0) {
+    const startOfDay = new Date(resolvedSaleDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(resolvedSaleDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const uniqueTxnCodes = incomingCodes.filter(isUniqueTxnCode);
+
+    const queryFilters = [];
+    if (uniqueTxnCodes.length > 0) {
+      queryFilters.push({ 'lines.productCode': { $in: uniqueTxnCodes } });
+    }
+    queryFilters.push({
+      saleDate: { $gte: startOfDay, $lte: endOfDay },
+      'lines.productCode': { $in: incomingCodes },
+    });
+
+    const existingRecords = await SalesRecord.find(
+      { $or: queryFilters },
+      { 'lines.productCode': 1, saleDate: 1 }
+    ).lean();
+
+    for (const r of existingRecords) {
+      for (const l of (r.lines || [])) {
+        if (l.productCode) {
+          existingCodesSet.add(String(l.productCode).trim().toLowerCase());
+        }
+      }
+    }
+  }
+
   const materialDeductions = {};
   const saleLines = [];
   const allSoldProducts = [];
@@ -629,21 +653,28 @@ const importSales = asyncHandler(async (req, res) => {
 
   for (const sale of sales) {
     const { productName, productCode, quantity, revenue, unitPrice } = sale;
-    const nameStr = (productName || '').trim();
-    const codeStr = (productCode || '').trim();
+    const nameStr = String(productName || '').trim();
+    const codeStr = String(productCode || '').trim();
 
     if (!nameStr && !codeStr) continue;
 
     // ── Validation: if code already imported before or duplicated within batch, jump it! ──
     const rawCode = codeStr;
     const cleanCode = rawCode.toLowerCase();
+    const isTxn = isUniqueTxnCode(codeStr);
+
     if (cleanCode) {
-      if (existingCodesSet.has(cleanCode) || seenInBatch.has(cleanCode)) {
+      const isAlreadyImported = existingCodesSet.has(cleanCode);
+      const isDupeInBatch = isTxn && seenInBatch.has(cleanCode);
+
+      if (isAlreadyImported || isDupeInBatch) {
         skippedDuplicates++;
         if (skippedCodes.length < 100) skippedCodes.push(rawCode);
         continue; // JUMP duplicate record
       }
-      seenInBatch.add(cleanCode);
+      if (isTxn) {
+        seenInBatch.add(cleanCode);
+      }
     }
 
     const qty = Math.max(0.001, Number(quantity) || 1);
@@ -843,7 +874,7 @@ const importSales = asyncHandler(async (req, res) => {
     totalCOGS,
     grossProfit,
     profitMargin,
-    importedBy: req.user._id,
+    importedBy: req.user?._id || null,
   });
 
   // Create stock transaction if there are materials to deduct
@@ -871,35 +902,45 @@ const importSales = asyncHandler(async (req, res) => {
   }
 
   if (resolvedItems.length > 0) {
-    const isManual = Boolean(notes?.toLowerCase().includes('manual') || req.body.isManual);
-    const resolvedVoucherType = isManual ? 'manual_sale' : 'sales_import';
-    const resolvedReason = isManual ? 'Manual Sales Registration' : 'Sales Report Import';
+    try {
+      const isManual = Boolean(notes?.toLowerCase().includes('manual') || req.body.isManual);
+      const resolvedVoucherType = isManual ? 'manual_sale' : 'sales_import';
+      const resolvedReason = isManual ? 'Manual Sales Registration' : 'Sales Report Import';
 
-    const totalAmount = resolvedItems.reduce((s, i) => s + i.totalCost, 0);
-    transaction = await StockTransaction.create({
-      voucherType: resolvedVoucherType,
-      voucherNo: await generateVoucherNo(resolvedVoucherType),
-      type: 'out',
-      items: resolvedItems.map(({ material, quantity, unitCost, totalCost }) => ({ material, quantity, unitCost, totalCost })),
-      material: resolvedItems[0].material,
-      quantity: resolvedItems[0].quantity,
-      unitCost: resolvedItems[0].unitCost,
-      reason: resolvedReason,
-      reference: reference || '',
-      notes: notes || (isManual ? 'Manual Sales Registration' : 'Automated stock deduction from sales report'),
-      date: resolvedSaleDate,
-      performedBy: req.user._id,
-      totalAmount,
-      status: 'pending',
-      trail: [{ action: 'pending', by: req.user._id, byName: req.user.name, byRole: req.user.role }],
-    });
+      const totalAmount = resolvedItems.reduce((s, i) => s + i.totalCost, 0);
+      let vNo = await generateVoucherNo(resolvedVoucherType);
+      const existingTxn = await StockTransaction.findOne({ voucherNo: vNo }).select('_id').lean();
+      if (existingTxn) {
+        vNo = `${vNo}-${Date.now().toString().slice(-4)}`;
+      }
 
-    salesRecord.stockTransaction = transaction._id;
-    await salesRecord.save();
+      transaction = await StockTransaction.create({
+        voucherType: resolvedVoucherType,
+        voucherNo: vNo,
+        type: 'out',
+        items: resolvedItems.map(({ material, quantity, unitCost, totalCost }) => ({ material, quantity, unitCost, totalCost })),
+        material: resolvedItems[0].material,
+        quantity: resolvedItems[0].quantity,
+        unitCost: resolvedItems[0].unitCost,
+        reason: resolvedReason,
+        reference: reference || '',
+        notes: notes || (isManual ? 'Manual Sales Registration' : 'Automated stock deduction from sales report'),
+        date: resolvedSaleDate,
+        performedBy: req.user?._id || null,
+        totalAmount,
+        status: 'pending',
+        trail: [{ action: 'pending', by: req.user?._id || null, byName: req.user?.name || 'System', byRole: req.user?.role || 'admin' }],
+      });
 
-    // High speed atomic bulk stock reduction in one DB operation
-    if (bulkStockUpdates.length > 0) {
-      await RawMaterial.bulkWrite(bulkStockUpdates);
+      salesRecord.stockTransaction = transaction._id;
+      await salesRecord.save();
+
+      // High speed atomic bulk stock reduction in one DB operation
+      if (bulkStockUpdates.length > 0) {
+        await RawMaterial.bulkWrite(bulkStockUpdates);
+      }
+    } catch (txnErr) {
+      console.warn('[ImportSales] Stock transaction creation non-fatal warning:', txnErr.message);
     }
   }
 

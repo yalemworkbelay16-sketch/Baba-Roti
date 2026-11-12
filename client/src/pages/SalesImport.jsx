@@ -204,9 +204,9 @@ export default function SalesImport() {
   // Lookup product by code on blur of the code field — fills name + price
   const handleCodeBlur = (id, codeValue) => {
     if (!codeValue) return;
-    const norm = codeValue.trim().replace(/-+$/, '').toLowerCase();
+    const norm = String(codeValue || '').trim().replace(/-+$/, '').toLowerCase();
     const prod = products.find(p => {
-      const pc = (p.code || '').replace(/-+$/, '').toLowerCase();
+      const pc = String(p.code || '').replace(/-+$/, '').toLowerCase();
       return pc === norm;
     });
     if (prod) {
@@ -240,8 +240,8 @@ export default function SalesImport() {
     const salesData = manualRows
       .filter(r => (r.code || r.name) && r.qty > 0)
       .map(r => ({
-        productCode: r.code.trim(),
-        productName: r.name.trim(),
+        productCode: String(r.code || '').trim(),
+        productName: String(r.name || '').trim(),
         quantity: parseFloat(r.qty) || 1,
         revenue: parseFloat(r.totalAmt) || 0,
         unitPrice: parseFloat(r.avgAmt) || 0,
@@ -313,11 +313,11 @@ export default function SalesImport() {
   const handleCnetSubmit = async () => {
     if (!parsed?.rows?.length) return;
     const salesData = parsed.rows.map(r => ({
-      productCode: r.code,
-      productName: r.name,
-      quantity: r.qty,
-      revenue: r.totalAmt,   // Total Amount = total revenue for this line
-      unitPrice: r.avgAmt,     // Avg Amount   = avg selling price per unit (incl. tax)
+      productCode: String(r.code || '').trim(),
+      productName: String(r.name || '').trim(),
+      quantity: Number(r.qty) || 1,
+      revenue: Number(r.totalAmt) || 0,   // Total Amount = total revenue for this line
+      unitPrice: Number(r.avgAmt) || 0,   // Avg Amount   = avg selling price per unit (incl. tax)
     })).filter(s => s.productCode || s.productName);
 
     setLoading(true); setResult(null);
@@ -326,13 +326,17 @@ export default function SalesImport() {
         sales: salesData,
         notes: 'Imported via POS Sales Report',
         reference: `POS Import — ${new Date().toLocaleDateString()}`,
+        saleDate: new Date().toISOString(),
       });
       setResult({ success: true, data: res.data });
       setFileData(null); setParsed(null);
     } catch (err) {
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      const networkMsg = err.message || 'Failed to import sales.';
+      const statusText = err.response?.status ? ` (${err.response.status})` : '';
       setResult({
         success: false,
-        message: err.response?.data?.message || 'Failed to import sales.',
+        message: serverMsg ? `${serverMsg}${statusText}` : `${networkMsg}${statusText}`,
         unmatched: err.response?.data?.unmatchedProducts || [],
       });
     } finally { setLoading(false); }
@@ -364,9 +368,12 @@ export default function SalesImport() {
       setResult({ success: true, data: res.data });
       setFileData(null);
     } catch (err) {
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      const networkMsg = err.message || 'Failed to import sales.';
+      const statusText = err.response?.status ? ` (${err.response.status})` : '';
       setResult({
         success: false,
-        message: err.response?.data?.message || 'Failed to import sales.',
+        message: serverMsg ? `${serverMsg}${statusText}` : `${networkMsg}${statusText}`,
         unmatched: err.response?.data?.unmatchedProducts || [],
       });
     } finally { setLoading(false); }
