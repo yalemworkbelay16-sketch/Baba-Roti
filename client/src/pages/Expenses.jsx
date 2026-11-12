@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -346,6 +347,7 @@ function VoucherReceiptPreview({ rawUrl, voucherId, onReuploaded }) {
 
 export default function Expenses() {
   const { user, hasRole, canCrud } = useAuth();
+  const { t, isAmharic } = useLanguage();
   const canEdit = canCrud ? canCrud('expenses', 'edit') : (hasRole('admin') || hasRole('manager'));
   const canDelete = canCrud ? canCrud('expenses', 'delete') : (hasRole('admin') || hasRole('manager'));
 
@@ -612,14 +614,13 @@ export default function Expenses() {
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-blue-200 backdrop-blur-md">
               <Receipt size={14} className="text-amber-300" />
-              <span>Overhead & Operational Cost Recorder</span>
+              <span>{isAmharic ? 'የስራ ማስኬጃና የአስተዳደር ወጪዎች' : 'Overhead & Operational Cost Recorder'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Overhead Expenses
+              {t('expenses.title')}
             </h1>
             <p className="text-xs sm:text-sm text-blue-200/80 max-w-2xl leading-relaxed">
-              Record and control non-stock operational costs like water, electricity, rent, soap & detergents,
-              bulbs, repairs, and daily operational overheads.
+              {t('expenses.subtitle')}
             </p>
           </div>
 
@@ -630,7 +631,7 @@ export default function Expenses() {
                 onClick={() => openNewExpenseModal()}
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-95 text-white font-semibold shadow-lg shadow-blue-500/25 px-4 py-2.5 rounded-xl border border-white/20 transition-all cursor-pointer hover:scale-[1.02]"
               >
-                <PlusCircle size={16} /> Record Expense
+                <PlusCircle size={16} /> {t('expenses.addExpense')}
               </button>
             )}
 

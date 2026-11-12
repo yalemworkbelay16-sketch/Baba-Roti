@@ -305,6 +305,57 @@ export const translations = {
       autoReceipt: 'Auto Receipt on Checkout',
       copies: 'Copies',
     },
+
+    // ── POS Sales Import ──
+    salesImport: {
+      title: 'POS Sales Import',
+      subtitle: 'Matched items automatically deduct stock via recipes and record revenue & Gross Profit.',
+      uploadPosFile: 'Upload POS File',
+      dropFileHere: 'Drop your .xlsx / .xls / .csv POS export here.',
+      autoDetected: 'Standard POS format auto-detected.',
+      selectPosFile: 'Select POS File',
+      noMappingNeeded: 'No column mapping needed',
+      enterManually: 'Enter Sales Manually',
+      scanPosReport: 'Scan POS Report (Photo / Image)',
+      confirmImport: 'Confirm & Import POS Sales',
+      processing: 'Processing...',
+      importedSuccess: 'POS Sales Imported Successfully',
+      itemsProcessed: 'items processed · Stock deducted and P&L updated.',
+      importAnother: 'Import Another',
+      exportExcel: 'Export to Excel',
+    },
+
+    // ── Overhead Expenses ──
+    expenses: {
+      title: 'Overhead Expenses',
+      subtitle: 'Track rent, utilities, salaries, maintenance, and operating expenses',
+      addExpense: 'Add Expense',
+      expenseDate: 'Date',
+      category: 'Category',
+      amount: 'Amount (ETB)',
+      paidTo: 'Paid To',
+      paymentMethod: 'Payment Method',
+      receiptNo: 'Receipt / Voucher #',
+      notes: 'Notes',
+      saveExpense: 'Save Expense',
+    },
+
+    // ── Dashboard ──
+    dashboard: {
+      title: 'Dashboard',
+      subtitle: 'Overview of your inventory and stock movements',
+      totalStockValue: 'Total Stock Value',
+      reorderAlerts: 'Reorder Alerts',
+      trackedMaterials: 'Tracked Materials',
+      todaysMovement: 'Today\'s Movement',
+      inflow: 'Inflow',
+      outflow: 'Outflow',
+      stockFlowTrend: 'Stock Flow Trend',
+      valuationByCategory: 'Valuation by Category',
+      recentTransactions: 'Recent Transactions',
+      viewAll: 'View all',
+      refresh: 'Refresh',
+    },
   },
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -610,6 +661,57 @@ export const translations = {
       autoKot: 'ሲታዘዝ ወዲያው ወደ ማብሰያ ቤት አትም (Auto KOT)',
       autoReceipt: 'ሂሳብ ሲከፈል ደረሰኝ አትም (Auto Receipt)',
       copies: 'የቅጂ ብዛት',
+    },
+
+    // ── POS Sales Import ──
+    salesImport: {
+      title: 'የሽያጭ መረጃ መጫኛ (POS Sales Import)',
+      subtitle: 'የተሸጡ ምግቦች በሬሲፒያቸው መሠረት ጥሬ ዕቃዎችን ከስቶክ ቀንሰው ገቢና ትርፍ ይመዘግባሉ።',
+      uploadPosFile: 'የሽያጭ ፋይል ይጫኑ (Excel/POS)',
+      dropFileHere: 'የ .xlsx / .xls / .csv የሽያጭ ፋይልዎን እዚህ ያስቀምጡ።',
+      autoDetected: 'የ POS ቅርጸት ወዲያውኑ ይታወቃል።',
+      selectPosFile: 'ፋይል ይምረጡ',
+      noMappingNeeded: 'ቀጥታ አገናኝ አያስፈልግም',
+      enterManually: 'ሽያጭ በእጅ መዝግብ',
+      scanPosReport: 'የሽያጭ ደረሰኝ ፎቶ አንሳ / ስካን አድርግ',
+      confirmImport: 'አረጋግጥና አስገባ (Confirm & Import)',
+      processing: 'በማስኬድ ላይ...',
+      importedSuccess: 'የሽያጭ መረጃ በተሳካ ሁኔታ ተጭኗል',
+      itemsProcessed: 'የተሸጡ ዕቃዎች ተመዝግበው ስቶክ ተቀንሷል።',
+      importAnother: 'ሌላ ፋይል ጫን',
+      exportExcel: 'ወደ ኤክሴል አውርድ',
+    },
+
+    // ── Overhead Expenses ──
+    expenses: {
+      title: 'የአስተዳደርና የሥራ ማስኬጃ ወጪዎች',
+      subtitle: 'ኪራይ፣ መብራት፣ ውኃ፣ ደመወዝ፣ ጥገና እና ሌሎች የሥራ ወጪዎችን መከታተያ',
+      addExpense: 'አዲስ ወጪ መዝግብ',
+      expenseDate: 'ቀን',
+      category: 'የወጪ ዓይነት',
+      amount: 'መጠን (ብር)',
+      paidTo: 'የተከፈለለት አካል',
+      paymentMethod: 'የክፍያ ዘዴ',
+      receiptNo: 'የደረሰኝ / ሰነድ ቁጥር',
+      notes: 'ማስታወሻ',
+      saveExpense: 'ወጪውን መዝግብ',
+    },
+
+    // ── Dashboard ──
+    dashboard: {
+      title: 'ዳሽቦርድ',
+      subtitle: 'የዕቃ ክምችትና የስቶክ እንቅስቃሴ አጠቃላይ እይታ',
+      totalStockValue: 'ጠቅላላ የስቶክ ዋጋ',
+      reorderAlerts: 'የማዘዣ ማስጠንቀቂያዎች',
+      trackedMaterials: 'የተመዘገቡ ጥሬ ዕቃዎች',
+      todaysMovement: 'የዛሬው እንቅስቃሴ',
+      inflow: 'ገቢ (Inflow)',
+      outflow: 'ወጪ (Outflow)',
+      stockFlowTrend: 'የስቶክ እንቅስቃሴ አዝማሚያ',
+      valuationByCategory: 'የስቶክ ዋጋ በምድብ',
+      recentTransactions: 'የቅርብ ጊዜ ዝውውሮች',
+      viewAll: 'ሁሉንም ይመልከቱ',
+      refresh: 'አድስ (Refresh)',
     },
   },
 };

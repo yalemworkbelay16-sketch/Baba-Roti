@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import api from '../api/axios';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 import {
   UploadCloud, CheckCircle, AlertTriangle, ArrowRight, XCircle,
   TrendingUp, Search, Download, FileSpreadsheet, Scale, X,
@@ -99,6 +100,7 @@ function parseCnetPosSheet(rawRows) {
 }
 
 export default function SalesImport() {
+  const { t, isAmharic } = useLanguage();
   const [fileData, setFileData] = useState(null); // raw XLSX rows
   const [parsed, setParsed] = useState(null); // { rows, colMap } for CNET format
   const [isCnetFmt, setIsCnetFmt] = useState(false);
@@ -479,10 +481,10 @@ export default function SalesImport() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink-900 flex items-center gap-2.5">
             <UploadCloud className="h-7 w-7 text-blue-600" />
-            POS Sales Import
+            {t('salesImport.title')}
           </h1>
           <p className="text-sm text-ink-500 mt-1">
-            Matched items automatically deduct stock via recipes and record revenue &amp; Gross Profit.
+            {t('salesImport.subtitle')}
           </p>
         </div>
       </div>
@@ -497,16 +499,16 @@ export default function SalesImport() {
               <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-105 transition-transform">
                 <UploadCloud size={28} />
               </div>
-              <p className="text-base font-extrabold text-ink-900 mb-1">Upload POS File</p>
+              <p className="text-base font-extrabold text-ink-900 mb-1">{t('salesImport.uploadPosFile')}</p>
               <p className="text-xs text-ink-500 mb-3 leading-relaxed">
-                Drop your <span className="font-semibold text-ink-700">.xlsx / .xls / .csv</span> POS export here.<br />
-                Standard POS format auto-detected.
+                {t('salesImport.dropFileHere')}<br />
+                {t('salesImport.autoDetected')}
               </p>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 text-white px-5 py-2 text-xs font-bold shadow group-hover:bg-blue-700 transition">
-                <UploadCloud size={13} /> Select POS File
+                <UploadCloud size={13} /> {t('salesImport.selectPosFile')}
               </span>
               <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-[10px] font-semibold px-2.5 py-0.5">
-                <Zap size={10} /> No column mapping needed
+                <Zap size={10} /> {t('salesImport.noMappingNeeded')}
               </span>
             </label>
 
@@ -519,16 +521,15 @@ export default function SalesImport() {
               <div className="h-14 w-14 rounded-2xl bg-emerald-600 flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-105 transition-transform">
                 <PenLine size={26} />
               </div>
-              <p className="text-base font-extrabold text-ink-900 mb-1">Enter Sales Manually</p>
+              <p className="text-base font-extrabold text-ink-900 mb-1">{t('salesImport.enterManually')}</p>
               <p className="text-xs text-ink-500 mb-3 leading-relaxed">
-                Type in article codes, names, quantities<br />
-                and amounts — same POS format.
+                {isAmharic ? 'የዕቃ ኮድ፣ ስም፣ ብዛት እና ዋጋ በእጅ መዝግብ' : 'Type in article codes, names, quantities and amounts — same POS format.'}
               </p>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-5 py-2 text-xs font-bold shadow group-hover:bg-emerald-700 transition">
-                <PenLine size={13} /> Open Entry Form
+                <PenLine size={13} /> {isAmharic ? 'የመመዝገቢያ ቅጽ ክፈት' : 'Open Entry Form'}
               </span>
               <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-semibold px-2.5 py-0.5">
-                • Great for testing or corrections
+                • {isAmharic ? 'ለማስተካከያና ሙከራ ተስማሚ' : 'Great for testing or corrections'}
               </span>
             </button>
 
@@ -639,7 +640,7 @@ export default function SalesImport() {
                 disabled={loading}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 shadow-md flex items-center gap-2"
               >
-                {loading ? 'Processing…' : `Confirm & Import ${parsed.rows.length} Items`}
+                {loading ? t('salesImport.processing') : `${isAmharic ? 'አረጋግጥና አስገባ' : 'Confirm & Import'} (${parsed.rows.length} ${isAmharic ? 'ዕቃዎች' : 'Items'})`}
                 <ArrowRight size={16} />
               </Button>
             </div>
@@ -708,7 +709,7 @@ export default function SalesImport() {
                 disabled={loading || (!productCol && !productCodeCol)}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 shadow-md flex items-center gap-2"
               >
-                {loading ? 'Processing…' : 'Confirm & Import POS Sales'} <ArrowRight size={16} />
+                {loading ? t('salesImport.processing') : t('salesImport.confirmImport')} <ArrowRight size={16} />
               </Button>
             </div>
           </div>

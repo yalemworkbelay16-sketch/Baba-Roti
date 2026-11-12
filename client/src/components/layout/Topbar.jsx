@@ -182,8 +182,8 @@ const HelpModal = ({ onClose }) => {
                   key={s.id}
                   onClick={() => setActiveSection(s.id)}
                   className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition mb-0.5 ${activeSection === s.id
-                      ? 'bg-white shadow-sm text-blue-700 font-bold border border-ink-100'
-                      : 'text-ink-600 hover:bg-white/70 hover:text-ink-900'
+                    ? 'bg-white shadow-sm text-blue-700 font-bold border border-ink-100'
+                    : 'text-ink-600 hover:bg-white/70 hover:text-ink-900'
                     }`}
                 >
                   <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg ${s.color}`}>
@@ -380,8 +380,8 @@ const NotificationBell = () => {
       <button
         onClick={() => { setOpen(v => !v); if (!open) fetchNotifications(); }}
         className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${unread > 0
-            ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100'
-            : 'border-ink-200 bg-white text-ink-500 hover:bg-ink-50'
+          ? 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100'
+          : 'border-ink-200 bg-white text-ink-500 hover:bg-ink-50'
           }`}
         title="Notifications"
       >
@@ -484,7 +484,7 @@ const NotificationBell = () => {
 const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
   const { user, logout, hasRole } = useAuth();
   const { timeoutMinutes, setTimeoutMinutes } = useSessionTimeout();
-  const { language, isAmharic, toggleLanguage, t } = useLanguage();
+  const { language, isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -559,16 +559,32 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
             </span>
           </div>
 
-          {/* Language Switcher Pill */}
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            className="flex items-center gap-1.5 rounded-full border border-blue-200/90 bg-blue-50/80 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer select-none"
-            title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
-          >
-            <Globe size={13} className="text-blue-600" />
-            <span>{isAmharic ? 'English' : 'አማርኛ'}</span>
-          </button>
+          {/* Dual Language Switcher (EN | አማርኛ) - Crystal clear active indicator */}
+          <div className="flex items-center rounded-full border border-ink-200/90 bg-white p-0.5 text-xs font-bold shadow-xs select-none">
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${!isAmharic
+                  ? 'bg-blue-600 text-white shadow-xs font-extrabold'
+                  : 'text-ink-500 hover:text-ink-900'
+                }`}
+              title="Switch to English"
+            >
+              <Globe size={11} className={!isAmharic ? 'text-white' : 'text-blue-600'} />
+              <span>English</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('am')}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${isAmharic
+                  ? 'bg-blue-600 text-white shadow-xs font-extrabold'
+                  : 'text-ink-500 hover:text-ink-900'
+                }`}
+              title="ወደ አማርኛ ቀይር"
+            >
+              <span>አማርኛ</span>
+            </button>
+          </div>
 
           {/* Notification Bell */}
           <NotificationBell />

@@ -159,8 +159,8 @@ const CollapsibleNav = ({
         ) : (
           <span
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
-                ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
-                : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
+              ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
+              : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
               }`}
           >
             <Icon sx={{ fontSize: 16 }} />
@@ -196,8 +196,8 @@ const CollapsibleNav = ({
 
       {open && !collapsed && (
         <div className={`mt-0.5 ml-3 pl-2 py-0.5 space-y-0.5 border-l-2 rounded-r-lg ${theme.isLight
-            ? 'border-blue-400/50 bg-slate-100/70'
-            : 'border-white/20 bg-black/15 backdrop-blur-xs'
+          ? 'border-blue-400/50 bg-slate-100/70'
+          : 'border-white/20 bg-black/15 backdrop-blur-xs'
           }`}>
           {children}
         </div>
@@ -251,8 +251,8 @@ const MenuLink = ({
           ) : (
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
-                  ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
-                  : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
+                ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
+                : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
                 }`}
             >
               <Icon sx={{ fontSize: 16 }} />
@@ -298,7 +298,7 @@ const Sidebar = ({
   onExpand,
 }) => {
   const { user, canSeeNav, sidebarTheme, useMaterialIcons } = useAuth();
-  const { isAmharic, toggleLanguage, t } = useLanguage();
+  const { isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
   const location = useLocation();
   const navigate = useNavigate();
@@ -931,18 +931,24 @@ const Sidebar = ({
                 <LanguageRoundedIcon sx={{ fontSize: 15 }} />
                 <span>{t('common.language')}</span>
               </div>
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition shadow-xs cursor-pointer ${
-                  theme.isLight
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-                    : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'
-                }`}
-                title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
-              >
-                <span>{isAmharic ? 'English' : 'አማርኛ'}</span>
-              </button>
+              <div className="flex items-center rounded-full bg-black/20 p-0.5 text-[10px] font-bold select-none">
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`px-2 py-0.5 rounded-full transition ${!isAmharic ? 'bg-blue-600 text-white font-extrabold shadow-xs' : 'text-white/60 hover:text-white'
+                    }`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('am')}
+                  className={`px-2 py-0.5 rounded-full transition ${isAmharic ? 'bg-blue-600 text-white font-extrabold shadow-xs' : 'text-white/60 hover:text-white'
+                    }`}
+                >
+                  አማርኛ
+                </button>
+              </div>
             </>
           ) : (
             <button
