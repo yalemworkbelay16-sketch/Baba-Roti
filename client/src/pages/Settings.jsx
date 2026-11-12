@@ -521,7 +521,7 @@ export default function Settings() {
         if (res.data.scheduledTime) setTgReportTime(res.data.scheduledTime);
         if (res.data.enabled !== undefined) setTgReportEnabled(res.data.enabled);
       }
-    } catch (_) {}
+    } catch (_) { }
     finally { setTgReportLoading(false); }
   };
 

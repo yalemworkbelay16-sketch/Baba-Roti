@@ -20,15 +20,19 @@ export function LanguageProvider({ children }) {
     return 'en';
   });
 
-  const setLanguage = useCallback((lang) => {
-    const valid = lang === 'am' ? 'am' : 'en';
-    setLanguageState(valid);
-    try {
-      localStorage.setItem(STORAGE_KEY, valid);
-      document.documentElement.lang = valid;
-    } catch (e) {
-      console.warn('Could not persist language to localStorage:', e);
-    }
+  const setLanguage = useCallback((langOrFn) => {
+    setLanguageState((prev) => {
+      const next = typeof langOrFn === 'function' ? langOrFn(prev) : langOrFn;
+      const valid = next === 'am' ? 'am' : 'en';
+      try {
+        localStorage.setItem(STORAGE_KEY, valid);
+        document.documentElement.lang = valid;
+        window.dispatchEvent(new Event('languagechange'));
+      } catch (e) {
+        console.warn('Could not persist language to localStorage:', e);
+      }
+      return valid;
+    });
   }, []);
 
   const toggleLanguage = useCallback(() => {

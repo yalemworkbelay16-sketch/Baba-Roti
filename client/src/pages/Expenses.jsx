@@ -673,14 +673,14 @@ export default function Expenses() {
         {/* ── Quick Expense Suggestion Chips ── */}
         <div className="mt-6 pt-4 border-t border-white/10">
           <p className="text-[11px] font-semibold text-blue-200/70 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Zap size={12} className="text-amber-300" /> Fast Templates (Click to record)
+            <Zap size={12} className="text-amber-300" /> {isAmharic ? 'ፈጣን የወጪ ቅጾች (ለመመዝገብ ይጫኑ)' : 'Fast Templates (Click to record)'}
           </p>
           <div className="flex flex-wrap gap-2">
             {QUICK_EXPENSE_TEMPLATES.map((tmpl) => (
               <button
                 key={tmpl.title}
                 onClick={() => openNewExpenseModal(tmpl)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1 text-xs font-medium text-white transition backdrop-blur-sm border border-white/10 hover:border-white/25 active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1 text-xs font-medium text-white transition backdrop-blur-sm border border-white/10 hover:border-white/25 active:scale-95 cursor-pointer"
               >
                 <span>+</span> {tmpl.title}
               </button>
@@ -694,7 +694,7 @@ export default function Expenses() {
         <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">
-              Period Total
+              {isAmharic ? 'የተመረጠው ጊዜ ድምር' : 'Period Total'}
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <DollarSign size={16} />
@@ -704,14 +704,14 @@ export default function Expenses() {
             {statsLoading ? '…' : formatETB(stats?.totalPeriodAmount)}
           </p>
           <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
-            <span>{stats?.totalPeriodCount || 0} expenses recorded</span>
+            <span>{stats?.totalPeriodCount || 0} {isAmharic ? 'የተመዘገቡ ወጪዎች' : 'expenses recorded'}</span>
           </p>
         </div>
 
         <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">
-              This Month
+              {isAmharic ? 'የዚህ ወር ወጪ' : 'This Month'}
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
               <Calendar size={16} />
@@ -720,13 +720,13 @@ export default function Expenses() {
           <p className="text-2xl font-black text-indigo-900 mt-2">
             {statsLoading ? '…' : formatETB(stats?.monthTotal)}
           </p>
-          <p className="text-xs text-ink-400 mt-1">Calendar month expenses</p>
+          <p className="text-xs text-ink-400 mt-1">{isAmharic ? 'የወሩ አጠቃላይ ወጪ' : 'Calendar month expenses'}</p>
         </div>
 
         <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">
-              Today's Expenses
+              {isAmharic ? 'የዛሬ ወጪዎች' : "Today's Expenses"}
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <TrendingUp size={16} />
@@ -735,25 +735,25 @@ export default function Expenses() {
           <p className="text-2xl font-black text-emerald-900 mt-2">
             {statsLoading ? '…' : formatETB(stats?.todayTotal)}
           </p>
-          <p className="text-xs text-ink-400 mt-1">Recorded today</p>
+          <p className="text-xs text-ink-400 mt-1">{isAmharic ? 'ዛሬ የተመዘገበ' : 'Recorded today'}</p>
         </div>
 
         <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">
-              Top Category
+              {isAmharic ? 'ከፍተኛ የወጪ ዘርፍ' : 'Top Category'}
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <Zap size={16} />
             </span>
           </div>
           <p className="text-base font-black text-ink-900 mt-2 truncate" title={stats?.byCategory?.[0]?.category}>
-            {statsLoading ? '…' : stats?.byCategory?.[0]?.category || 'None'}
+            {statsLoading ? '…' : stats?.byCategory?.[0]?.category || (isAmharic ? 'ምንም ወጪ የለም' : 'None')}
           </p>
           <p className="text-xs text-amber-700 font-semibold mt-1">
             {stats?.byCategory?.[0]
               ? `${formatETB(stats.byCategory[0].total)} (${stats.byCategory[0].percentage}%)`
-              : 'No expenses'}
+              : (isAmharic ? 'ምንም ወጪ የለም' : 'No expenses')}
           </p>
         </div>
       </div>
@@ -843,12 +843,12 @@ export default function Expenses() {
           {/* Date Presets */}
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'today', label: 'Today' },
-              { id: 'week', label: 'Last 7 Days' },
-              { id: 'month', label: 'This Month' },
-              { id: 'last_month', label: 'Last Month' },
-              { id: 'all', label: 'All Time' },
-              { id: 'custom', label: 'Custom' },
+              { id: 'today', label: isAmharic ? 'ዛሬ' : 'Today' },
+              { id: 'week', label: isAmharic ? 'ያለፉት 7 ቀናት' : 'Last 7 Days' },
+              { id: 'month', label: isAmharic ? 'የዚህ ወር' : 'This Month' },
+              { id: 'last_month', label: isAmharic ? 'ያለፈው ወር' : 'Last Month' },
+              { id: 'all', label: isAmharic ? 'ሁሉንም' : 'All Time' },
+              { id: 'custom', label: isAmharic ? 'የተለየ ቀን' : 'Custom' },
             ].map((p) => (
               <button
                 key={p.id}
@@ -872,7 +872,7 @@ export default function Expenses() {
                   onChange={(e) => setCustomFrom(e.target.value)}
                   className="rounded-lg border border-ink-200 px-2 py-1 text-xs text-ink-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <span className="text-ink-400">to</span>
+                <span className="text-ink-400">{isAmharic ? 'እስከ' : 'to'}</span>
                 <input
                   type="date"
                   value={customTo}
@@ -892,13 +892,13 @@ export default function Expenses() {
               pdfTitle="Baba Roti Café - Overhead Expenses Report"
               buttonClassName="inline-flex items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-ink-700 shadow-xs hover:border-ink-300 hover:bg-ink-50 transition cursor-pointer"
               pdfColumns={[
-                { header: 'Date', dataKey: 'Date' },
-                { header: 'Item / Description', dataKey: 'Item' },
-                { header: 'Category', dataKey: 'Category' },
-                { header: 'Amount (ETB)', dataKey: 'Amount (ETB)' },
-                { header: 'Payment', dataKey: 'Payment Method' },
-                { header: 'Paid To', dataKey: 'Paid To' },
-                { header: 'Recorded By', dataKey: 'Recorded By' },
+                { header: isAmharic ? 'ቀን' : 'Date', dataKey: 'Date' },
+                { header: isAmharic ? 'የወጪ ዝርዝር' : 'Item / Description', dataKey: 'Item' },
+                { header: isAmharic ? 'የወጪ ዓይነት' : 'Category', dataKey: 'Category' },
+                { header: isAmharic ? 'መጠን (ብር)' : 'Amount (ETB)', dataKey: 'Amount (ETB)' },
+                { header: isAmharic ? 'የክፍያ ዘዴ' : 'Payment', dataKey: 'Payment Method' },
+                { header: isAmharic ? 'የተከፈለለት' : 'Paid To', dataKey: 'Paid To' },
+                { header: isAmharic ? 'የመዘገበው' : 'Recorded By', dataKey: 'Recorded By' },
               ]}
               pdfSummary={
                 stats
@@ -917,7 +917,7 @@ export default function Expenses() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search expenses, vendors, notes..."
+              placeholder={isAmharic ? 'ወጪዎችን፣ ተቀባዮችን፣ ማስታወሻዎችን ፈልግ...' : 'Search expenses, vendors, notes...'}
               className="w-full rounded-xl border border-ink-200 pl-9 pr-3 py-2 text-xs text-ink-800 placeholder-ink-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -929,7 +929,7 @@ export default function Expenses() {
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="ALL">All Categories</option>
+              <option value="ALL">{isAmharic ? 'ሁሉም የወጪ ዓይነቶች' : 'All Categories'}</option>
               {categoriesList.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -945,7 +945,7 @@ export default function Expenses() {
               onChange={(e) => setSelectedPayment(e.target.value)}
               className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="ALL">All Payment Methods</option>
+              <option value="ALL">{isAmharic ? 'ሁሉም የክፍያ ዘዴዎች' : 'All Payment Methods'}</option>
               {paymentMethodsList.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -960,37 +960,37 @@ export default function Expenses() {
       <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-ink-100 bg-ink-50/50">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-ink-900">Recorded Expenses</h3>
+            <h3 className="text-sm font-bold text-ink-900">{isAmharic ? 'የተመዘገቡ ወጪዎች' : 'Recorded Expenses'}</h3>
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800">
               {expenses.length}
             </span>
           </div>
 
           <p className="text-xs text-ink-400">
-            Total: <strong className="text-ink-900 font-mono">{formatETB(stats?.totalPeriodAmount)}</strong>
+            {isAmharic ? 'አጠቃላይ ድምር' : 'Total'}: <strong className="text-ink-900 font-mono">{formatETB(stats?.totalPeriodAmount)}</strong>
           </p>
         </div>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 text-ink-400">
             <RefreshCw size={24} className="animate-spin text-blue-500 mb-2" />
-            <p className="text-xs">Loading expenses...</p>
+            <p className="text-xs">{isAmharic ? 'ወጪዎች በመጫን ላይ...' : 'Loading expenses...'}</p>
           </div>
         ) : expenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-ink-400">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100 text-ink-500 mb-3">
               <Receipt size={24} />
             </div>
-            <p className="text-sm font-bold text-ink-700">No expenses found</p>
+            <p className="text-sm font-bold text-ink-700">{isAmharic ? 'ምንም ወጪ አልተገኘም' : 'No expenses found'}</p>
             <p className="text-xs text-ink-400 max-w-sm mt-1">
-              No overhead expenses match your current date and category filters. Click "Record Expense" to add one.
+              {isAmharic ? 'ለተመረጠው ቀን ወይም ዘርፍ ምንም ወጪ አልተመዘገበም።' : 'No overhead expenses match your current date and category filters. Click "Record Expense" to add one.'}
             </p>
             <button
               type="button"
               onClick={() => openNewExpenseModal()}
               className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold px-4 py-2.5 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
             >
-              <PlusCircle size={15} /> Record First Expense
+              <PlusCircle size={15} /> {isAmharic ? 'አዲስ ወጪ መዝግብ' : 'Record First Expense'}
             </button>
           </div>
         ) : (
@@ -998,15 +998,15 @@ export default function Expenses() {
             <table className="min-w-full divide-y divide-ink-100 text-left text-xs">
               <thead className="bg-ink-50/70 text-ink-600 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Expense Item / Details</th>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Paid To</th>
-                  <th className="px-4 py-3">Payment</th>
-                  <th className="px-4 py-3">Ref #</th>
-                  <th className="px-4 py-3 text-right">Amount (ETB)</th>
-                  <th className="px-4 py-3">Recorded By</th>
-                  <th className="px-4 py-3 text-center">Actions</th>
+                  <th className="px-4 py-3">{isAmharic ? 'ቀን' : 'Date'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የወጪ ዝርዝር' : 'Expense Item / Details'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የወጪ ዓይነት' : 'Category'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የተከፈለለት' : 'Paid To'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የክፍያ ዘዴ' : 'Payment'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የሰነድ ቁጥር' : 'Ref #'}</th>
+                  <th className="px-4 py-3 text-right">{isAmharic ? 'መጠን (ብር)' : 'Amount (ETB)'}</th>
+                  <th className="px-4 py-3">{isAmharic ? 'የመዘገበው' : 'Recorded By'}</th>
+                  <th className="px-4 py-3 text-center">{isAmharic ? 'ተግባራት' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50 text-ink-700">
