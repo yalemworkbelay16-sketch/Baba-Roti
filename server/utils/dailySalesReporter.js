@@ -173,11 +173,11 @@ ${categoryLines || '  • <i>No categorized items sold yet today.</i>'}
   • 🖥️ <b>Counter POS:</b> ${formatBirr(metrics.channelStats.pos.revenue)} (${metrics.channelStats.pos.count} orders)
   • 📱 <b>Customer QR Menu:</b> ${formatBirr(metrics.channelStats.qr.revenue)} (${metrics.channelStats.qr.count} orders)
 ${metrics.channelStats.imported.count > 0 ? (
-  `  • 📁 <b>Imported POS Sales:</b> ${formatBirr(metrics.importedBreakdown?.grandTotal || metrics.channelStats.imported.revenue)} (${metrics.channelStats.imported.count} batches)` +
-  (metrics.importedBreakdown && (metrics.importedBreakdown.addCharge > 0 || metrics.importedBreakdown.totalTax > 0 || metrics.importedBreakdown.discount > 0)
-    ? `\n    └ <i>Sub Total:</i> ${formatBirr(metrics.importedBreakdown.subTotal)} | <i>Add:</i> ${formatBirr(metrics.importedBreakdown.addCharge)} | <i>Tax:</i> ${formatBirr(metrics.importedBreakdown.totalTax)}`
-    : '') + '\n'
-) : ''}━━━━━━━━━━━━━━━━━━━━
+      `  • 📁 <b>Imported POS Sales:</b> ${formatBirr(metrics.importedBreakdown?.grandTotal || metrics.channelStats.imported.revenue)} (${metrics.channelStats.imported.count} batches)` +
+      (metrics.importedBreakdown && (metrics.importedBreakdown.addCharge > 0 || metrics.importedBreakdown.totalTax > 0 || metrics.importedBreakdown.discount > 0)
+        ? `\n    └ <i>Sub Total:</i> ${formatBirr(metrics.importedBreakdown.subTotal)} | <i>Add:</i> ${formatBirr(metrics.importedBreakdown.addCharge)} | <i>Tax:</i> ${formatBirr(metrics.importedBreakdown.totalTax)}`
+        : '') + '\n'
+    ) : ''}━━━━━━━━━━━━━━━━━━━━
 💳 <b>PAYMENT METHODS:</b>
   • 💵 <b>Cash:</b> ${formatBirr(metrics.paymentStats.Cash)}
   • 📱 <b>Telebirr:</b> ${formatBirr(metrics.paymentStats.Telebirr)}

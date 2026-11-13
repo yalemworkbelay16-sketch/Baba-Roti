@@ -3163,12 +3163,20 @@ export default function Settings() {
                     <p className="leading-relaxed">
                       Your restaurant web app is deployed in the cloud (<strong>baba-roti-1.app.aletcloud.com</strong>). To allow the cloud to communicate with local network printers (like <code>10.241.18.48</code>), the local print bridge must be running on your POS computer.
                     </p>
-                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                    <div className="pt-2 flex flex-wrap items-center gap-2.5">
                       <span className="font-semibold text-amber-800">Quick Fix:</span>
                       <span className="rounded-md bg-white border border-amber-300 px-2.5 py-1 font-mono text-[11px] text-ink-800">
                         Double-click start-printer-agent.bat
                       </span>
-                      <span className="text-ink-500">or run <strong>install-startup.bat</strong> for automatic boot on Windows!</span>
+                      <span className="text-ink-600">or run <strong>install-startup.bat</strong> (located in <code>A:\Baba Roti-stock-system\</code>)</span>
+                      <a
+                        href="/baba-roti-print-agent.zip"
+                        download="baba-roti-print-agent.zip"
+                        className="inline-flex items-center gap-1 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-semibold px-2.5 py-1 text-[11px] transition shadow-xs"
+                        title="Download Print Agent package for other POS computers"
+                      >
+                        📥 Download Agent (.zip)
+                      </a>
                       <button
                         type="button"
                         onClick={() => loadPrinters()}

@@ -270,7 +270,7 @@ export default function SalesImport() {
         setProducts(prods);
         try {
           localStorage.setItem('baba_roti_pos_products_cache_v2', JSON.stringify(prods));
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (err) {
       console.warn('Could not load products for manual sales entry:', err);
