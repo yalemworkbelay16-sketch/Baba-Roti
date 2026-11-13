@@ -13,10 +13,38 @@ import {
 /* ── empty manual sale row ── */
 const emptyRow = () => ({ code: '', name: '', qty: 1, avgAmt: 0, totalAmt: 0, _id: Date.now() + Math.random() });
 
+/* ── Parse safe number that handles comma-separated numbers e.g. "268,214.58" ── */
+function parseSafeNum(val) {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val).replace(/,/g, '').trim();
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
+}
+
+/* ── Extract numeric amount from a summary row (searching preferred col or rightmost cell) ── */
+function extractRowAmount(row, preferredCol) {
+  if (preferredCol && row[preferredCol] !== undefined && String(row[preferredCol]).trim() !== '') {
+    const str = String(row[preferredCol]).replace(/,/g, '').trim();
+    if (!isNaN(Number(str))) return Number(str);
+  }
+  const vals = Object.values(row);
+  for (let i = vals.length - 1; i >= 0; i--) {
+    const v = vals[i];
+    if (v === null || v === undefined || String(v).trim() === '') continue;
+    const str = String(v).replace(/,/g, '').trim();
+    if (!isNaN(Number(str))) {
+      return Number(str);
+    }
+  }
+  return 0;
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    CNET / NOBIR POS Excel format detector + parser
    Columns: Article Code | Article Name | Quantity | Avg Amount | Total Amount
    The sheet has category & sub-category header rows mixed in — we skip those.
+   Also extracts financial summary: Sub Total, Add Charge, Discount, Total Tax, Grand Total.
 ───────────────────────────────────────────────────────────────────────── */
 function parseCnetPosSheet(rawRows) {
   // Find the header row: must contain both "Article Code" and "Article Name"
@@ -74,9 +102,9 @@ function parseCnetPosSheet(rawRows) {
   for (const row of dataRows) {
     const rawCode = String(row[colMap.code] || '').trim();
     const name = String(row[colMap.name] || '').trim();
-    const qty = parseFloat(row[colMap.qty] || 0) || 0;
-    const avgAmt = parseFloat(row[colMap.avgAmt] || 0) || 0;
-    const totalAmt = parseFloat(row[colMap.totalAmt] || 0) || 0;
+    const qty = parseSafeNum(row[colMap.qty]);
+    const avgAmt = parseSafeNum(row[colMap.avgAmt]);
+    const totalAmt = parseSafeNum(row[colMap.totalAmt]);
 
     // ── STRICT PRODUCT CODE REQUIRED ───────────────────────────────
     // Category subtotal rows (BEVERAGES, SOFT DRINKS, LUNCH & DINNER, etc.)
@@ -96,7 +124,59 @@ function parseCnetPosSheet(rawRows) {
     parsed.push({ code, name, qty, avgAmt, totalAmt });
   }
 
-  return { rows: parsed, colMap };
+  // ── EXTRACT FOOTER / FINANCIAL TOTALS ───────────────────────────
+  // Scan raw rows for Sub Total, Add Charge, Discount, Total Tax, Grand Total
+  let subTotal = null;
+  let addCharge = null;
+  let discount = null;
+  let totalTax = null;
+  let grandTotal = null;
+
+  for (const row of rawRows) {
+    const vals = Object.values(row).map(v => String(v ?? '').trim().toLowerCase());
+    const rowText = vals.join(' ');
+
+    if (/grand[\s_-]*total/i.test(rowText)) {
+      grandTotal = extractRowAmount(row, colMap.totalAmt);
+    } else if (/sub[\s_-]*total/i.test(rowText)) {
+      subTotal = extractRowAmount(row, colMap.totalAmt);
+    } else if (/add[\s_.-]*charge|service[\s_-]*charge/i.test(rowText)) {
+      addCharge = extractRowAmount(row, colMap.totalAmt);
+    } else if (/\bdiscount\b/i.test(rowText)) {
+      discount = extractRowAmount(row, colMap.totalAmt);
+    } else if (/total[\s_-]*tax|tax[\s_-]*total|\bvat\b/i.test(rowText)) {
+      totalTax = extractRowAmount(row, colMap.totalAmt);
+    }
+  }
+
+  const lineSum = parsed.reduce((sum, r) => sum + r.totalAmt, 0);
+  if (subTotal === null || isNaN(subTotal)) {
+    subTotal = lineSum;
+  }
+  if (addCharge === null || isNaN(addCharge)) {
+    addCharge = 0;
+  }
+  if (discount === null || isNaN(discount)) {
+    discount = 0;
+  }
+  if (totalTax === null || isNaN(totalTax)) {
+    totalTax = 0;
+  }
+  if (grandTotal === null || isNaN(grandTotal) || grandTotal === 0) {
+    grandTotal = Math.round((subTotal + addCharge - discount + totalTax) * 100) / 100;
+  }
+
+  return {
+    rows: parsed,
+    colMap,
+    summary: {
+      subTotal: Math.round(subTotal * 100) / 100,
+      addCharge: Math.round(addCharge * 100) / 100,
+      discount: Math.round(discount * 100) / 100,
+      totalTax: Math.round(totalTax * 100) / 100,
+      grandTotal: Math.round(grandTotal * 100) / 100,
+    },
+  };
 }
 
 export default function SalesImport() {
@@ -380,6 +460,12 @@ export default function SalesImport() {
         notes: 'Imported via POS Sales Report',
         reference: `POS Import — ${new Date().toLocaleDateString()}`,
         saleDate: new Date().toISOString(),
+        financialSummary: parsed.summary,
+        subTotal: parsed.summary?.subTotal,
+        addCharge: parsed.summary?.addCharge,
+        discount: parsed.summary?.discount,
+        totalTax: parsed.summary?.totalTax,
+        grandTotal: parsed.summary?.grandTotal,
       }, { timeout: 120000 });
       setResult({ success: true, data: res.data });
       setFileData(null); setParsed(null);
@@ -708,15 +794,69 @@ export default function SalesImport() {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-ink-50 font-bold text-xs border-t border-ink-200">
-                  <tr>
-                    <td colSpan={3} className="px-3 py-2 text-ink-700 font-bold">Total ({parsed.rows.length} items)</td>
-                    <td className="px-3 py-2 text-right tabular text-ink-900">
+                <tfoot className="bg-ink-50/90 text-xs border-t-2 border-ink-200 divide-y divide-ink-200/60 font-medium">
+                  {/* Total sold items count & line sum */}
+                  <tr className="bg-ink-100/70 font-semibold text-ink-900">
+                    <td colSpan={3} className="px-3 py-2 font-bold text-ink-900">
+                      Total ({parsed.rows.length} items)
+                    </td>
+                    <td className="px-3 py-2 text-right tabular font-bold text-ink-900">
                       {parsed.rows.reduce((s, r) => s + r.qty, 0).toLocaleString()}
                     </td>
-                    <td className="px-3 py-2 text-right text-ink-400">—</td>
-                    <td className="px-3 py-2 text-right tabular text-blue-900">
-                      ETB {parsed.rows.reduce((s, r) => s + r.totalAmt, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <td className="px-3 py-2 text-right text-ink-400 font-normal">—</td>
+                    <td className="px-3 py-2 text-right tabular font-bold text-blue-900">
+                      ETB {parsed.rows.reduce((s, r) => s + r.totalAmt, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  {/* Financial Breakdown Section (Sub Total, Add Charge, Discount, Total Tax, Grand Total) */}
+                  <tr className="bg-white/80">
+                    <td colSpan={4} className="px-3 py-1.5 text-right font-semibold text-ink-700">
+                      Sub Total:
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-ink-400">—</td>
+                    <td className="px-3 py-1.5 text-right tabular font-bold text-ink-900">
+                      ETB {Number(parsed.summary?.subTotal ?? parsed.rows.reduce((s, r) => s + r.totalAmt, 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  <tr className="bg-white/80">
+                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-amber-700">
+                      + Add Charge (Service Charge):
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-ink-400">—</td>
+                    <td className="px-3 py-1.5 text-right tabular font-semibold text-amber-800">
+                      ETB {Number(parsed.summary?.addCharge || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  <tr className="bg-white/80">
+                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-purple-700">
+                      - Discount:
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-ink-400">—</td>
+                    <td className="px-3 py-1.5 text-right tabular font-semibold text-purple-700">
+                      ETB {Number(parsed.summary?.discount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  <tr className="bg-white/80">
+                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-blue-700">
+                      + Total Tax (VAT):
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-ink-400">—</td>
+                    <td className="px-3 py-1.5 text-right tabular font-semibold text-blue-800">
+                      ETB {Number(parsed.summary?.totalTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  <tr className="bg-emerald-50/90 border-t-2 border-emerald-300 font-extrabold text-emerald-950">
+                    <td colSpan={4} className="px-3 py-2 text-right uppercase tracking-wider text-emerald-900 text-xs">
+                      Grand Total:
+                    </td>
+                    <td className="px-3 py-2 text-right text-emerald-600">—</td>
+                    <td className="px-3 py-2 text-right tabular font-black text-emerald-700 text-sm">
+                      ETB {Number(parsed.summary?.grandTotal ?? parsed.rows.reduce((s, r) => s + r.totalAmt, 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
                 </tfoot>
@@ -888,6 +1028,53 @@ export default function SalesImport() {
                       {result.data.skippedCodes.length > 15 ? ` …and ${result.data.skippedCodes.length - 15} more` : ''}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Financial Summary Breakdown (Sub Total, Add Charge, Discount, Total Tax, Grand Total) */}
+            {(result.data.summary?.grandTotal || result.data.salesRecord?.grandTotal || result.data.summary?.subTotal) && (
+              <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-emerald-50/60 p-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                    <Zap size={14} className="text-blue-600" />
+                    POS Financial Statement Breakdown
+                  </p>
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-100/90 px-3 py-1 rounded-full border border-emerald-300">
+                    Grand Total: ETB {fmt(result.data.summary?.grandTotal || result.data.salesRecord?.grandTotal || result.data.summary?.totalRevenue)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5 text-xs">
+                  <div className="rounded-xl bg-white/95 p-3 border border-ink-100 shadow-2xs">
+                    <p className="text-ink-500 text-[11px] font-semibold">Sub Total</p>
+                    <p className="font-bold text-ink-900 mt-1 tabular text-sm">
+                      ETB {fmt(result.data.summary?.subTotal || result.data.salesRecord?.subTotal || result.data.summary?.totalRevenue)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/95 p-3 border border-ink-100 shadow-2xs">
+                    <p className="text-amber-700 text-[11px] font-semibold">+ Add Charge</p>
+                    <p className="font-bold text-amber-800 mt-1 tabular text-sm">
+                      ETB {fmt(result.data.summary?.addCharge || result.data.salesRecord?.addCharge || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/95 p-3 border border-ink-100 shadow-2xs">
+                    <p className="text-purple-700 text-[11px] font-semibold">- Discount</p>
+                    <p className="font-bold text-purple-700 mt-1 tabular text-sm">
+                      ETB {fmt(result.data.summary?.discount || result.data.salesRecord?.discount || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/95 p-3 border border-ink-100 shadow-2xs">
+                    <p className="text-blue-700 text-[11px] font-semibold">+ Total Tax (VAT)</p>
+                    <p className="font-bold text-blue-800 mt-1 tabular text-sm">
+                      ETB {fmt(result.data.summary?.totalTax || result.data.salesRecord?.totalTax || 0)}
+                    </p>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 rounded-xl bg-emerald-100/80 p-3 border border-emerald-300 shadow-2xs">
+                    <p className="text-emerald-900 text-[11px] font-extrabold uppercase">Grand Total</p>
+                    <p className="font-black text-emerald-800 mt-1 tabular text-sm">
+                      ETB {fmt(result.data.summary?.grandTotal || result.data.salesRecord?.grandTotal || result.data.summary?.totalRevenue)}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

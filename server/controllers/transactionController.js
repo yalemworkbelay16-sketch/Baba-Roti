@@ -862,6 +862,15 @@ const importSales = asyncHandler(async (req, res) => {
   const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
   const matchedCount = saleLines.filter(l => l.matchStatus !== 'unmatched').length;
 
+  // Extract financial summary fields (Sub Total, Add Charge, Discount, Total Tax, Grand Total)
+  const fin = req.body.financialSummary || {};
+  const subTotal = Number(req.body.subTotal ?? fin.subTotal ?? totalRevenue) || totalRevenue;
+  const addCharge = Number(req.body.addCharge ?? fin.addCharge ?? 0) || 0;
+  const discount = Number(req.body.discount ?? fin.discount ?? 0) || 0;
+  const totalTax = Number(req.body.totalTax ?? fin.totalTax ?? 0) || 0;
+  const calcGrand = Math.round((subTotal + addCharge - discount + totalTax) * 100) / 100;
+  const grandTotal = Number(req.body.grandTotal ?? fin.grandTotal ?? calcGrand) || calcGrand;
+
   // Create SalesRecord with all lines and accurate totals
   const salesRecord = await SalesRecord.create({
     saleDate: resolvedSaleDate,
@@ -871,6 +880,11 @@ const importSales = asyncHandler(async (req, res) => {
     source: 'excel_import',
     lines: saleLines,
     totalRevenue,
+    subTotal,
+    addCharge,
+    discount,
+    totalTax,
+    grandTotal,
     totalCOGS,
     grossProfit,
     profitMargin,
@@ -949,6 +963,11 @@ const importSales = asyncHandler(async (req, res) => {
   // Send real-time notification to Telegram bot
   const summaryPayload = {
     totalRevenue,
+    subTotal,
+    addCharge,
+    discount,
+    totalTax,
+    grandTotal,
     totalCOGS,
     grossProfit,
     profitMargin: profitMargin.toFixed(1) + '%',

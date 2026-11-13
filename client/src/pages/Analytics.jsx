@@ -154,6 +154,84 @@ export default function Analytics() {
       'Gross Profit (ETB)': Number(l.grossProfit || 0).toFixed(2),
       'Status': l.matchStatus || '—',
     }));
+
+    const subTotal = Number(selectedRecord.subTotal || selectedRecord.totalRevenue || 0);
+    const addCharge = Number(selectedRecord.addCharge || 0);
+    const discount = Number(selectedRecord.discount || 0);
+    const totalTax = Number(selectedRecord.totalTax || 0);
+    const grandTotal = Number(selectedRecord.grandTotal || (subTotal + addCharge - discount + totalTax));
+
+    exportRows.push({
+      '#': '',
+      'Product Code': '',
+      'Product Name': 'SUB TOTAL',
+      'Category': '',
+      'Quantity Sold': selectedRecord.lines.reduce((s, l) => s + (l.quantitySold || 0), 0),
+      'Unit Price (ETB)': '',
+      'Revenue (ETB)': subTotal.toFixed(2),
+      'COGS (ETB)': Number(selectedRecord.totalCOGS || 0).toFixed(2),
+      'Gross Profit (ETB)': Number(selectedRecord.grossProfit || 0).toFixed(2),
+      'Status': '',
+    });
+
+    if (addCharge > 0) {
+      exportRows.push({
+        '#': '',
+        'Product Code': '',
+        'Product Name': 'ADD CHARGE (SERVICE CHARGE)',
+        'Category': '',
+        'Quantity Sold': '',
+        'Unit Price (ETB)': '',
+        'Revenue (ETB)': addCharge.toFixed(2),
+        'COGS (ETB)': '',
+        'Gross Profit (ETB)': '',
+        'Status': '',
+      });
+    }
+
+    if (discount > 0) {
+      exportRows.push({
+        '#': '',
+        'Product Code': '',
+        'Product Name': 'DISCOUNT',
+        'Category': '',
+        'Quantity Sold': '',
+        'Unit Price (ETB)': '',
+        'Revenue (ETB)': (-discount).toFixed(2),
+        'COGS (ETB)': '',
+        'Gross Profit (ETB)': '',
+        'Status': '',
+      });
+    }
+
+    if (totalTax > 0) {
+      exportRows.push({
+        '#': '',
+        'Product Code': '',
+        'Product Name': 'TOTAL TAX (VAT)',
+        'Category': '',
+        'Quantity Sold': '',
+        'Unit Price (ETB)': '',
+        'Revenue (ETB)': totalTax.toFixed(2),
+        'COGS (ETB)': '',
+        'Gross Profit (ETB)': '',
+        'Status': '',
+      });
+    }
+
+    exportRows.push({
+      '#': '',
+      'Product Code': '',
+      'Product Name': 'GRAND TOTAL',
+      'Category': '',
+      'Quantity Sold': '',
+      'Unit Price (ETB)': '',
+      'Revenue (ETB)': grandTotal.toFixed(2),
+      'COGS (ETB)': '',
+      'Gross Profit (ETB)': '',
+      'Status': '',
+    });
+
     const cleanRef = String(selectedRecord.reference || 'POS_Batch').replace(/[^\w\d-_]/g, '_');
     exportToExcel(exportRows, `Sales_Batch_${cleanRef}`, 'Sold Products');
   };
@@ -1350,8 +1428,11 @@ export default function Analytics() {
                       <p className="text-[10px] text-ink-400">{rec.notes}</p>
                     </td>
                     <td className="py-3 px-3 text-right font-medium">{rec.lines?.length || 0} lines</td>
-                    <td className="py-3 px-3 text-right font-mono font-semibold text-blue-700">
-                      ETB {fmt(rec.totalRevenue)}
+                    <td className="py-3 px-3 text-right font-mono">
+                      <p className="font-semibold text-blue-700">ETB {fmt(rec.grandTotal || rec.totalRevenue)}</p>
+                      {(rec.subTotal > 0 || rec.addCharge > 0 || rec.totalTax > 0) && (
+                        <p className="text-[10px] text-ink-400">Sub: ETB {fmt(rec.subTotal || rec.totalRevenue)}</p>
+                      )}
                     </td>
                     <td className="py-3 px-3 text-right font-mono text-orange-600">
                       ETB {fmt(rec.totalCOGS)}
@@ -1422,6 +1503,51 @@ export default function Analytics() {
           width="max-w-4xl"
         >
           <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {/* Financial Breakdown Cards */}
+            <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-emerald-50/60 p-3.5">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                  <TrendingUp size={13} className="text-blue-600" />
+                  Financial Statement Breakdown
+                </p>
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                  Grand Total: ETB {fmt(selectedRecord.grandTotal || selectedRecord.totalRevenue)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 text-xs">
+                <div className="rounded-lg bg-white/95 p-2 border border-ink-100 shadow-2xs">
+                  <p className="text-ink-500 text-[10px] font-semibold">Sub Total</p>
+                  <p className="font-bold text-ink-900 mt-0.5 tabular text-xs">
+                    ETB {fmt(selectedRecord.subTotal || selectedRecord.totalRevenue)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/95 p-2 border border-ink-100 shadow-2xs">
+                  <p className="text-amber-700 text-[10px] font-semibold">+ Add Charge</p>
+                  <p className="font-bold text-amber-800 mt-0.5 tabular text-xs">
+                    ETB {fmt(selectedRecord.addCharge || 0)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/95 p-2 border border-ink-100 shadow-2xs">
+                  <p className="text-purple-700 text-[10px] font-semibold">- Discount</p>
+                  <p className="font-bold text-purple-700 mt-0.5 tabular text-xs">
+                    ETB {fmt(selectedRecord.discount || 0)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/95 p-2 border border-ink-100 shadow-2xs">
+                  <p className="text-blue-700 text-[10px] font-semibold">+ Total Tax (VAT)</p>
+                  <p className="font-bold text-blue-800 mt-0.5 tabular text-xs">
+                    ETB {fmt(selectedRecord.totalTax || 0)}
+                  </p>
+                </div>
+                <div className="col-span-2 sm:col-span-1 rounded-lg bg-emerald-100/80 p-2 border border-emerald-300 shadow-2xs">
+                  <p className="text-emerald-900 text-[10px] font-extrabold uppercase">Grand Total</p>
+                  <p className="font-black text-emerald-800 mt-0.5 tabular text-xs">
+                    ETB {fmt(selectedRecord.grandTotal || selectedRecord.totalRevenue)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Top Stats Cards */}
             <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 bg-ink-50/80 p-3.5 rounded-xl border border-ink-100">
               <div>

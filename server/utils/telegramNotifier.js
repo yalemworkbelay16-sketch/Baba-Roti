@@ -1167,6 +1167,13 @@ function notifyWaiterCall({ tableNo, action, customerName }) {
 function notifySalesImported(record, summary, user) {
   const count = record?.lines?.length || summary?.totalSoldProducts || 0;
   const rev = Number(record?.totalRevenue || summary?.totalRevenue || 0);
+  const subTotal = Number(record?.subTotal ?? summary?.subTotal ?? rev);
+  const addCharge = Number(record?.addCharge ?? summary?.addCharge ?? 0);
+  const discount = Number(record?.discount ?? summary?.discount ?? 0);
+  const totalTax = Number(record?.totalTax ?? summary?.totalTax ?? 0);
+  const calcGrand = Math.round((subTotal + addCharge - discount + totalTax) * 100) / 100;
+  const grandTotal = Number(record?.grandTotal ?? summary?.grandTotal ?? calcGrand);
+
   const ref = escapeHtml(record?.reference || 'POS Sales Import');
   const uName = escapeHtml(user?.name || 'Administrator');
   const skipped = summary?.skippedDuplicates || 0;
@@ -1175,12 +1182,29 @@ function notifySalesImported(record, summary, user) {
   const formatBirr = (num) =>
     Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ETB';
 
+  let financialBreakdown = '';
+  if (addCharge > 0 || discount > 0 || totalTax > 0 || Math.abs(grandTotal - subTotal) > 0.01) {
+    financialBreakdown =
+      `💵 <b>Sub Total:</b> ${formatBirr(subTotal)}\n` +
+      (addCharge > 0 ? `➕ <b>Add Charge:</b> ${formatBirr(addCharge)}\n` : '') +
+      (discount > 0 ? `🏷️ <b>Discount:</b> -${formatBirr(discount)}\n` : '') +
+      (totalTax > 0 ? `🏛️ <b>Total Tax (VAT):</b> ${formatBirr(totalTax)}\n` : '') +
+      `💰 <b>Grand Total:</b> <b>${formatBirr(grandTotal)}</b>\n`;
+  } else {
+    financialBreakdown =
+      `💵 <b>Sub Total:</b> ${formatBirr(subTotal)}\n` +
+      `💰 <b>Grand Total:</b> <b>${formatBirr(grandTotal || rev)}</b>\n`;
+  }
+
   sendTelegram(
     `🏨 <b>${HOTEL}</b>\n` +
     `📥 <b>NEW SALES REPORT IMPORTED</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `📊 <b>Batch / Ref:</b> <code>${ref}</code>\n` +
-    `💰 <b>Total POS Revenue:</b> <b>${formatBirr(rev)}</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `📑 <b>FINANCIAL BREAKDOWN:</b>\n` +
+    financialBreakdown +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
     `🧾 <b>Items Processed:</b> <b>${count}</b> sold products\n` +
     (matched > 0 ? `🥗 <b>Recipe Deductions:</b> <b>${matched}</b> items with stock updated\n` : '') +
     (skipped > 0 ? `⚠️ <b>Duplicates Skipped:</b> <b>${skipped}</b> existing codes jumped\n` : '') +

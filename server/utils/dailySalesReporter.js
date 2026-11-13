@@ -100,12 +100,33 @@ async function computeDailySalesMetrics(startDate, endDate) {
   });
 
   // Process Imported Sales Records
+  const importedBreakdown = {
+    subTotal: 0,
+    addCharge: 0,
+    discount: 0,
+    totalTax: 0,
+    grandTotal: 0,
+  };
+
   importedSales.forEach((rec) => {
     const rev = Number(rec.totalRevenue || 0);
-    totalSales += rev;
+    const sub = Number(rec.subTotal ?? rev);
+    const add = Number(rec.addCharge || 0);
+    const disc = Number(rec.discount || 0);
+    const tax = Number(rec.totalTax || 0);
+    const grand = Number(rec.grandTotal ?? (sub + add - disc + tax));
+
+    importedBreakdown.subTotal += sub;
+    importedBreakdown.addCharge += add;
+    importedBreakdown.discount += disc;
+    importedBreakdown.totalTax += tax;
+    importedBreakdown.grandTotal += grand;
+
+    const countedRev = grand > 0 ? grand : rev;
+    totalSales += countedRev;
     totalOrdersCount++;
     channelStats.imported.count++;
-    channelStats.imported.revenue += rev;
+    channelStats.imported.revenue += countedRev;
 
     (rec.lines || []).forEach((line) => {
       addCategoryItem('Imported Sales', line.quantitySold, line.revenue);
@@ -123,6 +144,7 @@ async function computeDailySalesMetrics(startDate, endDate) {
     topCategories,
     channelStats,
     paymentStats,
+    importedBreakdown,
   };
 }
 /**
@@ -150,7 +172,12 @@ ${categoryLines || '  • <i>No categorized items sold yet today.</i>'}
 📱 <b>BY ORDER CHANNEL:</b>
   • 🖥️ <b>Counter POS:</b> ${formatBirr(metrics.channelStats.pos.revenue)} (${metrics.channelStats.pos.count} orders)
   • 📱 <b>Customer QR Menu:</b> ${formatBirr(metrics.channelStats.qr.revenue)} (${metrics.channelStats.qr.count} orders)
-${metrics.channelStats.imported.count > 0 ? `  • 📁 <b>Imported Sales:</b> ${formatBirr(metrics.channelStats.imported.revenue)} (${metrics.channelStats.imported.count} orders)\n` : ''}━━━━━━━━━━━━━━━━━━━━
+${metrics.channelStats.imported.count > 0 ? (
+  `  • 📁 <b>Imported POS Sales:</b> ${formatBirr(metrics.importedBreakdown?.grandTotal || metrics.channelStats.imported.revenue)} (${metrics.channelStats.imported.count} batches)` +
+  (metrics.importedBreakdown && (metrics.importedBreakdown.addCharge > 0 || metrics.importedBreakdown.totalTax > 0 || metrics.importedBreakdown.discount > 0)
+    ? `\n    └ <i>Sub Total:</i> ${formatBirr(metrics.importedBreakdown.subTotal)} | <i>Add:</i> ${formatBirr(metrics.importedBreakdown.addCharge)} | <i>Tax:</i> ${formatBirr(metrics.importedBreakdown.totalTax)}`
+    : '') + '\n'
+) : ''}━━━━━━━━━━━━━━━━━━━━
 💳 <b>PAYMENT METHODS:</b>
   • 💵 <b>Cash:</b> ${formatBirr(metrics.paymentStats.Cash)}
   • 📱 <b>Telebirr:</b> ${formatBirr(metrics.paymentStats.Telebirr)}

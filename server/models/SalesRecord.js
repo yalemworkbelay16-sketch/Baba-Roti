@@ -35,8 +35,13 @@ const salesRecordSchema = new mongoose.Schema(
 
     lines:         [saleLineSchema],
 
-    // Totals (aggregated from lines)
+    // Totals (aggregated from lines & POS summary)
     totalRevenue:  { type: Number, default: 0 },
+    subTotal:      { type: Number, default: 0 },
+    addCharge:     { type: Number, default: 0 },
+    discount:      { type: Number, default: 0 },
+    totalTax:      { type: Number, default: 0 },
+    grandTotal:    { type: Number, default: 0 },
     totalCOGS:     { type: Number, default: 0 },
     grossProfit:   { type: Number, default: 0 },
     profitMargin:  { type: Number, default: 0 },          // percentage
