@@ -674,7 +674,11 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
 // @access Public
 const getPublicMenu = asyncHandler(async (req, res) => {
   let [products, rawMaterials, settings] = await Promise.all([
-    Product.find({ isActive: true, deletedAt: null, isAvailableOnMenu: { $ne: false } })
+    Product.find({
+      isActive: true,
+      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+      isAvailableOnMenu: { $ne: false },
+    })
       .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
       .sort({ isFeatured: -1, category: 1, name: 1 })
       .lean(),
@@ -682,19 +686,23 @@ const getPublicMenu = asyncHandler(async (req, res) => {
     Setting.findOne().lean(),
   ]);
 
-  // If strict isActive filter yielded 0 products, check if any products have isAvailableOnMenu !== false
+  // If strict isActive filter yielded 0 products, fallback to any active products with isAvailableOnMenu !== false
   if (!products || products.length === 0) {
-    // Check if user explicitly hid all products via digital menu settings
-    const anyHidden = await Product.exists({ isAvailableOnMenu: false });
-    if (!anyHidden) {
-      // System initialization / legacy products fallback
-      products = await Product.find({
-        $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
-      })
-        .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
-        .sort({ isFeatured: -1, category: 1, name: 1 })
-        .lean();
-    }
+    products = await Product.find({
+      isActive: true,
+      isAvailableOnMenu: { $ne: false },
+    })
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
+      .lean();
+  }
+
+  // Final fallback: if isAvailableOnMenu filter yielded 0, load active products
+  if (!products || products.length === 0) {
+    products = await Product.find({ isActive: true })
+      .select('name code category parentCategory sellingPrice description uom imageUrl isFeatured nameAmharic descriptionAmharic manualOutOfStock ingredients')
+      .sort({ isFeatured: -1, category: 1, name: 1 })
+      .lean();
   }
 
   const stockMap = new Map(rawMaterials.map((m) => [String(m._id), Number(m.currentStock || 0)]));

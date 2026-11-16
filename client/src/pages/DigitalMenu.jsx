@@ -60,13 +60,16 @@ import { getLocalizedCategory, getLocalizedProductName } from '../utils/amharicT
 
 // Base API URL
 const API_BASE = (() => {
-  const envApi = import.meta.env.VITE_API_URL || '/api';
-  if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost') {
-    if (envApi.includes('localhost:5000')) {
-      return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+  let base = import.meta.env.VITE_API_URL || '/api';
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      if (!base || base.includes('localhost') || base.includes(':5000')) {
+        base = '/api';
+      }
     }
   }
-  return envApi;
+  return base;
 })();
 
 // Multilingual Dictionary (English <-> Amharic)
@@ -348,11 +351,15 @@ export default function DigitalMenu() {
   const fetchMenu = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/products/public-menu`);
-      if (res.data) {
-        if (res.data.isLicensed === false) {
-          setMenuLicensed(false);
-        }
+      let res;
+      try {
+        res = await axios.get(`${API_BASE}/products/public-menu`, { timeout: 15000 });
+      } catch (err1) {
+        res = await axios.get('/api/products/public-menu', { timeout: 15000 });
+      }
+
+      if (res?.data) {
+        setMenuLicensed(res.data.isLicensed !== false);
         setMenuData({
           products: res.data.products || [],
           categories: res.data.categories || [],
@@ -366,6 +373,18 @@ export default function DigitalMenu() {
       }
     } catch (err) {
       console.error('Menu load error:', err);
+      try {
+        const fbRes = await axios.get('/api/products?pos=true', { timeout: 10000 });
+        const prods = Array.isArray(fbRes.data) ? fbRes.data : fbRes.data?.products || [];
+        if (prods.length > 0) {
+          setMenuLicensed(true);
+          setMenuData((prev) => ({
+            ...prev,
+            products: prods,
+            categories: Array.from(new Set(prods.map((p) => p.category || 'General'))),
+          }));
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
     }

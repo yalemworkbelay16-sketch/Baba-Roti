@@ -2578,7 +2578,6 @@ export default function Settings() {
                 </p>
               </div>
             </div>
-
             {/* Live Message Preview Box */}
             {tgReportPreview?.previewText && (
               <div className="mt-3">
@@ -3351,7 +3350,6 @@ export default function Settings() {
                 })}
               </div>
             )}
-
             {/* ── Add / Edit Printer Modal ── */}
             {showPrinterForm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
