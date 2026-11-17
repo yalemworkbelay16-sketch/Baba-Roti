@@ -255,9 +255,37 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
 
 // POST /api/materials/import/excel
 const importMaterialsExcel = asyncHandler(async (req, res) => {
-  if (!req.file) { res.status(400); throw new Error('No file uploaded'); }
+  const isSSE = req.headers.accept?.includes('text/event-stream') || req.query.stream === 'true';
+  let send = null;
+  if (isSSE) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+    send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
 
-  const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+  if (!req.file) {
+    const msg = 'No file uploaded';
+    if (isSSE) {
+      send({ type: 'error', message: msg });
+      return res.end();
+    }
+    return res.status(400).json({ message: msg });
+  }
+
+  let wb;
+  try {
+    wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+  } catch (err) {
+    const msg = `Unable to parse Excel file: ${err.message}`;
+    if (isSSE) {
+      send({ type: 'error', message: msg });
+      return res.end();
+    }
+    return res.status(400).json({ message: msg });
+  }
+
   let ws = null;
   let rows = [];
 
@@ -274,16 +302,26 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   }
 
   if (!ws || rows.length === 0) {
-    return res.status(400).json({ message: 'The uploaded file contains no data rows.' });
+    const msg = 'The uploaded file contains no data rows.';
+    if (isSSE) {
+      send({ type: 'error', message: msg });
+      return res.end();
+    }
+    return res.status(400).json({ message: msg });
   }
 
-  // 2. If row 1 wasn't a standard header, scan 2D sheet to detect header row
-  const nameKeys = ['name', 'material name', 'material', 'raw material', 'raw material name', 'item name', 'item', 'ingredient', 'description'];
+  // 2. Comprehensive header recognition (English, Amharic, abbreviations)
+  const nameKeys = [
+    'name', 'material name', 'material', 'raw material', 'raw material name',
+    'item name', 'item', 'ingredient', 'description', 'product', 'product name',
+    'ዕቃ', 'የዕቃ ስም', 'ስም', 'የጥሬ ዕቃ ስም'
+  ];
+
   const hasValidHeader = rows.some(r => getColValue(r, nameKeys) !== undefined);
   if (!hasValidHeader) {
     const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 });
     const headerIdx = rawRows.findIndex(r =>
-      Array.isArray(r) && r.some(cell => typeof cell === 'string' && /^(name|material|item|code|category|stock)/i.test(cell.trim()))
+      Array.isArray(r) && r.some(cell => typeof cell === 'string' && /^(name|material|item|code|category|stock|ዕቃ|ስም|ኮድ)/i.test(cell.trim()))
     );
     if (headerIdx !== -1 && headerIdx < rawRows.length - 1) {
       const headers = rawRows[headerIdx].map(h => String(h || '').trim());
@@ -295,111 +333,180 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     }
   }
 
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-  const processedIds = new Set();
+  // Pre-filter valid rows
+  const validRows = rows.filter(row => {
+    const rawName = getColValue(row, nameKeys);
+    const name = String(rawName || '').trim();
+    if (!name) return false;
+    if (/^Count:/i.test(name) || /^Total/i.test(name)) return false;
+    if (name.toLowerCase() === 'name' || name.toLowerCase() === 'material' || name === 'ስም' || name === 'የዕቃ ስም') return false;
+    return true;
+  });
 
-  // Pre-calculate next sequential RM code if needed
+  const total = validRows.length;
+  if (total === 0) {
+    const sampleHeaders = rows.length > 0 ? Object.keys(rows[0]).join(', ') : 'none';
+    const msg = `No raw materials could be imported. Please ensure your file has a column for Material Name (or Name, Item, ስም). Detected columns: ${sampleHeaders}`;
+    if (isSSE) {
+      send({ type: 'error', message: msg });
+      return res.end();
+    }
+    return res.status(400).json({ message: msg });
+  }
+
+  if (isSSE) {
+    send({ type: 'start', total });
+  }
+
+  // 3. Pre-load all existing materials once into memory for instant O(1) matching
+  const allExisting = await RawMaterial.find({}, 'code name isActive deletedAt').lean();
+  const codeMap = new Map();
+  const nameMap = new Map();
+
   let nextCodeNum = 1;
-  const existingMaterials = await RawMaterial.find({}, 'code');
-  for (const m of existingMaterials) {
-    const match = String(m.code || '').match(/^RM-?(\d+)$/i);
+  for (const doc of allExisting) {
+    const c = String(doc.code || '').trim().replace(/-+$/, '').toLowerCase();
+    if (c) codeMap.set(c, doc);
+
+    const n = String(doc.name || '').trim().toLowerCase();
+    if (n) nameMap.set(n, doc);
+
+    const match = String(doc.code || '').match(/^RM-?(\d+)$/i);
     if (match) {
       const num = parseInt(match[1], 10);
       if (!isNaN(num) && num >= nextCodeNum) nextCodeNum = num + 1;
     }
   }
 
-  for (const row of rows) {
-    const rawName = getColValue(row, nameKeys);
-    const name = String(rawName || '').trim();
+  const processedIds = new Set();
+  const processedCodes = new Set();
+  const bulkOps = [];
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  const errors = [];
 
-    // Skip empty names, summary rows (Count: 10, Total, etc.), or repeated header rows
-    if (!name || /^Count:/i.test(name) || /^Total/i.test(name) || name.toLowerCase() === 'name' || name.toLowerCase() === 'material') {
-      skipped++;
-      continue;
-    }
+  for (let i = 0; i < validRows.length; i++) {
+    const row = validRows[i];
+    try {
+      const rawName = getColValue(row, nameKeys);
+      const name = String(rawName || '').trim();
 
-    const rawCode = getColValue(row, ['code', 'material code', 'raw material code', 'item code', 'rm code', 'item no', 'sku', 'id']);
-    let code = String(rawCode || '').trim().replace(/-+$/, '');
-    if (code === '—' || code === '-') code = '';
+      const rawCode = getColValue(row, ['code', 'material code', 'raw material code', 'item code', 'rm code', 'item no', 'sku', 'id', 'መለያ', 'ኮድ']);
+      let code = String(rawCode || '').trim().replace(/-+$/, '');
+      if (code === '—' || code === '-') code = '';
 
-    const category = String(getColValue(row, ['category', 'material category', 'group', 'type', 'department']) || 'General').trim();
-    
-    // Unit resolution: separate Unit column OR extracted from Stock text
-    const rawStock = getColValue(row, ['current stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity', 'balance', 'available stock']);
-    const rawReorder = getColValue(row, ['reorder level', 'reorder at', 'reorder point', 'reorder', 'min stock', 'minimum stock', 'min']);
-    const rawCost = getColValue(row, ['unit cost', 'unit cost (etb)', 'unit cost (birr)', 'cost', 'unit price', 'price', 'purchase cost']);
-    const rawUnit = getColValue(row, ['unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement']);
+      const category = String(getColValue(row, ['category', 'material category', 'group', 'type', 'department', 'ምድብ']) || 'General').trim();
+      const rawStock = getColValue(row, ['current stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity', 'balance', 'available stock', 'መጠን', 'ብዛት']);
+      const rawReorder = getColValue(row, ['reorder level', 'reorder at', 'reorder point', 'reorder', 'min stock', 'minimum stock', 'min', 'ዝቅተኛ']);
+      const rawCost = getColValue(row, ['unit cost', 'unit cost (etb)', 'unit cost (birr)', 'cost', 'unit price', 'price', 'purchase cost', 'ዋጋ', 'የአንዱ ዋጋ']);
+      const rawUnit = getColValue(row, ['unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement', 'መለኪያ', 'መጠኛ']);
+      const storeLocation = String(getColValue(row, ['store location', 'location', 'store', 'warehouse', 'መጋዘን']) || 'Main Store').trim();
 
-    let unit = String(rawUnit || extractUnit(rawStock) || extractUnit(rawReorder) || 'pcs').trim();
-    if (!unit) unit = 'pcs';
+      let unit = String(rawUnit || extractUnit(rawStock) || extractUnit(rawReorder) || 'pcs').trim();
+      if (!unit) unit = 'pcs';
 
-    const currentStock = parseNumber(rawStock, 0);
-    const reorderLevel = parseNumber(rawReorder, 10);
-    const unitCost = parseNumber(rawCost, 0);
-    const storeLocation = String(getColValue(row, ['store location', 'location', 'store', 'warehouse']) || 'Main Store').trim();
+      const currentStock = parseNumber(rawStock, 0);
+      const reorderLevel = parseNumber(rawReorder, 10);
+      const unitCost = parseNumber(rawCost, 0);
 
-    const data = {
-      name,
-      category,
-      unit,
-      currentStock,
-      reorderLevel,
-      unitCost,
-      storeLocation,
-      isActive: true,
-    };
+      const updateData = {
+        name,
+        category,
+        unit,
+        currentStock,
+        reorderLevel,
+        unitCost,
+        storeLocation,
+        isActive: true,
+        deletedAt: null,
+        deletedBy: null,
+        deletedFrom: null,
+      };
 
-    let existing = null;
+      const cleanCode = code.toLowerCase();
+      const cleanName = name.toLowerCase();
 
-    // 1️⃣ Match by Code first if code was provided
-    if (code) {
-      const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      existing = await RawMaterial.findOne({ code: { $regex: `^${escapedCode}-?$`, $options: 'i' } });
-      if (existing && processedIds.has(existing._id.toString())) existing = null;
-    }
-
-    // 2️⃣ Match by Name (case-insensitive)
-    if (!existing) {
-      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const byName = await RawMaterial.findOne({ name: { $regex: `^${escapedName}$`, $options: 'i' } });
-      if (byName && !processedIds.has(byName._id.toString())) existing = byName;
-    }
-
-    if (existing) {
-      // If code was provided, update it too
-      if (code && !existing.code) data.code = code;
-      Object.assign(existing, data);
-      await existing.save();
-      processedIds.add(existing._id.toString());
-      updated++;
-    } else {
-      if (!code) {
-        code = `RM-${String(nextCodeNum++).padStart(4, '0')}`;
+      let matched = null;
+      if (cleanCode && codeMap.has(cleanCode) && !processedIds.has(codeMap.get(cleanCode)._id.toString())) {
+        matched = codeMap.get(cleanCode);
+      } else if (nameMap.has(cleanName) && !processedIds.has(nameMap.get(cleanName)._id.toString())) {
+        matched = nameMap.get(cleanName);
       }
-      data.code = code;
-      const created_ = await RawMaterial.create(data);
-      processedIds.add(created_._id.toString());
-      created++;
+
+      if (matched) {
+        if (code && !matched.code) updateData.code = code;
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: matched._id },
+            update: { $set: updateData },
+          },
+        });
+        processedIds.add(matched._id.toString());
+        updated++;
+      } else {
+        let finalCode = code;
+        if (!finalCode || processedCodes.has(finalCode.toLowerCase()) || codeMap.has(finalCode.toLowerCase())) {
+          while (processedCodes.has(`rm-${String(nextCodeNum).padStart(4, '0')}`) || codeMap.has(`rm-${String(nextCodeNum).padStart(4, '0')}`)) {
+            nextCodeNum++;
+          }
+          finalCode = `RM-${String(nextCodeNum++).padStart(4, '0')}`;
+        }
+        processedCodes.add(finalCode.toLowerCase());
+        updateData.code = finalCode;
+
+        bulkOps.push({
+          insertOne: {
+            document: updateData,
+          },
+        });
+        created++;
+      }
+    } catch (rowErr) {
+      skipped++;
+      errors.push(`Row ${i + 1}: ${rowErr.message}`);
     }
+
+    // Stream SSE progress every 5 rows or on final row
+    if (isSSE && ((i + 1) % 5 === 0 || i === total - 1)) {
+      send({
+        type: 'progress',
+        percent: Math.round(((i + 1) / total) * 100),
+        current: i + 1,
+        total,
+        created,
+        updated,
+        skipped,
+      });
+    }
+  }
+
+  // 4. Fast batch execution in MongoDB Atlas
+  if (bulkOps.length > 0) {
+    await RawMaterial.bulkWrite(bulkOps, { ordered: false });
   }
 
   invalidateDashboardCache();
 
-  if (created === 0 && updated === 0) {
-    const sampleHeaders = rows.length > 0 ? Object.keys(rows[0]).join(', ') : 'none';
-    return res.status(400).json({
-      message: `No materials could be imported. Please ensure your file has a column for Material Name (or Name). Detected columns: ${sampleHeaders}`
+  if (isSSE) {
+    send({
+      type: 'done',
+      created,
+      updated,
+      skipped,
+      total,
+      errors: errors.slice(0, 10),
     });
+    return res.end();
   }
 
   res.json({
-    message: `Imported successfully: ${created} created, ${updated} updated${skipped > 0 ? ` (${skipped} empty/header rows skipped)` : ''}`,
+    success: true,
+    message: `Imported successfully: ${created} created, ${updated} updated${skipped > 0 ? ` (${skipped} skipped)` : ''}`,
     created,
     updated,
     skipped,
+    total,
   });
 });
 

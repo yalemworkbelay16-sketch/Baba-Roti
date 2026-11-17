@@ -1,6 +1,14 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// ── Process-level resilience against crashes ────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL UNCAUGHT EXCEPTION]:', err?.stack || err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL UNHANDLED REJECTION]:', reason);
+});
+
 // ── Startup diagnostics ────────────────────────────────────────────────
 console.log('[STARTUP] NODE_ENV:', process.env.NODE_ENV);
 console.log('[STARTUP] PORT:', process.env.PORT);

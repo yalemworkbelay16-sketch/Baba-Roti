@@ -43,7 +43,7 @@ const RawMaterials = () => {
   const [unitCustom, setUnitCustom] = useState(false);
   const [categoryCustom, setCategoryCustom] = useState(false);
   const [importResult, setImportResult] = useState(null);
-  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
   const importRef = useRef();
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
@@ -147,21 +147,100 @@ const RawMaterials = () => {
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setImporting(true);
+    e.target.value = '';
+
     setImportResult(null);
-    const formData = new FormData();
-    formData.append('file', file);
+    setImportProgress({ percent: 0, current: 0, total: 0, created: 0, updated: 0, skipped: 0, running: true });
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const stored = localStorage.getItem('hotelStockAuth');
+    const token = stored ? JSON.parse(stored).token : '';
+    let baseURL = import.meta.env.VITE_API_URL || '/api';
+    if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      baseURL = '/api';
+    }
+
     try {
-      const res = await api.post('/materials/import/excel', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const response = await fetch(`${baseURL}/materials/import/excel?stream=true`, {
+        method: 'POST',
+        headers: {
+          Accept: 'text/event-stream',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: fd,
       });
-      setImportResult({ type: 'success', message: res.data.message });
-      load();
+
+      if (!response.ok) {
+        let errMsg = 'Import failed';
+        try {
+          const errData = await response.json();
+          errMsg = errData.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('text/event-stream')) {
+        const json = await response.json();
+        setImportProgress(null);
+        setImportResult({ type: 'success', message: json.message || 'Materials imported successfully.' });
+        load();
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const msg = JSON.parse(line.slice(6));
+            if (msg.type === 'start') {
+              setImportProgress((p) => ({ ...p, total: msg.total }));
+            } else if (msg.type === 'progress') {
+              setImportProgress({
+                running: true,
+                percent: msg.percent,
+                current: msg.current,
+                total: msg.total,
+                created: msg.created,
+                updated: msg.updated,
+                skipped: msg.skipped,
+              });
+            } else if (msg.type === 'done') {
+              setImportProgress(null);
+              setImportResult({
+                type: 'success',
+                message: `Import complete: ${msg.created} created, ${msg.updated} updated${msg.skipped > 0 ? `, ${msg.skipped} skipped` : ''} out of ${msg.total} rows.`,
+              });
+              load();
+            } else if (msg.type === 'error') {
+              setImportProgress(null);
+              setImportResult({
+                type: 'error',
+                message: msg.message || 'Import failed.',
+              });
+            }
+          } catch (_) {}
+        }
+      }
     } catch (err) {
-      setImportResult({ type: 'error', message: err.response?.data?.message ?? 'Import failed' });
-    } finally {
-      setImporting(false);
-      e.target.value = '';
+      setImportProgress(null);
+      setImportResult({
+        type: 'error',
+        message: err.message || 'Import failed. Please check your Excel file format and try again.',
+      });
     }
   };
 
@@ -334,11 +413,33 @@ const RawMaterials = () => {
         </div>
       )}
 
-      {/* Importing Spinner */}
-      {importing && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 animate-pulse">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent flex-shrink-0" />
-          <p className="font-medium">Importing materials from Excel and updating inventory...</p>
+      {/* Import Progress Bar in Percent */}
+      {importProgress && (
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-4 py-3.5 space-y-2 shadow-2xs">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2 font-semibold text-blue-900">
+              <Upload size={16} className="text-blue-600 animate-bounce" />
+              Importing materials & updating inventory…
+            </span>
+            <span className="tabular text-blue-700 font-bold text-base">{importProgress.percent}%</span>
+          </div>
+
+          {/* Progress bar track & filler */}
+          <div className="h-3.5 w-full overflow-hidden rounded-full bg-blue-200/80 p-0.5">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 transition-all duration-300 shadow-sm"
+              style={{ width: `${Math.max(importProgress.percent, 3)}%` }}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-blue-700 pt-0.5">
+            <span className="font-medium">{importProgress.current} / {importProgress.total} rows processed</span>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-emerald-700">✓ {importProgress.created} created</span>
+              <span className="font-semibold text-indigo-700">↻ {importProgress.updated} updated</span>
+              {importProgress.skipped > 0 && <span className="font-semibold text-amber-700">⚠ {importProgress.skipped} skipped</span>}
+            </div>
+          </div>
         </div>
       )}
 
