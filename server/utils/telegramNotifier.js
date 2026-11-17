@@ -13,13 +13,16 @@ const Setting = require('../models/Setting');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8849417539:AAFXg2njcRGhnq8EPTtHusuEVuur5qqVzAk';
 // Default verified hotel admin & management Telegram chat IDs
-const DEFAULT_FALLBACK_CHAT_IDS = ['7951472080', '1286578760'];
+const DEFAULT_FALLBACK_CHAT_IDS = ['7951472080'];
 // Fallback: env-var chat IDs (used if DB has no subscribers yet)
-const ENV_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '7951472080,1286578760')
+const ENV_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '7951472080')
   .split(',')
   .map(id => id.trim())
-  .filter(id => id && id !== 'your_chat_id_here' && id !== 'null' && id !== 'undefined');
+  .filter(id => id && id !== 'your_chat_id_here' && id !== 'null' && id !== 'undefined' && id !== '1286578760');
 const HOTEL = 'Baba Roti Café';
+
+// In-memory blacklist for chats that blocked the bot or are invalid, preventing socket leaks & log spam
+const permanentlySuppressedChats = new Set(['1286578760']);
 
 function cleanChatId(id) {
   if (!id) return null;
@@ -86,12 +89,12 @@ async function getChatIds() {
       .filter(id => id && !blockedChatIds.has(id));
 
     const all = [...new Set([...dbIds, ...staffIds, ...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])];
-    // Ensure no blocked chat ID gets messages and no invalid values
-    return all.filter(id => id && id !== 'null' && id !== 'undefined' && !blockedChatIds.has(String(id)));
+    // Ensure no blocked or suppressed chat ID gets messages
+    return all.filter(id => id && id !== 'null' && id !== 'undefined' && !blockedChatIds.has(String(id)) && !permanentlySuppressedChats.has(String(id)));
   } catch (err) {
     console.warn('[Telegram] Chat IDs fetch error:', err.message);
     return [...new Set([...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])].filter(
-      id => id && id !== 'null' && id !== 'undefined'
+      id => id && id !== 'null' && id !== 'undefined' && !permanentlySuppressedChats.has(String(id))
     );
   }
 }
@@ -99,7 +102,9 @@ async function getChatIds() {
 function sendToOne(chatId, text) {
   return new Promise((resolve) => {
     const cleanId = cleanChatId(chatId);
-    if (!cleanId) return resolve({ ok: false, error: 'Invalid chat ID' });
+    if (!cleanId || permanentlySuppressedChats.has(cleanId)) {
+      return resolve({ ok: false, error: 'Suppressed chat ID' });
+    }
 
     const body = JSON.stringify({
       chat_id: cleanId,
@@ -113,6 +118,7 @@ function sendToOne(chatId, text) {
       path: `/bot${BOT_TOKEN}/sendMessage`,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 7000,
     };
 
     const req = https.request(options, (res) => {
@@ -122,15 +128,28 @@ function sendToOne(chatId, text) {
         if (res.statusCode === 200) {
           resolve({ ok: true, data });
         } else {
-          console.warn(`[Telegram] Non-200 for chat ${cleanId}:`, data);
+          if (data.includes('bot was blocked by the user') || data.includes('chat not found') || data.includes('user is deactivated')) {
+            permanentlySuppressedChats.add(cleanId);
+            console.log(`[Telegram] Chat ${cleanId} blocked the bot or is invalid. Suppressed future notifications.`);
+          } else {
+            console.warn(`[Telegram] Non-200 for chat ${cleanId}:`, data);
+          }
           resolve({ ok: false, error: data });
         }
       });
     });
+
+    req.on('timeout', () => {
+      req.destroy();
+      console.warn(`[Telegram] Request timed out for chat ${cleanId}`);
+      resolve({ ok: false, error: 'Timeout' });
+    });
+
     req.on('error', (err) => {
       console.warn(`[Telegram] Send error to ${cleanId}:`, err.message);
       resolve({ ok: false, error: err.message });
     });
+
     req.write(body);
     req.end();
   });
