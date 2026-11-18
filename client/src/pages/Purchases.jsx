@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, Eye, X, ShoppingCart } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Eye, X, ShoppingCart, Search, CheckCircle2, Clock, Check, AlertCircle, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api/axios';
 import DataTable from '../components/ui/DataTable';
@@ -37,6 +37,9 @@ export default function Purchases() {
   const [purchases,  setPurchases]  = useState([]);
   const [suppliers,  setSuppliers]  = useState([]);
   const [materials,  setMaterials]  = useState([]);
+  const [search,     setSearch]     = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'draft' | 'checked' | 'approved' | 'received' | 'cancelled'
+  const [supplierFilter, setSupplierFilter] = useState('all');
   const [importResult, setImportResult] = useState(null);
   const importRef = useRef();
 
@@ -68,9 +71,38 @@ export default function Purchases() {
     api.get('/materials').then(r => setMaterials(Array.isArray(r.data) ? r.data : [])).catch(() => setMaterials([]));
   }, []);
 
+  // Dynamic counts per status
+  const statusCounts = useMemo(() => {
+    const counts = { all: purchases.length, draft: 0, checked: 0, approved: 0, received: 0, cancelled: 0 };
+    purchases.forEach((p) => {
+      if (counts[p.status] !== undefined) counts[p.status]++;
+    });
+    return counts;
+  }, [purchases]);
+
+  // Filtered purchases
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter((p) => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+      if (supplierFilter !== 'all') {
+        const supId = p.supplier?._id || p.supplier;
+        const supName = p.supplier?.name;
+        if (supId !== supplierFilter && supName !== supplierFilter) return false;
+      }
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const inv = (p.invoiceNumber || '').toLowerCase();
+        const sup = (p.supplier?.name || '').toLowerCase();
+        const itm = p.items?.some(i => (i.material?.name || '').toLowerCase().includes(q));
+        if (!inv.includes(q) && !sup.includes(q) && !itm) return false;
+      }
+      return true;
+    });
+  }, [purchases, statusFilter, supplierFilter, search]);
+
   // ── Export data ──
   const exportData = useMemo(() => {
-    return purchases.map(p => ({
+    return filteredPurchases.map(p => ({
       'Date':          new Date(p.purchaseDate).toLocaleDateString(),
       'Invoice No':    p.invoiceNumber || '—',
       'Supplier':      p.supplier?.name || '—',
@@ -79,7 +111,7 @@ export default function Purchases() {
       'Total (ETB)':   Number(p.totalAmount || 0).toFixed(2),
       'Status':        p.status,
     }));
-  }, [purchases]);
+  }, [filteredPurchases]);
 
   const pdfColumns = [
     { header: 'Date',         accessor: 'Date' },
@@ -225,30 +257,42 @@ export default function Purchases() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ExportDropdown
-          data={exportData}
-          fileName="purchases_export"
-          sheetName="Purchases"
-          pdfTitle="Purchase Orders Report"
-          pdfColumns={pdfColumns}
-          pdfSummary={[
-            { label: 'Total Purchases', value: purchases.length },
-            { label: 'Total Value (ETB)', value: purchases.reduce((s, p) => s + (p.totalAmount || 0), 0).toFixed(2) },
-          ]}
-          showImport={true}
-          onImport={() => importRef.current?.click()}
-          importLabel="Import Excel"
-        />
-        <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-        {canEdit && (
-          <Button
-            style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}
-            onClick={openCreate}
-          >
-            <Plus size={16} /> Record purchase
-          </Button>
-        )}
+      {/* ── Toolbar with Search ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full max-w-xs">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search invoice, supplier, item…"
+            className="w-full rounded-lg border border-ink-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 shadow-2xs"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportDropdown
+            data={exportData}
+            fileName="purchases_export"
+            sheetName="Purchases"
+            pdfTitle="Purchase Orders Report"
+            pdfColumns={pdfColumns}
+            pdfSummary={[
+              { label: 'Total Purchases', value: filteredPurchases.length },
+              { label: 'Total Value (ETB)', value: filteredPurchases.reduce((s, p) => s + (p.totalAmount || 0), 0).toFixed(2) },
+            ]}
+            showImport={true}
+            onImport={() => importRef.current?.click()}
+            importLabel="Import Excel"
+          />
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+          {canEdit && (
+            <Button
+              style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}
+              onClick={openCreate}
+            >
+              <Plus size={16} /> Record purchase
+            </Button>
+          )}
+        </div>
       </div>
 
       {importResult && (
@@ -260,10 +304,163 @@ export default function Purchases() {
         </div>
       )}
 
+      {/* ── Quick Purchase Status & Supplier Filter Badges ── */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-blue-200/80 bg-white p-2.5 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          {/* All */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'all'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <span>All</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {statusCounts.all}
+            </span>
+          </button>
+
+          {/* Draft */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('draft')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'draft'
+                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+            }`}
+          >
+            <Clock size={12} className={statusFilter === 'draft' ? 'text-white' : 'text-amber-600'} />
+            <span>Draft</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'draft' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+            }`}>
+              {statusCounts.draft}
+            </span>
+          </button>
+
+          {/* Checked */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('checked')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'checked'
+                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+            }`}
+          >
+            <Check size={12} className={statusFilter === 'checked' ? 'text-white' : 'text-blue-600'} />
+            <span>Checked</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'checked' ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+            }`}>
+              {statusCounts.checked}
+            </span>
+          </button>
+
+          {/* Approved */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('approved')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'approved'
+                ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400/40'
+                : 'bg-violet-50 text-violet-800 border border-violet-200/80 hover:bg-violet-100'
+            }`}
+          >
+            <CheckCircle2 size={12} className={statusFilter === 'approved' ? 'text-white' : 'text-violet-600'} />
+            <span>Approved</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'approved' ? 'bg-white/25 text-white' : 'bg-violet-200 text-violet-900'
+            }`}>
+              {statusCounts.approved}
+            </span>
+          </button>
+
+          {/* Received */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('received')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'received'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+            }`}
+          >
+            <CheckCircle2 size={12} className={statusFilter === 'received' ? 'text-white' : 'text-emerald-600'} />
+            <span>Received</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'received' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+            }`}>
+              {statusCounts.received}
+            </span>
+          </button>
+
+          {/* Cancelled */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('cancelled')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'cancelled'
+                ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
+                : 'bg-rose-50 text-rose-800 border border-rose-200/80 hover:bg-rose-100'
+            }`}
+          >
+            <AlertCircle size={12} className={statusFilter === 'cancelled' ? 'text-white' : 'text-rose-600'} />
+            <span>Cancelled</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'cancelled' ? 'bg-white/25 text-white' : 'bg-rose-200 text-rose-900'
+            }`}>
+              {statusCounts.cancelled}
+            </span>
+          </button>
+        </div>
+
+        {/* Supplier Quick Filter Dropdown */}
+        {suppliers.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-ink-600 self-end sm:self-auto">
+            <span className="font-medium text-ink-400">Supplier:</span>
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
+            >
+              <option value="all">All Suppliers ({suppliers.length})</option>
+              {suppliers.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+            {(statusFilter !== 'all' || supplierFilter !== 'all' || search) && (
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('all'); setSupplierFilter('all'); setSearch(''); }}
+                className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+                title="Reset filters"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
-        data={purchases}
-        emptyMessage="No purchases recorded yet."
+        data={filteredPurchases}
+        emptyMessage={
+          statusFilter !== 'all'
+            ? `No ${statusFilter} purchases found.`
+            : supplierFilter !== 'all'
+            ? 'No purchases found for selected supplier.'
+            : search
+            ? `No purchases matching "${search}".`
+            : 'No purchases recorded yet.'
+        }
         title="Purchase Orders"
         icon={<ShoppingCart size={15} />}
       />

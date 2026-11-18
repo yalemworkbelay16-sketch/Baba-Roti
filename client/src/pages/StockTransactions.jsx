@@ -108,6 +108,7 @@ export default function StockTransactions({ defaultVoucher } = {}) {
   };
 
   const [transactions, setTransactions] = useState([]);
+  const [quickVoucherFilter, setQuickVoucherFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
   const [materials, setMaterials] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -158,8 +159,20 @@ export default function StockTransactions({ defaultVoucher } = {}) {
     api.get('/suppliers').then(r => setSuppliers(Array.isArray(r.data) ? r.data : [])).catch(() => setSuppliers([]));
   }, []);
 
+  const voucherCounts = useMemo(() => {
+    const counts = { all: transactions.length };
+    transactions.forEach(t => {
+      const v = t.voucherType;
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [transactions]);
+
   const displayed = useMemo(() => {
     return transactions.filter(t => {
+      if (!filterType && quickVoucherFilter !== 'all' && t.voucherType !== quickVoucherFilter) {
+        return false;
+      }
       if (search) {
         const mat = t.material?.name ?? t.items?.[0]?.material?.name ?? '';
         const match = (mat + (t.voucherNo ?? '') + (t.supplier?.name ?? '')).toLowerCase().includes(search.toLowerCase());
@@ -173,13 +186,13 @@ export default function StockTransactions({ defaultVoucher } = {}) {
       }
       return true;
     });
-  }, [transactions, search, fromDate, toDate]);
+  }, [transactions, search, fromDate, toDate, filterType, quickVoucherFilter]);
 
   // ── Pagination ──
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  // Reset to page 1 whenever search, filter or date changes
-  React.useEffect(() => { setPage(1); }, [search, filterType, fromDate, toDate]);
+  // Reset to page 1 whenever search, filter, voucher type, or date changes
+  React.useEffect(() => { setPage(1); }, [search, filterType, fromDate, toDate, quickVoucherFilter]);
   const paginated = displayed.slice((page - 1) * pageSize, page * pageSize);
 
   // Export Data for Excel & CSV
@@ -522,6 +535,65 @@ export default function StockTransactions({ defaultVoucher } = {}) {
           <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-red-400 hover:text-red-700">
             <X size={14} />
           </button>
+        </div>
+      )}
+
+      {/* ── Quick Voucher Type Filter Bar (on All Movements) ── */}
+      {!filterType && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setQuickVoucherFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              quickVoucherFilter === 'all'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <span>All Movements</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              quickVoucherFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {transactions.length}
+            </span>
+          </button>
+
+          {VOUCHERS.map(v => {
+            const count = voucherCounts[v.key] || 0;
+            if (count === 0 && !['cash_grv', 'credit_grv', 'fresh_bazaar', 'pos_sale', 'disposal'].includes(v.key)) return null;
+            const Icon = v.icon;
+            const isActive = quickVoucherFilter === v.key;
+            return (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => setQuickVoucherFilter(isActive ? 'all' : v.key)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  isActive
+                    ? `${v.activeCls} text-white shadow-xs ring-2 ring-blue-400/40`
+                    : `${v.badgeCls} border border-transparent hover:opacity-90`
+                }`}
+              >
+                <Icon size={12} className={isActive ? 'text-white' : ''} />
+                <span>{v.label}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-black/10 text-current'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          {quickVoucherFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setQuickVoucherFilter('all')}
+              className="text-xs text-ink-400 hover:text-ink-700 underline pl-1 ml-auto"
+            >
+              Reset Type
+            </button>
+          )}
         </div>
       )}
 

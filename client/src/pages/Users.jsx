@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Users as UsersIcon, Phone, Send, Pencil, X, Trash2, BellOff } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Plus, Users as UsersIcon, Phone, Send, Pencil, X, Trash2, BellOff, Search, ShieldCheck } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Badge from '../components/ui/Badge';
@@ -34,14 +34,17 @@ const roleLabels = {
 
 const Users = () => {
   const { user: currentUser } = useAuth();
-  const [users,      setUsers]      = useState([]);
-  const [modalOpen,  setModalOpen]  = useState(false);
-  const [editUser,   setEditUser]   = useState(null);
-  const [form,       setForm]       = useState(emptyForm);
-  const [error,      setError]      = useState('');
-  const [saving,     setSaving]     = useState(false);
-  const [page,       setPage]       = useState(1);
-  const [pageSize,   setPageSize]   = useState(10);
+  const [users,        setUsers]        = useState([]);
+  const [search,       setSearch]       = useState('');
+  const [roleFilter,   setRoleFilter]   = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [modalOpen,    setModalOpen]    = useState(false);
+  const [editUser,     setEditUser]     = useState(null);
+  const [form,         setForm]         = useState(emptyForm);
+  const [error,        setError]        = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [page,         setPage]         = useState(1);
+  const [pageSize,     setPageSize]     = useState(10);
 
   const load = () => api.get('/users')
     .then((res) => {
@@ -55,6 +58,36 @@ const Users = () => {
     .catch(() => setUsers([]));
 
   useEffect(() => { load(); }, []);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [roleFilter, statusFilter, search]);
+
+  const roleCounts = useMemo(() => {
+    const counts = { all: users.length, active: 0, inactive: 0 };
+    users.forEach(u => {
+      counts[u.role] = (counts[u.role] || 0) + 1;
+      if (u.isActive) counts.active++;
+      else counts.inactive++;
+    });
+    return counts;
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+      if (statusFilter === 'active' && !u.isActive) return false;
+      if (statusFilter === 'inactive' && u.isActive) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const matchName = u.name?.toLowerCase().includes(q);
+        const matchEmail = u.email?.toLowerCase().includes(q);
+        const matchPhone = u.phone?.toLowerCase().includes(q);
+        const matchRole = roleLabels[u.role]?.toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchPhone && !matchRole) return false;
+      }
+      return true;
+    });
+  }, [users, roleFilter, statusFilter, search]);
 
   const openCreate = () => {
     setEditUser(null);
@@ -128,20 +161,104 @@ const Users = () => {
     }
   };
 
-  const paginated = users.slice((page - 1) * pageSize, page * pageSize);
+  const paginated = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-ink-900">Staff Accounts</h1>
           <p className="text-xs text-ink-400 mt-0.5">{users.length} registered account{users.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button variant="brass" onClick={openCreate}>
-          <Plus size={16} /> Add staff account
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-60">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search staff accounts…"
+              className="w-full rounded-lg border border-ink-200 py-1.5 pl-9 pr-3 text-xs outline-none focus:border-blue-500 shadow-2xs"
+            />
+          </div>
+          <Button variant="brass" onClick={openCreate}>
+            <Plus size={16} /> Add staff account
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick Role & Status Filter Badges */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
+        {/* Role Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setRoleFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              roleFilter === 'all'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <UsersIcon size={13} className={roleFilter === 'all' ? 'text-white' : 'text-blue-600'} />
+            <span>All Staff</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              roleFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {users.length}
+            </span>
+          </button>
+
+          {['admin', 'manager', 'supervisor', 'storekeeper', 'cashier', 'waiter'].map((r) => {
+            if (!roleCounts[r]) return null;
+            const isActive = roleFilter === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRoleFilter(isActive ? 'all' : r)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                    : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+                }`}
+              >
+                <span>{roleLabels[r] || r}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+                }`}>
+                  {roleCounts[r]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Status Dropdown */}
+        <div className="flex items-center gap-2 text-xs text-ink-600 self-end sm:self-auto">
+          <span className="font-medium text-ink-400">Status:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
+          >
+            <option value="all">All ({users.length})</option>
+            <option value="active">Active ({roleCounts.active || 0})</option>
+            <option value="inactive">Disabled ({roleCounts.inactive || 0})</option>
+          </select>
+          {(roleFilter !== 'all' || statusFilter !== 'all' || search) && (
+            <button
+              type="button"
+              onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setSearch(''); }}
+              className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+              title="Reset filters"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -158,7 +275,13 @@ const Users = () => {
             </thead>
             <tbody>
               {paginated.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-ink-400">No accounts yet.</td></tr>
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                    {roleFilter !== 'all' || statusFilter !== 'all' || search
+                      ? 'No staff accounts match your filters.'
+                      : 'No accounts yet.'}
+                  </td>
+                </tr>
               )}
               {paginated.map(u => (
                 <tr key={u._id} className="hover:bg-blue-50/20 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -217,7 +340,7 @@ const Users = () => {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} pageSize={pageSize} total={users.length}
+        <Pagination page={page} pageSize={pageSize} total={filteredUsers.length}
           onPage={setPage} onPageSize={s => { setPageSize(s); setPage(1); }} />
       </div>
 

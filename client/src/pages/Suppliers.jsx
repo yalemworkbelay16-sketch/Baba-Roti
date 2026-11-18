@@ -10,12 +10,13 @@ import ExportDropdown from '../components/ui/ExportDropdown';
 const emptyForm = { name: '', contactPerson: '', phone: '', email: '', category: '', address: '' };
 
 const Suppliers = () => {
-  const [suppliers, setSuppliers] = useState([]);
-  const [search,    setSearch]    = useState('');
-  const [selected,  setSelected]  = useState(new Set());
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing,   setEditing]   = useState(null);
-  const [form,      setForm]      = useState(emptyForm);
+  const [suppliers,      setSuppliers]      = useState([]);
+  const [search,         setSearch]         = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selected,       setSelected]       = useState(new Set());
+  const [modalOpen,      setModalOpen]      = useState(false);
+  const [editing,        setEditing]        = useState(null);
+  const [form,           setForm]           = useState(emptyForm);
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager');
   const canDelete = canCrud ? canCrud('suppliers', 'delete') : (hasRole('admin') || can('manageAccounts'));
@@ -26,8 +27,29 @@ const Suppliers = () => {
   }).catch(() => setSuppliers([]));
   useEffect(() => { load(); }, [search]);
 
+  // Dynamic categories with counts
+  const categories = useMemo(() => {
+    const map = {};
+    suppliers.forEach((s) => {
+      const cat = (s.category && s.category.trim()) || 'General';
+      map[cat] = (map[cat] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [suppliers]);
+
+  // Filtered by category
+  const filteredSuppliers = useMemo(() => {
+    return suppliers.filter((s) => {
+      if (categoryFilter !== 'all') {
+        const cat = (s.category && s.category.trim()) || 'General';
+        if (cat.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }, [suppliers, categoryFilter]);
+
   /* ── selection ── */
-  const allIds      = suppliers.map(s => s._id);
+  const allIds      = filteredSuppliers.map(s => s._id);
   const allChecked  = allIds.length > 0 && allIds.every(id => selected.has(id));
   const someChecked = allIds.some(id => selected.has(id));
   const toggleAll   = () => allChecked ? setSelected(new Set()) : setSelected(new Set(allIds));
@@ -58,14 +80,14 @@ const Suppliers = () => {
     load();
   };
 
-  const exportData = useMemo(() => suppliers.map(s => ({
+  const exportData = useMemo(() => filteredSuppliers.map(s => ({
     'Supplier Name':  s.name,
     'Category':       s.category || 'General',
     'Contact Person': s.contactPerson || '—',
     'Phone':          s.phone || '—',
     'Email':          s.email || '—',
     'Address':        s.address || '—',
-  })), [suppliers]);
+  })), [filteredSuppliers]);
 
   const pdfColumns = [
     { header: 'Supplier Name',  accessor: 'Supplier Name' },
@@ -147,10 +169,90 @@ const Suppliers = () => {
         </div>
       )}
 
+      {/* Quick Category Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
+        {/* Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              categoryFilter === 'all'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Truck size={13} className={categoryFilter === 'all' ? 'text-white' : 'text-blue-600'} />
+            <span>All Suppliers</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              categoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {suppliers.length}
+            </span>
+          </button>
+
+          {categories.slice(0, 5).map(([cat, count]) => {
+            const isActive = categoryFilter.toLowerCase() === cat.toLowerCase();
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategoryFilter(isActive ? 'all' : cat)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                    : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+                }`}
+              >
+                <span>{cat}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category Dropdown */}
+        {categories.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-ink-600 self-end sm:self-auto">
+            <span className="font-medium text-ink-400">Category:</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
+            >
+              <option value="all">All Categories ({suppliers.length})</option>
+              {categories.map(([cat, count]) => (
+                <option key={cat} value={cat}>{cat} ({count})</option>
+              ))}
+            </select>
+            {categoryFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+                title="Reset category"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
-        data={suppliers}
-        emptyMessage="No suppliers yet. Add your first one."
+        data={filteredSuppliers}
+        emptyMessage={
+          categoryFilter !== 'all'
+            ? `No suppliers found in category "${categoryFilter}".`
+            : search
+            ? `No suppliers matching "${search}".`
+            : 'No suppliers yet. Add your first one.'
+        }
         title="Supplier Directory"
         icon={<Truck size={15} />}
       />

@@ -203,26 +203,45 @@ export default function Employees() {
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards (clickable filters) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Staff',  value: stats.total,    icon: Users,     cls: 'text-blue-600',    bg: 'bg-blue-50'    },
-          { label: 'Active',       value: stats.active,   icon: UserCheck, cls: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Inactive',     value: stats.inactive, icon: UserX,     cls: 'text-red-600',     bg: 'bg-red-50'     },
-          { label: 'On Leave',     value: stats.onLeave,  icon: Clock,     cls: 'text-amber-600',   bg: 'bg-amber-50'   },
-        ].map(({ label, value, icon: Icon, cls, bg }) => (
-          <div key={label} className="rounded-xl border border-ink-100 bg-white p-4 shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <span className={`h-9 w-9 rounded-lg ${bg} flex items-center justify-center ${cls}`}>
-                <Icon size={18} />
-              </span>
-              <div>
-                <p className="text-xs text-ink-500">{label}</p>
-                <p className={`text-xl font-bold ${cls}`}>{value}</p>
+          { key: '',         label: 'Total Staff',  value: stats.total,    icon: Users,     cls: 'text-blue-600',    bg: 'bg-blue-50',    ring: 'ring-blue-500' },
+          { key: 'active',   label: 'Active',       value: stats.active,   icon: UserCheck, cls: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'ring-emerald-500' },
+          { key: 'inactive', label: 'Inactive',     value: stats.inactive, icon: UserX,     cls: 'text-red-600',     bg: 'bg-red-50',     ring: 'ring-red-500' },
+          { key: 'on_leave', label: 'On Leave',     value: stats.onLeave,  icon: Clock,     cls: 'text-amber-600',   bg: 'bg-amber-50',   ring: 'ring-amber-500' },
+        ].map(({ key, label, value, icon: Icon, cls, bg, ring }) => {
+          const isSelected = filterStatus === key;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setFilterStatus(isSelected && key !== '' ? '' : key)}
+              className={`text-left rounded-xl border bg-white p-4 shadow-xs transition cursor-pointer hover:shadow-md ${
+                isSelected
+                  ? `border-transparent ring-2 ${ring} shadow-sm`
+                  : 'border-ink-100 hover:border-ink-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className={`h-9 w-9 rounded-lg ${bg} flex items-center justify-center ${cls}`}>
+                    <Icon size={18} />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 font-medium">{label}</p>
+                    <p className={`text-xl font-bold ${cls}`}>{value}</p>
+                  </div>
+                </div>
+                {isSelected && (
+                  <span className="text-[10px] font-bold text-blue-600 rounded-full bg-blue-50 px-2 py-0.5 border border-blue-200">
+                    Active
+                  </span>
+                )}
               </div>
-            </div>
-          </div>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -245,8 +264,17 @@ export default function Employees() {
           <option value="inactive">Inactive</option>
           <option value="on_leave">On Leave</option>
         </select>
+        {(filterDept || filterStatus || search) && (
+          <button
+            type="button"
+            onClick={() => { setFilterDept(''); setFilterStatus(''); setSearch(''); }}
+            className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+          >
+            Reset
+          </button>
+        )}
         <button onClick={load} disabled={loading}
-          className="rounded-lg border border-ink-200 p-2 text-ink-500 hover:bg-ink-50 transition">
+          className="rounded-lg border border-ink-200 p-2 text-ink-500 hover:bg-ink-50 transition ml-auto">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>

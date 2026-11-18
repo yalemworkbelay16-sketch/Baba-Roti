@@ -857,16 +857,14 @@ const Products = () => {
           <button
             type="button"
             onClick={() => setRecipeFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              recipeFilter === 'all'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'all'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
+              }`}
           >
             <span>All Products</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              recipeFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${recipeFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {recipeCounts.all}
             </span>
           </button>
@@ -875,17 +873,15 @@ const Products = () => {
           <button
             type="button"
             onClick={() => setRecipeFilter('has_recipe')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              recipeFilter === 'has_recipe'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'has_recipe'
                 ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <ChefHat size={13} className={recipeFilter === 'has_recipe' ? 'text-white' : 'text-emerald-600'} />
             <span>Has Recipe</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              recipeFilter === 'has_recipe' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${recipeFilter === 'has_recipe' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+              }`}>
               {recipeCounts.hasRecipe}
             </span>
           </button>
@@ -894,17 +890,15 @@ const Products = () => {
           <button
             type="button"
             onClick={() => setRecipeFilter('no_recipe')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              recipeFilter === 'no_recipe'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'no_recipe'
                 ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
                 : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
-            }`}
+              }`}
           >
             <AlertCircle size={13} className={recipeFilter === 'no_recipe' ? 'text-white' : 'text-amber-600'} />
             <span>No Recipe</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              recipeFilter === 'no_recipe' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${recipeFilter === 'no_recipe' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+              }`}>
               {recipeCounts.noRecipe}
             </span>
           </button>
@@ -972,10 +966,10 @@ const Products = () => {
                     {recipeFilter === 'has_recipe'
                       ? 'No products with recipes found.'
                       : recipeFilter === 'no_recipe'
-                      ? 'No products without recipes found.'
-                      : categoryFilter !== 'all'
-                      ? `No products found in category "${categoryFilter}".`
-                      : 'No products yet. Add your first product or import from Excel.'}
+                        ? 'No products without recipes found.'
+                        : categoryFilter !== 'all'
+                          ? `No products found in category "${categoryFilter}".`
+                          : 'No products yet. Add your first product or import from Excel.'}
                   </td>
                 </tr>
               )}

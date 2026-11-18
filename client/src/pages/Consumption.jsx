@@ -201,6 +201,15 @@ export default function Consumption() {
     'Recorded By':   r.performedBy?.name || '—',
   })), [records]);
 
+  // Dynamic category counts
+  const catCounts = useMemo(() => {
+    const counts = { all: records.length };
+    records.forEach(r => {
+      counts[r.category] = (counts[r.category] || 0) + 1;
+    });
+    return counts;
+  }, [records]);
+
   return (
     <div className="space-y-4">
 
@@ -238,24 +247,41 @@ export default function Consumption() {
         </div>
       </div>
 
-      {/* ── Category filter tabs ── */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* ── Category filter tabs with counts ── */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
         <button
           onClick={() => { setFilterCat(''); }}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${!filterCat ? 'bg-blue-600 text-white' : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'}`}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            !filterCat
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
         >
-          All
+          <span>All</span>
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+            !filterCat ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+          }`}>
+            {records.length}
+          </span>
         </button>
         {CATEGORIES.map(cat => {
           const Icon = cat.icon;
+          const count = catCounts[cat.key] || 0;
+          const isActive = filterCat === cat.key;
           return (
             <button key={cat.key}
-              onClick={() => setFilterCat(cat.key)}
+              onClick={() => setFilterCat(isActive ? '' : cat.key)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                filterCat === cat.key ? `${cat.activeCls} text-white` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
+                isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
               }`}
             >
-              <Icon size={12} /> {cat.label}
+              <Icon size={12} className={isActive ? 'text-white' : ''} />
+              <span>{cat.label}</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {count}
+              </span>
             </button>
           );
         })}
