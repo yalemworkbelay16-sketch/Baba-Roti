@@ -21,8 +21,18 @@ if (distExists) {
   execSync('npm run build --prefix client', { cwd: rootDir, stdio: 'inherit' });
 }
 
-console.log('[FAST CLOUD BUILD] Installing server production dependencies...');
-execSync('npm install --prefix server --omit=dev --no-audit --no-fund', { cwd: rootDir, stdio: 'inherit' });
+console.log('[FAST CLOUD BUILD] Checking server dependencies...');
+const serverExpress = path.join(rootDir, 'server/node_modules/express');
+if (fs.existsSync(serverExpress)) {
+  console.log('[FAST CLOUD BUILD] ✓ server/node_modules already present and cached. Skipping install.');
+} else {
+  console.log('[FAST CLOUD BUILD] Installing server production dependencies (fast offline-first)...');
+  try {
+    execSync('npm ci --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit' });
+  } catch (_) {
+    execSync('npm install --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit' });
+  }
+}
 
 console.log('----------------------------------------------------');
 console.log('[FAST CLOUD BUILD] ✓ Application built successfully in record time!');

@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy server package files
 COPY server/package.json server/package-lock.json* ./server/
 
-# Install only lightweight production server dependencies (super fast)
-RUN npm install --prefix server --omit=dev --no-audit --no-fund
+# Install only lightweight production server dependencies (super fast offline-first)
+RUN npm ci --prefix server --omit=dev --no-audit --no-fund --prefer-offline 2>/dev/null || npm install --prefix server --omit=dev --no-audit --no-fund --prefer-offline
 
 # Copy server source
 COPY server/ ./server/
