@@ -885,7 +885,7 @@ function InventoryCountPanel() {
                             ) : (
                               <input
                                 type="number"
-                                step="0.001"
+                                step="any"
                                 min="0"
                                 value={displayCount}
                                 onChange={e => setEdits(prev => ({ ...prev, [line.material]: e.target.value }))}

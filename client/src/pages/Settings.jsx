@@ -1720,7 +1720,7 @@ export default function Settings() {
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="any"
                       value={systemForm.rawMaterialPriceAdjustValue}
                       onChange={e => {
                         setSystemForm(p => ({ ...p, rawMaterialPriceAdjustValue: e.target.value }));
@@ -1834,7 +1834,7 @@ export default function Settings() {
                       type="number"
                       min="0"
                       max="100"
-                      step="0.1"
+                      step="any"
                       value={systemForm.contingencyPercent}
                       onChange={e => setSystemForm(p => ({ ...p, contingencyPercent: e.target.value }))}
                       className="w-full rounded-xl border border-ink-200 py-2.5 pl-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -1855,7 +1855,7 @@ export default function Settings() {
                       type="number"
                       min="0"
                       max="100"
-                      step="0.1"
+                      step="any"
                       value={systemForm.overheadPercent}
                       onChange={e => setSystemForm(p => ({ ...p, overheadPercent: e.target.value }))}
                       className="w-full rounded-xl border border-ink-200 py-2.5 pl-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -1876,7 +1876,7 @@ export default function Settings() {
                       type="number"
                       min="0"
                       max="100"
-                      step="0.1"
+                      step="any"
                       value={systemForm.spiceCostPercent}
                       onChange={e => setSystemForm(p => ({ ...p, spiceCostPercent: e.target.value }))}
                       className="w-full rounded-xl border border-ink-200 py-2.5 pl-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -1968,7 +1968,7 @@ export default function Settings() {
                         type="number"
                         min="0.01"
                         max="500"
-                        step="0.1"
+                        step="any"
                         value={bulkPricePercent}
                         onChange={e => { setBulkPricePercent(e.target.value); setBulkPriceError(''); setBulkPriceSuccess(''); }}
                         placeholder="e.g. 10"

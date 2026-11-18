@@ -434,9 +434,12 @@ const Products = () => {
       parentCategory: form.parentCategory,
       uom: form.uom,
       description: form.description,
-      sellingPrice: form.sellingPrice,
+      sellingPrice: form.sellingPrice === '' ? 0 : Number(form.sellingPrice),
       imageUrl: form.imageUrl || '',
-      ingredients: form.ingredients.map(({ material, quantity }) => ({ material, quantity })),
+      ingredients: form.ingredients.map(({ material, quantity }) => ({
+        material,
+        quantity: quantity === '' ? 0 : Number(quantity),
+      })),
     };
     try {
       if (editing) {
@@ -652,7 +655,7 @@ const Products = () => {
       'Department': p.parentCategory || 'FOOD',
       'Category': p.category || 'General',
       'Unit (UOM)': p.uom || 'Pcs',
-      'Selling Price (ETB)': Number(p.sellingPrice || 0).toFixed(2),
+      'Selling Price (ETB)': Number(p.sellingPrice || 0),
       'Ingredients Count': p.ingredients?.length || 0,
       'Has Recipe': (p.ingredients && p.ingredients.length > 0) ? 'Yes' : 'No',
       'Active': p.isActive !== false ? 'Yes' : 'No',
@@ -1070,7 +1073,9 @@ const Products = () => {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium tabular">
-                    ETB {p.sellingPrice?.toFixed(2) ?? '0.00'}
+                    ETB {p.sellingPrice !== undefined && p.sellingPrice !== null
+                      ? Number(p.sellingPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                      : '0.00'}
                   </td>
                   {/* Photo / Image column */}
                   <td className="whitespace-nowrap px-4 py-2 text-center">
@@ -1273,8 +1278,8 @@ const Products = () => {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Selling price (ETB)</label>
-              <input type="number" step="0.01" min="0" value={form.sellingPrice}
-                onChange={(e) => setForm({ ...form, sellingPrice: Number(e.target.value) })}
+              <input type="number" step="any" min="0" value={form.sellingPrice}
+                onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
             <div>
@@ -1392,8 +1397,8 @@ const Products = () => {
                     onChange={(val) => updateIngredient(idx, 'material', val)}
                   />
                   <div className="flex items-center gap-1">
-                    <input type="number" step="0.001" min="0" required value={ing.quantity}
-                      onChange={(e) => updateIngredient(idx, 'quantity', Number(e.target.value))}
+                    <input type="number" step="any" min="0" required value={ing.quantity}
+                      onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
                       className="w-24 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
                       placeholder="Qty" />
                     <span className="w-8 text-xs text-ink-400">{ing.unit}</span>
@@ -1441,7 +1446,7 @@ const Products = () => {
               <div><p className="text-xs text-ink-400">UOM</p><p className="font-medium">{selectedProduct.uom || 'Pcs'}</p></div>
               <div><p className="text-xs text-ink-400">Child Category</p><p className="font-medium">{selectedProduct.category || '—'}</p></div>
               <div><p className="text-xs text-ink-400">Parent Category</p><p className="font-medium">{selectedProduct.parentCategory || '—'}</p></div>
-              <div><p className="text-xs text-ink-400">Selling Price</p><p className="font-medium">ETB {selectedProduct.sellingPrice?.toFixed(2)}</p></div>
+              <div><p className="text-xs text-ink-400">Selling Price</p><p className="font-medium">ETB {selectedProduct.sellingPrice !== undefined ? Number(selectedProduct.sellingPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : '—'}</p></div>
               <div><p className="text-xs text-ink-400">Description</p><p className="font-medium">{selectedProduct.description || '—'}</p></div>
             </div>
             <div>

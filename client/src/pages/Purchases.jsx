@@ -498,10 +498,10 @@ export default function Purchases() {
                     <option value="">Material</option>
                     {materials.map(m => <option key={m._id} value={m._id}>{m.name} ({m.unit})</option>)}
                   </select>
-                  <input type="number" step="0.01" min="0.01" placeholder="Qty" value={it.quantity}
+                  <input type="number" step="any" min="0" placeholder="Qty" value={it.quantity}
                     onChange={e => updateItem(i, { quantity: e.target.value })}
                     className="col-span-3 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />
-                  <input type="number" step="0.01" min="0" placeholder="Unit cost" value={it.unitCost}
+                  <input type="number" step="any" min="0" placeholder="Unit cost" value={it.unitCost}
                     onChange={e => updateItem(i, { unitCost: e.target.value })}
                     className="col-span-3 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />
                   <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== i))}

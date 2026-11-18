@@ -5,14 +5,12 @@ const StockTransaction = require('../models/StockTransaction');
 const Supplier = require('../models/Supplier');
 const POSOrder = require('../models/POSOrder');
 const { computeSalesAnalytics } = require('../utils/salesAnalyticsHelper');
-
 // In-memory cache for ultra-fast instantaneous responses (TTL 25s)
 let summaryCache = {
   data: null,
   timestamp: 0,
 };
 const CACHE_TTL_MS = 25 * 1000;
-
 const invalidateDashboardCache = () => {
   summaryCache = { data: null, timestamp: 0 };
 };
@@ -24,7 +22,6 @@ const getSummary = asyncHandler(async (req, res) => {
   if (!isForceRefresh && summaryCache.data && (Date.now() - summaryCache.timestamp < CACHE_TTL_MS)) {
     return res.json(summaryCache.data);
   }
-
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

@@ -1523,17 +1523,17 @@ export default function SalesImport() {
                           className="w-full rounded-lg border border-ink-200 px-2 py-2 text-xs outline-none focus:border-blue-500" />
                       </div>
                       {/* Qty */}
-                      <input type="number" step="0.5" min="0.5" value={row.qty}
+                      <input type="number" step="any" min="0" value={row.qty}
                         onChange={e => updateManualRow(row._id, 'qty', e.target.value)}
                         className="rounded-lg border border-ink-200 px-2 py-2 text-xs text-right outline-none focus:border-blue-500 tabular" />
                       {/* Avg Amount */}
-                      <input type="number" step="0.01" min="0" value={row.avgAmt}
+                      <input type="number" step="any" min="0" value={row.avgAmt}
                         onChange={e => updateManualRow(row._id, 'avgAmt', e.target.value)}
                         placeholder="0.00"
                         className="rounded-lg border border-ink-200 px-2 py-2 text-xs text-right outline-none focus:border-blue-500 tabular" />
 
                       {/* Total Amount */}
-                      <input type="number" step="0.01" min="0" value={row.totalAmt}
+                      <input type="number" step="any" min="0" value={row.totalAmt}
                         onChange={e => updateManualRow(row._id, 'totalAmt', e.target.value)}
                         placeholder="0.00"
                         className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-2 text-xs text-right outline-none focus:border-blue-500 tabular font-semibold text-blue-700" />

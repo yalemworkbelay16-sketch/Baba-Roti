@@ -361,7 +361,7 @@ const RawMaterials = () => {
     { key: 'category', header: 'Category' },
     { key: 'currentStock', header: 'In stock', render: (r) => <span className="tabular">{r.currentStock} {r.unit}</span> },
     { key: 'reorderLevel', header: 'Reorder at', render: (r) => <span className="tabular">{r.reorderLevel} {r.unit}</span> },
-    { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular">ETB {r.unitCost}</span> },
+    { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular">ETB {Number(r.unitCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span> },
     { key: 'status', header: 'Status', render: (r) => statusBadge(r.status) },
     ...((canEdit || canDelete) ? [{
       key: 'actions', header: '',
@@ -384,9 +384,9 @@ const RawMaterials = () => {
       'Material Name': m.name,
       'Category': m.category || 'General',
       'Unit': m.unit || 'pcs',
-      'Current Stock': m.currentStock || 0,
-      'Reorder Level': m.reorderLevel || 10,
-      'Unit Cost (ETB)': Number(m.unitCost || 0).toFixed(2),
+      'Current Stock': Number(m.currentStock || 0),
+      'Reorder Level': Number(m.reorderLevel || 10),
+      'Unit Cost (ETB)': Number(m.unitCost || 0),
       'Store Location': m.storeLocation || 'Main Store',
       'Status': m.status === 'out_of_stock' ? 'Out of stock' : m.status === 'low_stock' ? 'Low stock' : 'In stock',
     }));
@@ -781,20 +781,20 @@ const RawMaterials = () => {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Current stock</label>
-              <input type="number" step="0.01" required value={form.currentStock}
-                onChange={(e) => setForm({ ...form, currentStock: Number(e.target.value) })}
+              <input type="number" step="any" required value={form.currentStock}
+                onChange={(e) => setForm({ ...form, currentStock: e.target.value === '' ? '' : Number(e.target.value) })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Reorder level</label>
-              <input type="number" step="0.01" required value={form.reorderLevel}
-                onChange={(e) => setForm({ ...form, reorderLevel: Number(e.target.value) })}
+              <input type="number" step="any" required value={form.reorderLevel}
+                onChange={(e) => setForm({ ...form, reorderLevel: e.target.value === '' ? '' : Number(e.target.value) })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Unit cost</label>
-              <input type="number" step="0.01" value={form.unitCost}
-                onChange={(e) => setForm({ ...form, unitCost: Number(e.target.value) })}
+              <input type="number" step="any" value={form.unitCost}
+                onChange={(e) => setForm({ ...form, unitCost: e.target.value === '' ? '' : Number(e.target.value) })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
           </div>

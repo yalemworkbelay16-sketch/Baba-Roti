@@ -1180,8 +1180,8 @@ export default function Expenses() {
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0.01"
+                  step="any"
+                  min="0"
                   required
                   value={formData.amount}
                   onChange={(e) => setFormData((p) => ({ ...p, amount: e.target.value }))}

@@ -805,11 +805,11 @@ export default function StockTransactions({ defaultVoucher } = {}) {
                       value={item.material}
                       onChange={val => updateItem(idx, 'material', val)}
                     />
-                    <input type="number" step="0.001" min="0.001" required placeholder="Qty" value={item.quantity}
+                    <input type="number" step="any" min="0" required placeholder="Qty" value={item.quantity}
                       onChange={e => updateItem(idx, 'quantity', e.target.value)}
                       className="rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />
                     {activeV.needsCost && (
-                      <input type="number" step="0.01" min="0" placeholder="Unit cost" value={item.unitCost}
+                      <input type="number" step="any" min="0" placeholder="Unit cost" value={item.unitCost}
                         onChange={e => updateItem(idx, 'unitCost', e.target.value)}
                         className="rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />
                     )}

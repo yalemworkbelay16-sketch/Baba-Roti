@@ -535,7 +535,7 @@ export default function Consumption() {
                       <option key={p._id} value={p._id}>{p.name} ({p.uom})</option>
                     ))}
                   </select>
-                  <input type="number" step="0.5" min="0.5" required placeholder="Qty" value={item.quantity}
+                  <input type="number" step="any" min="0" required placeholder="Qty" value={item.quantity}
                     onChange={e => updateItem(idx, 'quantity', e.target.value)}
                     className="rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />
                   <button type="button" onClick={() => removeItem(idx)} disabled={form.items.length === 1}
