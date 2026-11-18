@@ -26,7 +26,10 @@ import {
   HelpCircle,
   ArrowUpRight,
   Receipt,
+  Calendar,
+  CalendarRange,
 } from 'lucide-react';
+import api from '../../api/axios';
 
 const formatETB = (n) =>
   `ETB ${Number(n || 0).toLocaleString('en-US', {
@@ -149,13 +152,88 @@ const ProfitChartTooltip = ({ active, payload, label }) => {
 };
 
 export default function SalesAnalyticsSection({ salesAnalytics }) {
-  const [period, setPeriod] = useState('daily'); // 'daily' (default) | 'latest' | 'week' | 'month' | 'all'
+  const [period, setPeriod] = useState('daily'); // 'daily' (default) | 'latest' | 'week' | 'month' | 'all' | 'custom'
+  const [customRange, setCustomRange] = useState({
+    startDate: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+  });
+  const [customData, setCustomData] = useState(null);
+  const [loadingCustom, setLoadingCustom] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Extract selected period data or fallback
   const activeData = useMemo(() => {
+    if (period === 'custom' && customData) return customData;
     if (!salesAnalytics) return null;
     return salesAnalytics[period] || salesAnalytics.daily || salesAnalytics.latest || salesAnalytics.week || null;
-  }, [salesAnalytics, period]);
+  }, [salesAnalytics, period, customData]);
+
+  const handleApplyCustomRange = async (overrideDates) => {
+    const sDate = overrideDates?.startDate || customRange.startDate;
+    const eDate = overrideDates?.endDate || customRange.endDate;
+    if (!sDate || !eDate) return;
+
+    try {
+      setLoadingCustom(true);
+      const res = await api.get('/dashboard/sales-analytics', {
+        params: { startDate: sDate, endDate: eDate },
+      });
+      if (res.data?.custom) {
+        setCustomData(res.data.custom);
+        setPeriod('custom');
+      } else if (res.data) {
+        setCustomData(res.data.custom || res.data);
+        setPeriod('custom');
+      }
+    } catch (err) {
+      console.error('Failed to load custom date range analytics:', err);
+    } finally {
+      setLoadingCustom(false);
+    }
+  };
+
+  const applyPreset = (presetKey) => {
+    const now = new Date();
+    let s = new Date();
+    let e = new Date();
+
+    if (presetKey === 'yesterday') {
+      s.setDate(now.getDate() - 1);
+      e.setDate(now.getDate() - 1);
+    } else if (presetKey === 'last14') {
+      s.setDate(now.getDate() - 13);
+    } else if (presetKey === 'last30') {
+      s.setDate(now.getDate() - 29);
+    } else if (presetKey === 'lastMonth') {
+      s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      e = new Date(now.getFullYear(), now.getMonth(), 0);
+    }
+
+    const sStr = s.toISOString().split('T')[0];
+    const eStr = e.toISOString().split('T')[0];
+    setCustomRange({ startDate: sStr, endDate: eStr });
+    handleApplyCustomRange({ startDate: sStr, endDate: eStr });
+  };
+
+  const formattedCustomLabel = useMemo(() => {
+    if (!customRange.startDate || !customRange.endDate) return 'Date Range';
+    const s = new Date(customRange.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const e = new Date(customRange.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${s} – ${e}`;
+  }, [customRange]);
+
+  const handleTabClick = (tabId) => {
+    if (tabId === 'custom') {
+      setShowDatePicker((prev) => !prev);
+      if (!customData) {
+        handleApplyCustomRange();
+      } else {
+        setPeriod('custom');
+      }
+    } else {
+      setPeriod(tabId);
+    }
+  };
 
   if (!activeData) return null;
 
@@ -194,46 +272,118 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
     { id: 'week',   label: 'Last 7 Days' },
     { id: 'month',  label: 'This Month' },
     { id: 'all',    label: 'All Time' },
+    { id: 'custom', label: period === 'custom' && customData ? `Range: ${formattedCustomLabel}` : 'Date Range' },
   ];
 
   return (
     <div className="space-y-6 rounded-3xl border border-blue-200/80 bg-gradient-to-b from-white via-blue-50/20 to-white p-5 sm:p-7 shadow-sm">
       {/* ── Top Section Header & Period Filters ── */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-ink-100 pb-5">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2 text-white shadow-sm">
-              <Receipt size={18} />
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-ink-900 tracking-tight">
-              Sales, Category Breakdown &amp; Profit Report
-            </h2>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-              Live Aggregated
-            </span>
+      <div className="flex flex-col gap-4 border-b border-ink-100 pb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2 text-white shadow-sm">
+                <Receipt size={18} />
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-ink-900 tracking-tight">
+                Sales, Category Breakdown &amp; Profit Report
+              </h2>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                Live Aggregated
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-ink-500 mt-1">
+              Real-time sales revenue, recipe ingredient cost &amp; gross margin from <strong>Sales Import</strong>, <strong>POS Orders</strong> &amp; <strong>Digital Menu</strong>
+            </p>
           </div>
-          <p className="text-xs sm:text-sm text-ink-500 mt-1">
-            Real-time sales revenue, recipe ingredient cost &amp; gross margin from <strong>Sales Import</strong>, <strong>POS Orders</strong> &amp; <strong>Digital Menu</strong>
-          </p>
+
+          {/* Period Selector Tabs — Daily by default + Date Range */}
+          <div className="flex items-center gap-1.5 rounded-2xl border border-ink-200 bg-white p-1 shadow-2xs self-start lg:self-auto flex-wrap">
+            {filterTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabClick(tab.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  period === tab.id
+                    ? 'bg-blue-900 text-white shadow-xs'
+                    : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
+                }`}
+              >
+                {tab.id === 'custom' && (
+                  <Calendar size={13} className={period === 'custom' ? 'text-white' : 'text-blue-600'} />
+                )}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Period Selector Tabs — Daily by default */}
-        <div className="flex items-center gap-1.5 rounded-2xl border border-ink-200 bg-white p-1 shadow-2xs self-start lg:self-auto flex-wrap">
-          {filterTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setPeriod(tab.id)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                period === tab.id
-                  ? 'bg-blue-900 text-white shadow-xs'
-                  : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* ── Interactive Date Range Picker Drawer ── */}
+        {showDatePicker && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/90 via-white to-indigo-50/90 p-3.5 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                <CalendarRange size={15} className="text-blue-700" />
+                Select Range:
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-ink-500 font-medium">From</span>
+                <input
+                  type="date"
+                  value={customRange.startDate}
+                  onChange={(e) => setCustomRange((p) => ({ ...p, startDate: e.target.value }))}
+                  className="rounded-xl border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 shadow-2xs"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-ink-500 font-medium">To</span>
+                <input
+                  type="date"
+                  value={customRange.endDate}
+                  onChange={(e) => setCustomRange((p) => ({ ...p, endDate: e.target.value }))}
+                  className="rounded-xl border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 shadow-2xs"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleApplyCustomRange()}
+                disabled={loadingCustom}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {loadingCustom ? (
+                  <span>Filtering...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} />
+                    <span>Apply Range</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-ink-400 font-medium mr-1 text-[11px]">Presets:</span>
+              {[
+                { label: 'Yesterday', key: 'yesterday' },
+                { label: 'Last 14D',  key: 'last14' },
+                { label: 'Last 30D',  key: 'last30' },
+                { label: 'Last Month', key: 'lastMonth' },
+              ].map((preset) => (
+                <button
+                  key={preset.key}
+                  type="button"
+                  onClick={() => applyPreset(preset.key)}
+                  disabled={loadingCustom}
+                  className="rounded-lg border border-blue-200/80 bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-900 hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer shadow-2xs"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── KPI Summary Cards ── */}

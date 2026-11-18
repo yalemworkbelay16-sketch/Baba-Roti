@@ -234,7 +234,8 @@ const getSummary = asyncHandler(async (req, res) => {
 });
 
 const getSalesAnalytics = asyncHandler(async (req, res) => {
-  const data = await computeSalesAnalytics();
+  const { startDate, endDate } = req.query;
+  const data = await computeSalesAnalytics({ startDate, endDate });
   res.json(data);
 });
 

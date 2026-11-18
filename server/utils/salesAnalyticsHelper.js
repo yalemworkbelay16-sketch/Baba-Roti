@@ -30,8 +30,25 @@ function normalizeChild(s) {
 
 /**
  * Computes Parent Category Sales, Child Category By Amt & Qty, and Gross Profit / Recipe Cost.
+ * Supports optional custom date range filtering via options: { startDate, endDate }.
  */
-async function computeSalesAnalytics() {
+async function computeSalesAnalytics(options = {}) {
+  const { startDate, endDate } = options;
+
+  let customStart = null;
+  let customEnd = null;
+  if (startDate) {
+    const s = new Date(startDate);
+    if (!isNaN(s.getTime())) {
+      customStart = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0, 0);
+    }
+  }
+  if (endDate) {
+    const e = new Date(endDate);
+    if (!isNaN(e.getTime())) {
+      customEnd = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59, 999);
+    }
+  }
   // Parallel fetch products and sales records
   const [products, allRecords, standalonePOS, activeCaptainOrders] = await Promise.all([
     Product.find({ isActive: true })
@@ -102,6 +119,15 @@ async function computeSalesAnalytics() {
     all: allRecords,
   };
 
+  if (customStart || customEnd) {
+    periods.custom = allRecords.filter((r) => {
+      const d = new Date(r.saleDate || r.importDate || r.createdAt);
+      if (customStart && d < customStart) return false;
+      if (customEnd && d > customEnd) return false;
+      return true;
+    });
+  }
+
   const salesAnalytics = {};
 
   for (const [key, records] of Object.entries(periods)) {
@@ -149,6 +175,12 @@ async function computeSalesAnalytics() {
       const posList = key === 'daily' ? standalonePOS.filter(o => new Date(o.createdAt) >= dailyDate)
                     : key === 'week' ? standalonePOS.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
                     : key === 'month' ? standalonePOS.filter(o => new Date(o.createdAt) >= startOfMonth)
+                    : key === 'custom' ? standalonePOS.filter(o => {
+                        const d = new Date(o.createdAt);
+                        if (customStart && d < customStart) return false;
+                        if (customEnd && d > customEnd) return false;
+                        return true;
+                      })
                     : standalonePOS;
 
       for (const order of posList) {
@@ -179,6 +211,12 @@ async function computeSalesAnalytics() {
       const coList = key === 'daily' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= dailyDate)
                    : key === 'week' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
                    : key === 'month' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= startOfMonth)
+                   : key === 'custom' ? activeCaptainOrders.filter(o => {
+                       const d = new Date(o.createdAt);
+                       if (customStart && d < customStart) return false;
+                       if (customEnd && d > customEnd) return false;
+                       return true;
+                     })
                    : activeCaptainOrders;
 
       for (const order of coList) {
@@ -249,6 +287,8 @@ async function computeSalesAnalytics() {
       latestDate: key === 'daily' ? dailyDate : (records[0]?.saleDate || records[0]?.importDate || null),
       dailyDate: dailyDate,
       isDailyToday: isDailyToday,
+      customStartDate: customStart ? customStart.toISOString() : null,
+      customEndDate: customEnd ? customEnd.toISOString() : null,
       latestRef: records[0]?.reference || records[0]?.source || 'Sales Import',
       totalQty: Math.round(totalQty * 100) / 100,
       totalRevenue: Math.round(totalRevenue * 100) / 100,

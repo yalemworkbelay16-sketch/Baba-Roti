@@ -10,13 +10,13 @@ import ExportDropdown from '../components/ui/ExportDropdown';
 const emptyForm = { name: '', contactPerson: '', phone: '', email: '', category: '', address: '' };
 
 const Suppliers = () => {
-  const [suppliers,      setSuppliers]      = useState([]);
-  const [search,         setSearch]         = useState('');
+  const [suppliers, setSuppliers] = useState([]);
+  const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [selected,       setSelected]       = useState(new Set());
-  const [modalOpen,      setModalOpen]      = useState(false);
-  const [editing,        setEditing]        = useState(null);
-  const [form,           setForm]           = useState(emptyForm);
+  const [selected, setSelected] = useState(new Set());
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager');
   const canDelete = canCrud ? canCrud('suppliers', 'delete') : (hasRole('admin') || can('manageAccounts'));
@@ -49,16 +49,16 @@ const Suppliers = () => {
   }, [suppliers, categoryFilter]);
 
   /* ── selection ── */
-  const allIds      = filteredSuppliers.map(s => s._id);
-  const allChecked  = allIds.length > 0 && allIds.every(id => selected.has(id));
+  const allIds = filteredSuppliers.map(s => s._id);
+  const allChecked = allIds.length > 0 && allIds.every(id => selected.has(id));
   const someChecked = allIds.some(id => selected.has(id));
-  const toggleAll   = () => allChecked ? setSelected(new Set()) : setSelected(new Set(allIds));
-  const toggleOne   = id => setSelected(prev => {
+  const toggleAll = () => allChecked ? setSelected(new Set()) : setSelected(new Set(allIds));
+  const toggleOne = id => setSelected(prev => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit   = (s) => { setEditing(s); setForm(s); setModalOpen(true); };
+  const openEdit = (s) => { setEditing(s); setForm(s); setModalOpen(true); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,21 +81,21 @@ const Suppliers = () => {
   };
 
   const exportData = useMemo(() => filteredSuppliers.map(s => ({
-    'Supplier Name':  s.name,
-    'Category':       s.category || 'General',
+    'Supplier Name': s.name,
+    'Category': s.category || 'General',
     'Contact Person': s.contactPerson || '—',
-    'Phone':          s.phone || '—',
-    'Email':          s.email || '—',
-    'Address':        s.address || '—',
+    'Phone': s.phone || '—',
+    'Email': s.email || '—',
+    'Address': s.address || '—',
   })), [filteredSuppliers]);
 
   const pdfColumns = [
-    { header: 'Supplier Name',  accessor: 'Supplier Name' },
-    { header: 'Category',       accessor: 'Category' },
+    { header: 'Supplier Name', accessor: 'Supplier Name' },
+    { header: 'Category', accessor: 'Category' },
     { header: 'Contact Person', accessor: 'Contact Person' },
-    { header: 'Phone',          accessor: 'Phone' },
-    { header: 'Email',          accessor: 'Email' },
-    { header: 'Address',        accessor: 'Address' },
+    { header: 'Phone', accessor: 'Phone' },
+    { header: 'Email', accessor: 'Email' },
+    { header: 'Address', accessor: 'Address' },
   ];
 
   const columns = [
@@ -113,10 +113,10 @@ const Suppliers = () => {
           className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
       ),
     }] : []),
-    { key: 'name',          header: 'Supplier' },
-    { key: 'category',      header: 'Category' },
+    { key: 'name', header: 'Supplier' },
+    { key: 'category', header: 'Category' },
     { key: 'contactPerson', header: 'Contact person' },
-    { key: 'phone',         header: 'Phone' },
+    { key: 'phone', header: 'Phone' },
     ...((canEdit || canDelete) ? [{
       key: 'actions', header: '',
       render: (r) => (
@@ -176,17 +176,15 @@ const Suppliers = () => {
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              categoryFilter === 'all'
-                ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${categoryFilter === 'all'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
           >
             <Truck size={13} className={categoryFilter === 'all' ? 'text-white' : 'text-blue-600'} />
             <span>All Suppliers</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              categoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${categoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {suppliers.length}
             </span>
           </button>
@@ -198,16 +196,14 @@ const Suppliers = () => {
                 key={cat}
                 type="button"
                 onClick={() => setCategoryFilter(isActive ? 'all' : cat)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
-                    : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive
+                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                  : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+                  }`}
               >
                 <span>{cat}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+                  }`}>
                   {count}
                 </span>
               </button>
@@ -250,8 +246,8 @@ const Suppliers = () => {
           categoryFilter !== 'all'
             ? `No suppliers found in category "${categoryFilter}".`
             : search
-            ? `No suppliers matching "${search}".`
-            : 'No suppliers yet. Add your first one.'
+              ? `No suppliers matching "${search}".`
+              : 'No suppliers yet. Add your first one.'
         }
         title="Supplier Directory"
         icon={<Truck size={15} />}
