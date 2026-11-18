@@ -12,11 +12,11 @@ const emptyForm = { code: '', name: '', category: '', unit: '', currentStock: 0,
 
 // Common units for hospitality / kitchen / store
 const UNITS = [
-  { group: 'Volume',  items: ['Litre (L)', 'Millilitre (ml)', 'Gallon', 'Fluid oz'] },
-  { group: 'Weight',  items: ['Kilogram (kg)', 'Gram (g)', 'Pound (lb)', 'Ounce (oz)'] },
-  { group: 'Count',   items: ['Piece (Pcs)', 'Dozen', 'Pack', 'Box', 'Carton', 'Bag', 'Bottle', 'Can', 'Roll', 'Sheet'] },
-  { group: 'Length',  items: ['Metre (m)', 'Centimetre (cm)'] },
-  { group: 'Other',   items: ['Portion', 'Serving', 'Tray', 'Batch', 'Pair', 'Set'] },
+  { group: 'Volume', items: ['Litre (L)', 'Millilitre (ml)', 'Gallon', 'Fluid oz'] },
+  { group: 'Weight', items: ['Kilogram (kg)', 'Gram (g)', 'Pound (lb)', 'Ounce (oz)'] },
+  { group: 'Count', items: ['Piece (Pcs)', 'Dozen', 'Pack', 'Box', 'Carton', 'Bag', 'Bottle', 'Can', 'Roll', 'Sheet'] },
+  { group: 'Length', items: ['Metre (m)', 'Centimetre (cm)'] },
+  { group: 'Other', items: ['Portion', 'Serving', 'Tray', 'Batch', 'Pair', 'Set'] },
 ];
 
 // Common categories for hospitality / kitchen / store
@@ -88,10 +88,10 @@ const RawMaterials = () => {
   }, [materials, statusFilter, categoryFilter]);
 
   /* ── selection ── */
-  const allIds     = filteredMaterials.map(m => m._id);
+  const allIds = filteredMaterials.map(m => m._id);
   const allChecked = allIds.length > 0 && allIds.every(id => selected.has(id));
   const someChecked = allIds.some(id => selected.has(id));
-  const toggleAll  = () => allChecked
+  const toggleAll = () => allChecked
     ? setSelected(new Set())
     : setSelected(new Set(allIds));
   const toggleOne = id => setSelected(prev => {
@@ -467,11 +467,10 @@ const RawMaterials = () => {
 
       {/* Import Result Banner */}
       {importResult && (
-        <div className={`flex items-start justify-between rounded-lg border px-4 py-3 text-sm ${
-          importResult.type === 'error'
+        <div className={`flex items-start justify-between rounded-lg border px-4 py-3 text-sm ${importResult.type === 'error'
             ? 'border-red-200 bg-red-50 text-red-800'
             : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-        }`}>
+          }`}>
           <p className="font-medium">{importResult.message}</p>
           <button onClick={() => setImportResult(null)} className="ml-4 text-ink-400 hover:text-ink-700">
             <X size={16} />
@@ -486,16 +485,14 @@ const RawMaterials = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'all'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'all'
                 ? 'bg-ink-900 text-white shadow-xs'
                 : 'bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900'
-            }`}
+              }`}
           >
             <span>All</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-ink-200 text-ink-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-ink-200 text-ink-700'
+              }`}>
               {counts.all}
             </span>
           </button>
@@ -504,17 +501,15 @@ const RawMaterials = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('in_stock')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'in_stock'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'in_stock'
                 ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <CheckCircle2 size={13} className={statusFilter === 'in_stock' ? 'text-white' : 'text-emerald-600'} />
             <span>Normal (In Stock)</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'in_stock' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'in_stock' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+              }`}>
               {counts.inStock}
             </span>
           </button>
@@ -523,17 +518,15 @@ const RawMaterials = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('low_stock')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'low_stock'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'low_stock'
                 ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
                 : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
-            }`}
+              }`}
           >
             <AlertTriangle size={13} className={statusFilter === 'low_stock' ? 'text-white' : 'text-amber-600'} />
             <span>Low Level</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'low_stock' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'low_stock' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+              }`}>
               {counts.lowStock}
             </span>
           </button>
@@ -542,17 +535,15 @@ const RawMaterials = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('out_of_stock')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'out_of_stock'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'out_of_stock'
                 ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400/40'
                 : 'bg-red-50 text-red-800 border border-red-200/80 hover:bg-red-100'
-            }`}
+              }`}
           >
             <AlertCircle size={13} className={statusFilter === 'out_of_stock' ? 'text-white' : 'text-red-600'} />
             <span>Out of Stock</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'out_of_stock' ? 'bg-white/25 text-white' : 'bg-red-200 text-red-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'out_of_stock' ? 'bg-white/25 text-white' : 'bg-red-200 text-red-900'
+              }`}>
               {counts.outOfStock}
             </span>
           </button>
@@ -593,12 +584,12 @@ const RawMaterials = () => {
           statusFilter === 'out_of_stock'
             ? 'No out-of-stock items found.'
             : statusFilter === 'low_stock'
-            ? 'No low-level stock items found.'
-            : statusFilter === 'in_stock'
-            ? 'No normal in-stock items found.'
-            : categoryFilter !== 'all'
-            ? `No items found in category "${categoryFilter}".`
-            : 'No raw materials yet. Add your first item.'
+              ? 'No low-level stock items found.'
+              : statusFilter === 'in_stock'
+                ? 'No normal in-stock items found.'
+                : categoryFilter !== 'all'
+                  ? `No items found in category "${categoryFilter}".`
+                  : 'No raw materials yet. Add your first item.'
         }
         title="Raw Materials Inventory"
         icon={<Boxes size={15} />}

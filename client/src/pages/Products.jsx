@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
@@ -25,6 +25,8 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [search, setSearch] = useState('');
+  const [recipeFilter, setRecipeFilter] = useState('all'); // 'all' | 'has_recipe' | 'no_recipe'
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -66,8 +68,47 @@ const Products = () => {
       .catch(() => setMaterials([]));
   }, []);
 
+  // Dynamic counts for recipes
+  const recipeCounts = useMemo(() => {
+    let hasRecipe = 0;
+    let noRecipe = 0;
+    products.forEach((p) => {
+      if (p.ingredients && p.ingredients.length > 0) {
+        hasRecipe++;
+      } else {
+        noRecipe++;
+      }
+    });
+    return {
+      all: products.length,
+      hasRecipe,
+      noRecipe,
+    };
+  }, [products]);
+
+  // Unique categories list
+  const uniqueCategories = useMemo(() => {
+    const set = new Set();
+    products.forEach((p) => {
+      const cat = p.category?.trim();
+      if (cat) set.add(cat);
+    });
+    return Array.from(set).sort();
+  }, [products]);
+
+  // Filtered products by recipe status and category
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const hasRec = Boolean(p.ingredients && p.ingredients.length > 0);
+      if (recipeFilter === 'has_recipe' && !hasRec) return false;
+      if (recipeFilter === 'no_recipe' && hasRec) return false;
+      if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+      return true;
+    });
+  }, [products, recipeFilter, categoryFilter]);
+
   // ── Selection helpers ──
-  const allIds = products.map((p) => p._id);
+  const allIds = filteredProducts.map((p) => p._id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const someChecked = allIds.some((id) => selected.has(id));
 
@@ -577,7 +618,7 @@ const Products = () => {
     p.ingredients?.reduce((sum, ing) => sum + (ing.material?.unitCost ?? 0) * ing.quantity, 0) ?? 0;
 
   const exportData = useMemo(() => {
-    return products.map(p => ({
+    return filteredProducts.map(p => ({
       'Code': p.code || '—',
       'Product Name': p.name,
       'Department': p.parentCategory || 'FOOD',
@@ -585,17 +626,18 @@ const Products = () => {
       'Unit (UOM)': p.uom || 'Pcs',
       'Selling Price (ETB)': Number(p.sellingPrice || 0).toFixed(2),
       'Ingredients Count': p.ingredients?.length || 0,
+      'Has Recipe': (p.ingredients && p.ingredients.length > 0) ? 'Yes' : 'No',
       'Active': p.isActive !== false ? 'Yes' : 'No',
     }));
-  }, [products]);
+  }, [filteredProducts]);
 
-  // Paginated slice for the table
-  const pagedProducts = React.useMemo(
-    () => products.slice((page - 1) * pageSize, page * pageSize),
-    [products, page, pageSize]
+  // Paginated slice for the table based on filtered products
+  const pagedProducts = useMemo(
+    () => filteredProducts.slice((page - 1) * pageSize, page * pageSize),
+    [filteredProducts, page, pageSize]
   );
-  // Reset to page 1 on search
-  React.useEffect(() => { setPage(1); }, [search]);
+  // Reset to page 1 on search, recipe filter, or category filter
+  useEffect(() => { setPage(1); }, [search, recipeFilter, categoryFilter]);
   const pdfColumns = [
     { header: 'Code', accessor: 'Code' },
     { header: 'Product Name', accessor: 'Product Name' },
@@ -808,6 +850,94 @@ const Products = () => {
         </div>
       )}
 
+      {/* ── Quick Recipe & Category Filter Badges ── */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-blue-200/80 bg-white p-2.5 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          {/* All Products */}
+          <button
+            type="button"
+            onClick={() => setRecipeFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              recipeFilter === 'all'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <span>All Products</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              recipeFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {recipeCounts.all}
+            </span>
+          </button>
+
+          {/* Has Recipe */}
+          <button
+            type="button"
+            onClick={() => setRecipeFilter('has_recipe')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              recipeFilter === 'has_recipe'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+            }`}
+          >
+            <ChefHat size={13} className={recipeFilter === 'has_recipe' ? 'text-white' : 'text-emerald-600'} />
+            <span>Has Recipe</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              recipeFilter === 'has_recipe' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+            }`}>
+              {recipeCounts.hasRecipe}
+            </span>
+          </button>
+
+          {/* No Recipe */}
+          <button
+            type="button"
+            onClick={() => setRecipeFilter('no_recipe')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              recipeFilter === 'no_recipe'
+                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+            }`}
+          >
+            <AlertCircle size={13} className={recipeFilter === 'no_recipe' ? 'text-white' : 'text-amber-600'} />
+            <span>No Recipe</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              recipeFilter === 'no_recipe' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+            }`}>
+              {recipeCounts.noRecipe}
+            </span>
+          </button>
+        </div>
+
+        {/* Quick Category Filter */}
+        {uniqueCategories.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-ink-600 self-end sm:self-auto">
+            <span className="font-medium text-ink-400">Category:</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
+            >
+              <option value="all">All Categories ({uniqueCategories.length})</option>
+              {uniqueCategories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {(recipeFilter !== 'all' || categoryFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => { setRecipeFilter('all'); setCategoryFilter('all'); }}
+                className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+                title="Reset filters"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ── Table with inline checkboxes ── */}
       <div className="overflow-hidden rounded-xl border border-blue-200/70 bg-white shadow-soft">
         <div className="overflow-x-auto">
@@ -836,10 +966,16 @@ const Products = () => {
               </tr>
             </thead>
             <tbody style={{ borderTop: 'none' }}>
-              {products.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <tr>
                   <td colSpan={(canDelete ? 1 : 0) + 7 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
-                    No products yet. Add your first product or import from Excel.
+                    {recipeFilter === 'has_recipe'
+                      ? 'No products with recipes found.'
+                      : recipeFilter === 'no_recipe'
+                      ? 'No products without recipes found.'
+                      : categoryFilter !== 'all'
+                      ? `No products found in category "${categoryFilter}".`
+                      : 'No products yet. Add your first product or import from Excel.'}
                   </td>
                 </tr>
               )}
@@ -869,8 +1005,17 @@ const Products = () => {
                     {p.parentCategory && <span className="ml-1 text-xs text-ink-400">/ {p.parentCategory}</span>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink-500">{p.uom || 'Pcs'}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-ink-500">
-                    {p.ingredients?.length ?? 0} item{p.ingredients?.length !== 1 ? 's' : ''}
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {p.ingredients && p.ingredients.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                        <ChefHat size={12} className="text-emerald-600" />
+                        {p.ingredients.length} item{p.ingredients.length !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                        0 items (no recipe)
+                      </span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium tabular">
                     ETB {p.sellingPrice?.toFixed(2) ?? '0.00'}
@@ -971,7 +1116,7 @@ const Products = () => {
         <Pagination
           page={page}
           pageSize={pageSize}
-          total={products.length}
+          total={filteredProducts.length}
           onPage={setPage}
           onPageSize={(s) => { setPageSize(s); setPage(1); }}
         />
