@@ -37,6 +37,7 @@ import Card from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import MobileDashboardView from '../components/dashboard/MobileDashboardView';
+import SalesAnalyticsSection from '../components/dashboard/SalesAnalyticsSection';
 
 const formatETB = (n) =>
   `ETB ${Number(n || 0).toLocaleString('en-US', {
@@ -413,6 +414,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* ── Sales, Category Breakdown & Gross Profit Analysis (Imported, POS, Digital Menu) ── */}
+        <SalesAnalyticsSection salesAnalytics={data?.salesAnalytics} />
 
         {/* ── Main Charts Row: Stock Movement & Category Pie Chart ── */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import BabaRotiLogo from '../ui/BabaRotiLogo';
+import SalesAnalyticsSection from './SalesAnalyticsSection';
 
 // ── Material UI Icons ────────────────────────────────────────────────
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -363,6 +364,11 @@ export default function MobileDashboardView({ data, user }) {
             </div>
           </div>
         </div>
+
+        {/* ── SALES CATEGORY BREAKDOWN & GROSS PROFIT SECTION ── */}
+        {data?.salesAnalytics && (
+          <SalesAnalyticsSection salesAnalytics={data.salesAnalytics} />
+        )}
 
         {/* ── 3. QUICK NAVIGATION / MODULE CARDS (2x3 GRID) ── */}
         <div className="grid grid-cols-2 gap-2.5">

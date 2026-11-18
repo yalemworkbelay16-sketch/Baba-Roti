@@ -4,6 +4,7 @@ const Purchase = require('../models/Purchase');
 const StockTransaction = require('../models/StockTransaction');
 const Supplier = require('../models/Supplier');
 const POSOrder = require('../models/POSOrder');
+const { computeSalesAnalytics } = require('../utils/salesAnalyticsHelper');
 
 // In-memory cache for ultra-fast instantaneous responses (TTL 25s)
 let summaryCache = {
@@ -39,6 +40,7 @@ const getSummary = asyncHandler(async (req, res) => {
     weekTransactions,
     recentTransactions,
     todayOrders,
+    salesAnalytics,
   ] = await Promise.all([
     RawMaterial.find({ isActive: true })
       .select('name category unit currentStock reorderLevel unitCost')
@@ -64,6 +66,10 @@ const getSummary = asyncHandler(async (req, res) => {
       .select('grandTotal paymentMethod items createdAt')
       .lean()
       .catch(() => []),
+    computeSalesAnalytics().catch((err) => {
+      console.warn('[Dashboard] computeSalesAnalytics warning:', err.message);
+      return null;
+    }),
   ]);
 
 
@@ -218,6 +224,7 @@ const getSummary = asyncHandler(async (req, res) => {
     lowStockItems,
     recentTransactions,
     todaySales,
+    salesAnalytics,
   };
 
   // Cache in server memory
@@ -229,5 +236,10 @@ const getSummary = asyncHandler(async (req, res) => {
   res.json(payload);
 });
 
-module.exports = { getSummary, invalidateDashboardCache };
+const getSalesAnalytics = asyncHandler(async (req, res) => {
+  const data = await computeSalesAnalytics();
+  res.json(data);
+});
+
+module.exports = { getSummary, getSalesAnalytics, invalidateDashboardCache };
 

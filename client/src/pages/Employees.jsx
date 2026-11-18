@@ -18,9 +18,9 @@ const DEPARTMENTS = [
 ];
 
 const STATUS_CONFIG = {
-  active:   { label: 'Active',    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: UserCheck },
-  inactive: { label: 'Inactive',  cls: 'bg-red-100 text-red-700 border-red-200',             icon: UserX    },
-  on_leave: { label: 'On Leave',  cls: 'bg-amber-100 text-amber-700 border-amber-200',        icon: Clock    },
+  active: { label: 'Active', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: UserCheck },
+  inactive: { label: 'Inactive', cls: 'bg-red-100 text-red-700 border-red-200', icon: UserX },
+  on_leave: { label: 'On Leave', cls: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock },
 };
 
 const emptyForm = {
@@ -37,31 +37,31 @@ export default function Employees() {
   const canDelete = canCrud ? canCrud('employees', 'delete') : hasRole('admin');
 
   const [employees, setEmployees] = useState([]);
-  const [loading,   setLoading]   = useState(false);
-  const [loadErr,   setLoadErr]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadErr, setLoadErr] = useState('');
 
-  const [search,      setSearch]      = useState('');
-  const [filterDept,  setFilterDept]  = useState('');
-  const [filterStatus,setFilterStatus]= useState('');
-  const [page,        setPage]        = useState(1);
-  const [pageSize,    setPageSize]    = useState(10);
+  const [search, setSearch] = useState('');
+  const [filterDept, setFilterDept] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const [modalOpen,  setModalOpen]  = useState(false);
-  const [editing,    setEditing]    = useState(null);
-  const [form,       setForm]       = useState(emptyForm);
-  const [formErr,    setFormErr]    = useState('');
-  const [saving,     setSaving]     = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [formErr, setFormErr] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const [deleteId,   setDeleteId]   = useState(null);
-  const [deleting,   setDeleting]   = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   /* ── load ── */
   const load = useCallback(async () => {
     setLoading(true); setLoadErr('');
     try {
       const params = {};
-      if (filterDept)   params.department = filterDept;
-      if (filterStatus) params.status     = filterStatus;
+      if (filterDept) params.department = filterDept;
+      if (filterStatus) params.status = filterStatus;
       const res = await api.get('/employees', { params });
       setEmployees(Array.isArray(res.data) ? res.data : []);
       setPage(1);
@@ -78,9 +78,9 @@ export default function Employees() {
     const q = search.toLowerCase();
     return employees.filter(e =>
       e.firstName?.toLowerCase().includes(q) ||
-      e.lastName?.toLowerCase().includes(q)  ||
-      e.employeeId?.toLowerCase().includes(q)||
-      e.position?.toLowerCase().includes(q)  ||
+      e.lastName?.toLowerCase().includes(q) ||
+      e.employeeId?.toLowerCase().includes(q) ||
+      e.position?.toLowerCase().includes(q) ||
       e.department?.toLowerCase().includes(q)
     );
   }, [employees, search]);
@@ -89,10 +89,10 @@ export default function Employees() {
 
   /* ── stats ── */
   const stats = useMemo(() => ({
-    total:    employees.length,
-    active:   employees.filter(e => e.status === 'active').length,
+    total: employees.length,
+    active: employees.filter(e => e.status === 'active').length,
     inactive: employees.filter(e => e.status === 'inactive').length,
-    onLeave:  employees.filter(e => e.status === 'on_leave').length,
+    onLeave: employees.filter(e => e.status === 'on_leave').length,
   }), [employees]);
 
   /* ── modal helpers ── */
@@ -106,15 +106,15 @@ export default function Employees() {
     setEditing(emp);
     setForm({
       employeeId: emp.employeeId || '',
-      firstName:  emp.firstName  || '',
-      lastName:   emp.lastName   || '',
+      firstName: emp.firstName || '',
+      lastName: emp.lastName || '',
       department: emp.department || 'Kitchen',
-      position:   emp.position   || '',
-      phone:      emp.phone      || '',
-      email:      emp.email      || '',
-      hireDate:   emp.hireDate   ? new Date(emp.hireDate).toISOString().slice(0, 10) : '',
-      status:     emp.status     || 'active',
-      notes:      emp.notes      || '',
+      position: emp.position || '',
+      phone: emp.phone || '',
+      email: emp.email || '',
+      hireDate: emp.hireDate ? new Date(emp.hireDate).toISOString().slice(0, 10) : '',
+      status: emp.status || 'active',
+      notes: emp.notes || '',
     });
     setFormErr('');
     setModalOpen(true);
@@ -156,15 +156,15 @@ export default function Employees() {
 
   /* ── export data ── */
   const exportData = useMemo(() => employees.map(e => ({
-    'Employee ID':  e.employeeId || '—',
-    'First Name':   e.firstName,
-    'Last Name':    e.lastName,
-    'Department':   e.department,
-    'Position':     e.position  || '—',
-    'Phone':        e.phone     || '—',
-    'Email':        e.email     || '—',
-    'Hire Date':    fmt(e.hireDate),
-    'Status':       STATUS_CONFIG[e.status]?.label || e.status,
+    'Employee ID': e.employeeId || '—',
+    'First Name': e.firstName,
+    'Last Name': e.lastName,
+    'Department': e.department,
+    'Position': e.position || '—',
+    'Phone': e.phone || '—',
+    'Email': e.email || '—',
+    'Hire Date': fmt(e.hireDate),
+    'Status': STATUS_CONFIG[e.status]?.label || e.status,
   })), [employees]);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -185,13 +185,13 @@ export default function Employees() {
             fileName="employees"
             pdfTitle="Employee List"
             pdfColumns={[
-              { header: 'ID',         accessor: 'Employee ID' },
+              { header: 'ID', accessor: 'Employee ID' },
               { header: 'First Name', accessor: 'First Name' },
-              { header: 'Last Name',  accessor: 'Last Name' },
+              { header: 'Last Name', accessor: 'Last Name' },
               { header: 'Department', accessor: 'Department' },
-              { header: 'Position',   accessor: 'Position' },
-              { header: 'Phone',      accessor: 'Phone' },
-              { header: 'Status',     accessor: 'Status', align: 'center' },
+              { header: 'Position', accessor: 'Position' },
+              { header: 'Phone', accessor: 'Phone' },
+              { header: 'Status', accessor: 'Status', align: 'center' },
             ]}
           />
           {canEdit && (
@@ -206,10 +206,10 @@ export default function Employees() {
       {/* Stat cards (clickable filters) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { key: '',         label: 'Total Staff',  value: stats.total,    icon: Users,     cls: 'text-blue-600',    bg: 'bg-blue-50',    ring: 'ring-blue-500' },
-          { key: 'active',   label: 'Active',       value: stats.active,   icon: UserCheck, cls: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'ring-emerald-500' },
-          { key: 'inactive', label: 'Inactive',     value: stats.inactive, icon: UserX,     cls: 'text-red-600',     bg: 'bg-red-50',     ring: 'ring-red-500' },
-          { key: 'on_leave', label: 'On Leave',     value: stats.onLeave,  icon: Clock,     cls: 'text-amber-600',   bg: 'bg-amber-50',   ring: 'ring-amber-500' },
+          { key: '', label: 'Total Staff', value: stats.total, icon: Users, cls: 'text-blue-600', bg: 'bg-blue-50', ring: 'ring-blue-500' },
+          { key: 'active', label: 'Active', value: stats.active, icon: UserCheck, cls: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'ring-emerald-500' },
+          { key: 'inactive', label: 'Inactive', value: stats.inactive, icon: UserX, cls: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-500' },
+          { key: 'on_leave', label: 'On Leave', value: stats.onLeave, icon: Clock, cls: 'text-amber-600', bg: 'bg-amber-50', ring: 'ring-amber-500' },
         ].map(({ key, label, value, icon: Icon, cls, bg, ring }) => {
           const isSelected = filterStatus === key;
           return (
@@ -217,11 +217,10 @@ export default function Employees() {
               key={label}
               type="button"
               onClick={() => setFilterStatus(isSelected && key !== '' ? '' : key)}
-              className={`text-left rounded-xl border bg-white p-4 shadow-xs transition cursor-pointer hover:shadow-md ${
-                isSelected
+              className={`text-left rounded-xl border bg-white p-4 shadow-xs transition cursor-pointer hover:shadow-md ${isSelected
                   ? `border-transparent ring-2 ${ring} shadow-sm`
                   : 'border-ink-100 hover:border-ink-200'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
