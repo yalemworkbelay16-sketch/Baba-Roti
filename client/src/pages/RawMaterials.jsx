@@ -60,8 +60,8 @@ const RawMaterials = () => {
 
   useEffect(() => { load(); }, [search]);
 
-  // Dynamic status counters across all materials
-  const counts = useMemo(() => {
+  // Global status counters across all materials
+  const globalCounts = useMemo(() => {
     let inStock = 0;
     let lowStock = 0;
     let outOfStock = 0;
@@ -77,6 +77,29 @@ const RawMaterials = () => {
       outOfStock,
     };
   }, [materials]);
+
+  // Contextual status counters (scoped to selected category if filtered)
+  const counts = useMemo(() => {
+    if (categoryFilter === 'all') return globalCounts;
+    let inStock = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    let totalInCat = 0;
+    materials.forEach((m) => {
+      if (m.category === categoryFilter) {
+        totalInCat++;
+        if (m.status === 'out_of_stock') outOfStock++;
+        else if (m.status === 'low_stock') lowStock++;
+        else inStock++;
+      }
+    });
+    return {
+      all: totalInCat,
+      inStock,
+      lowStock,
+      outOfStock,
+    };
+  }, [materials, categoryFilter, globalCounts]);
 
   // Filtered materials by status and category
   const filteredMaterials = useMemo(() => {
@@ -105,13 +128,19 @@ const RawMaterials = () => {
     load();
   };
 
-  // Extract unique categories currently in database
-  const existingCategories = useMemo(() => {
+  // Extract unique categories currently in database and count items per category
+  const { existingCategories, categoryItemCounts } = useMemo(() => {
+    const countsMap = {};
     const set = new Set();
     materials.forEach(m => {
-      if (m.category && m.category.trim()) set.add(m.category.trim());
+      const cat = m.category && m.category.trim() ? m.category.trim() : 'General';
+      set.add(cat);
+      countsMap[cat] = (countsMap[cat] || 0) + 1;
     });
-    return Array.from(set);
+    return {
+      existingCategories: Array.from(set).sort((a, b) => a.localeCompare(b)),
+      categoryItemCounts: countsMap,
+    };
   }, [materials]);
 
   const openCreate = () => {
@@ -558,9 +587,9 @@ const RawMaterials = () => {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-brass-400 shadow-2xs"
             >
-              <option value="all">All Categories ({existingCategories.length})</option>
+              <option value="all">All Categories ({materials.length})</option>
               {existingCategories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{c} ({categoryItemCounts[c] || 0})</option>
               ))}
             </select>
             {(statusFilter !== 'all' || categoryFilter !== 'all') && (
@@ -576,6 +605,36 @@ const RawMaterials = () => {
           </div>
         )}
       </div>
+
+      {/* Active Filter Helper Banner when Category is Narrowed Down */}
+      {categoryFilter !== 'all' && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-blue-50/90 border border-blue-200 px-3.5 py-2 text-xs text-blue-900 shadow-2xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-blue-700">Category:</span>
+            <span className="rounded-md bg-blue-100 px-2 py-0.5 text-blue-950 font-bold">{categoryFilter}</span>
+            <span className="text-blue-600 font-medium">({filteredMaterials.length} of {categoryItemCounts[categoryFilter] || 0} items)</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {statusFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className="font-bold text-blue-700 hover:text-blue-950 underline cursor-pointer"
+              >
+                View all {globalCounts[statusFilter === 'in_stock' ? 'inStock' : statusFilter === 'low_stock' ? 'lowStock' : 'outOfStock']} {statusFilter === 'in_stock' ? 'Normal' : statusFilter === 'low_stock' ? 'Low Level' : 'Out of Stock'} items across all categories
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('all')}
+              className="rounded-lg bg-white border border-blue-300 px-2 py-0.5 text-[11px] font-semibold text-blue-800 hover:bg-blue-100 shadow-2xs transition cursor-pointer"
+              title="Show all categories"
+            >
+              Show All Categories
+            </button>
+          </div>
+        </div>
+      )}
 
       <DataTable
         columns={columns}

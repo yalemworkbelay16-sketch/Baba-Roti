@@ -68,8 +68,8 @@ const Products = () => {
       .catch(() => setMaterials([]));
   }, []);
 
-  // Dynamic counts for recipes
-  const recipeCounts = useMemo(() => {
+  // Global counts for recipes across all products
+  const globalRecipeCounts = useMemo(() => {
     let hasRecipe = 0;
     let noRecipe = 0;
     products.forEach((p) => {
@@ -86,14 +86,42 @@ const Products = () => {
     };
   }, [products]);
 
-  // Unique categories list
-  const uniqueCategories = useMemo(() => {
+  // Contextual counts (scoped to categoryFilter if selected)
+  const recipeCounts = useMemo(() => {
+    if (categoryFilter === 'all') return globalRecipeCounts;
+    let hasRecipe = 0;
+    let noRecipe = 0;
+    let totalInCat = 0;
+    products.forEach((p) => {
+      if (p.category === categoryFilter) {
+        totalInCat++;
+        if (p.ingredients && p.ingredients.length > 0) {
+          hasRecipe++;
+        } else {
+          noRecipe++;
+        }
+      }
+    });
+    return {
+      all: totalInCat,
+      hasRecipe,
+      noRecipe,
+    };
+  }, [products, categoryFilter, globalRecipeCounts]);
+
+  // Unique categories list with item counts
+  const { uniqueCategories, categoryCountsMap } = useMemo(() => {
+    const countsMap = {};
     const set = new Set();
     products.forEach((p) => {
-      const cat = p.category?.trim();
-      if (cat) set.add(cat);
+      const cat = p.category && p.category.trim() ? p.category.trim() : 'General';
+      set.add(cat);
+      countsMap[cat] = (countsMap[cat] || 0) + 1;
     });
-    return Array.from(set).sort();
+    return {
+      uniqueCategories: Array.from(set).sort(),
+      categoryCountsMap: countsMap,
+    };
   }, [products]);
 
   // Filtered products by recipe status and category
@@ -913,9 +941,9 @@ const Products = () => {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
             >
-              <option value="all">All Categories ({uniqueCategories.length})</option>
+              <option value="all">All Categories ({products.length})</option>
               {uniqueCategories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{c} ({categoryCountsMap[c] || 0})</option>
               ))}
             </select>
             {(recipeFilter !== 'all' || categoryFilter !== 'all') && (
@@ -931,6 +959,36 @@ const Products = () => {
           </div>
         )}
       </div>
+
+      {/* Active Filter Helper Banner when Category is Narrowed Down */}
+      {categoryFilter !== 'all' && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-blue-50/90 border border-blue-200 px-3.5 py-2 text-xs text-blue-900 shadow-2xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-blue-700">Category:</span>
+            <span className="rounded-md bg-blue-100 px-2 py-0.5 text-blue-950 font-bold">{categoryFilter}</span>
+            <span className="text-blue-600 font-medium">({filteredProducts.length} of {categoryCountsMap[categoryFilter] || 0} items)</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {recipeFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className="font-bold text-blue-700 hover:text-blue-950 underline cursor-pointer"
+              >
+                View all {globalRecipeCounts[recipeFilter === 'has_recipe' ? 'hasRecipe' : 'noRecipe']} {recipeFilter === 'has_recipe' ? 'with Recipe' : 'without Recipe'} items across all categories
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('all')}
+              className="rounded-lg bg-white border border-blue-300 px-2 py-0.5 text-[11px] font-semibold text-blue-800 hover:bg-blue-100 shadow-2xs transition cursor-pointer"
+              title="Show all categories"
+            >
+              Show All Categories
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Table with inline checkboxes ── */}
       <div className="overflow-hidden rounded-xl border border-blue-200/70 bg-white shadow-soft">

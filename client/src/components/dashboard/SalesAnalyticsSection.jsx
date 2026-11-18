@@ -149,12 +149,12 @@ const ProfitChartTooltip = ({ active, payload, label }) => {
 };
 
 export default function SalesAnalyticsSection({ salesAnalytics }) {
-  const [period, setPeriod] = useState('latest'); // 'latest' | 'week' | 'month' | 'all'
+  const [period, setPeriod] = useState('daily'); // 'daily' (default) | 'latest' | 'week' | 'month' | 'all'
 
   // Extract selected period data or fallback
   const activeData = useMemo(() => {
     if (!salesAnalytics) return null;
-    return salesAnalytics[period] || salesAnalytics.latest || salesAnalytics.week || null;
+    return salesAnalytics[period] || salesAnalytics.daily || salesAnalytics.latest || salesAnalytics.week || null;
   }, [salesAnalytics, period]);
 
   if (!activeData) return null;
@@ -170,12 +170,31 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
     childByQty = [],
     profitByParent = [],
     latestDate,
+    dailyDate,
+    isDailyToday,
     latestRef,
   } = activeData;
 
   const formattedDate = latestDate
     ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'Recent';
+
+  const dailyDateObj = salesAnalytics?.daily?.dailyDate || salesAnalytics?.daily?.latestDate;
+  const dailyFormatted = dailyDateObj
+    ? new Date(dailyDateObj).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : formattedDate;
+
+  const batchFormatted = salesAnalytics?.latest?.latestDate
+    ? new Date(salesAnalytics.latest.latestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : formattedDate;
+
+  const filterTabs = [
+    { id: 'daily',  label: `Daily (${dailyFormatted})` },
+    { id: 'latest', label: `Latest Batch (${batchFormatted})` },
+    { id: 'week',   label: 'Last 7 Days' },
+    { id: 'month',  label: 'This Month' },
+    { id: 'all',    label: 'All Time' },
+  ];
 
   return (
     <div className="space-y-6 rounded-3xl border border-blue-200/80 bg-gradient-to-b from-white via-blue-50/20 to-white p-5 sm:p-7 shadow-sm">
@@ -198,14 +217,9 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
           </p>
         </div>
 
-        {/* Period Selector Tabs */}
+        {/* Period Selector Tabs — Daily by default */}
         <div className="flex items-center gap-1.5 rounded-2xl border border-ink-200 bg-white p-1 shadow-2xs self-start lg:self-auto flex-wrap">
-          {[
-            { id: 'latest', label: `Latest Batch (${formattedDate})` },
-            { id: 'week',   label: 'Last 7 Days' },
-            { id: 'month',  label: 'This Month' },
-            { id: 'all',    label: 'All Time' },
-          ].map((tab) => (
+          {filterTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"

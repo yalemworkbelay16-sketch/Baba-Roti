@@ -17,8 +17,8 @@ if (distExists) {
   console.log('[FAST CLOUD BUILD] Skipping heavy client npm install & compilation (saves 8+ minutes!).');
 } else {
   console.log('[FAST CLOUD BUILD] client/dist not found. Compiling client bundle...');
-  execSync('npm install --prefix client --legacy-peer-deps --no-audit --no-fund', { cwd: rootDir, stdio: 'inherit' });
-  execSync('npm run build --prefix client', { cwd: rootDir, stdio: 'inherit' });
+  execSync('npm install --prefix client --legacy-peer-deps --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit', timeout: 300000 });
+  execSync('npm run build --prefix client', { cwd: rootDir, stdio: 'inherit', timeout: 180000 });
 }
 
 console.log('[FAST CLOUD BUILD] Checking server dependencies...');
@@ -28,9 +28,9 @@ if (fs.existsSync(serverExpress)) {
 } else {
   console.log('[FAST CLOUD BUILD] Installing server production dependencies (fast offline-first)...');
   try {
-    execSync('npm ci --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit' });
+    execSync('npm ci --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit', timeout: 180000 });
   } catch (_) {
-    execSync('npm install --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit' });
+    execSync('npm install --prefix server --omit=dev --no-audit --no-fund --prefer-offline', { cwd: rootDir, stdio: 'inherit', timeout: 180000 });
   }
 }
 

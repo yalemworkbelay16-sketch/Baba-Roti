@@ -34,17 +34,17 @@ const roleLabels = {
 
 const Users = () => {
   const { user: currentUser } = useAuth();
-  const [users,        setUsers]        = useState([]);
-  const [search,       setSearch]       = useState('');
-  const [roleFilter,   setRoleFilter]   = useState('all');
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [modalOpen,    setModalOpen]    = useState(false);
-  const [editUser,     setEditUser]     = useState(null);
-  const [form,         setForm]         = useState(emptyForm);
-  const [error,        setError]        = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [page,         setPage]         = useState(1);
-  const [pageSize,     setPageSize]     = useState(10);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = () => api.get('/users')
     .then((res) => {
@@ -99,11 +99,11 @@ const Users = () => {
   const openEdit = (u) => {
     setEditUser(u);
     setForm({
-      name:           u.name || '',
-      email:          u.email || '',
-      password:       '',
-      role:           u.role || 'storekeeper',
-      phone:          u.phone || '',
+      name: u.name || '',
+      email: u.email || '',
+      password: '',
+      role: u.role || 'storekeeper',
+      phone: u.phone || '',
       telegramChatId: u.telegramChatId || '',
     });
     setError('');
@@ -116,9 +116,9 @@ const Users = () => {
     try {
       if (editUser) {
         const payload = {
-          name:           form.name,
-          role:           form.role,
-          phone:          form.phone,
+          name: form.name,
+          role: form.role,
+          phone: form.phone,
           telegramChatId: form.telegramChatId,
         };
         if (form.password) payload.password = form.password;
@@ -196,17 +196,15 @@ const Users = () => {
           <button
             type="button"
             onClick={() => setRoleFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              roleFilter === 'all'
-                ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${roleFilter === 'all'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
           >
             <UsersIcon size={13} className={roleFilter === 'all' ? 'text-white' : 'text-blue-600'} />
             <span>All Staff</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              roleFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${roleFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {users.length}
             </span>
           </button>
@@ -219,16 +217,14 @@ const Users = () => {
                 key={r}
                 type="button"
                 onClick={() => setRoleFilter(isActive ? 'all' : r)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
-                    : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive
+                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                  : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+                  }`}
               >
                 <span>{roleLabels[r] || r}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+                  }`}>
                   {roleCounts[r]}
                 </span>
               </button>
@@ -323,7 +319,7 @@ const Users = () => {
                         className={`inline-flex items-center rounded-lg px-2 py-1 text-xs font-semibold transition border ${u.isActive
                           ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                           : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                        }`}>
+                          }`}>
                         {u.isActive ? 'Disable' : 'Enable'}
                       </button>
                       {u.role !== 'dev' && currentUser?._id !== u._id && (

@@ -62,12 +62,40 @@ async function computeSalesAnalytics() {
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const sevenDaysAgo = new Date(startOfToday);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+  // 1. Determine daily records (all records from today)
+  let todayRecords = allRecords.filter((r) => {
+    const d = new Date(r.saleDate || r.importDate || r.createdAt);
+    return d >= startOfToday && d <= endOfToday;
+  });
+
+  let dailyDate = startOfToday;
+  let isDailyToday = true;
+
+  // Fallback to latest day if today has no sales records AND no standalone POS/Captain orders
+  const todayPOSCount = standalonePOS.filter(o => new Date(o.createdAt) >= startOfToday).length;
+  const todayCaptainCount = activeCaptainOrders.filter(o => new Date(o.createdAt) >= startOfToday).length;
+
+  if (todayRecords.length === 0 && todayPOSCount === 0 && todayCaptainCount === 0 && allRecords.length > 0) {
+    const latestRec = allRecords[0];
+    const latestRecDate = new Date(latestRec.saleDate || latestRec.importDate || latestRec.createdAt);
+    const startOfLatest = new Date(latestRecDate.getFullYear(), latestRecDate.getMonth(), latestRecDate.getDate());
+    const endOfLatest = new Date(latestRecDate.getFullYear(), latestRecDate.getMonth(), latestRecDate.getDate(), 23, 59, 59, 999);
+    todayRecords = allRecords.filter((r) => {
+      const d = new Date(r.saleDate || r.importDate || r.createdAt);
+      return d >= startOfLatest && d <= endOfLatest;
+    });
+    dailyDate = startOfLatest;
+    isDailyToday = false;
+  }
+
   // Define period slices
   const periods = {
+    daily: todayRecords,
     latest: allRecords.slice(0, 1),
     week: allRecords.filter((r) => new Date(r.saleDate || r.importDate) >= sevenDaysAgo),
     month: allRecords.filter((r) => new Date(r.saleDate || r.importDate) >= startOfMonth),
@@ -118,7 +146,8 @@ async function computeSalesAnalytics() {
 
     // 2. Include standalone POS / Captain Orders for broader periods
     if (key !== 'latest') {
-      const posList = key === 'week' ? standalonePOS.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
+      const posList = key === 'daily' ? standalonePOS.filter(o => new Date(o.createdAt) >= dailyDate)
+                    : key === 'week' ? standalonePOS.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
                     : key === 'month' ? standalonePOS.filter(o => new Date(o.createdAt) >= startOfMonth)
                     : standalonePOS;
 
@@ -147,7 +176,8 @@ async function computeSalesAnalytics() {
       }
 
       // Live digital menu orders
-      const coList = key === 'week' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
+      const coList = key === 'daily' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= dailyDate)
+                   : key === 'week' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= sevenDaysAgo)
                    : key === 'month' ? activeCaptainOrders.filter(o => new Date(o.createdAt) >= startOfMonth)
                    : activeCaptainOrders;
 
@@ -216,7 +246,9 @@ async function computeSalesAnalytics() {
 
     salesAnalytics[key] = {
       recordCount: records.length,
-      latestDate: records[0]?.saleDate || records[0]?.importDate || null,
+      latestDate: key === 'daily' ? dailyDate : (records[0]?.saleDate || records[0]?.importDate || null),
+      dailyDate: dailyDate,
+      isDailyToday: isDailyToday,
       latestRef: records[0]?.reference || records[0]?.source || 'Sales Import',
       totalQty: Math.round(totalQty * 100) / 100,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
