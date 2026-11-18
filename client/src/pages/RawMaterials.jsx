@@ -145,101 +145,94 @@ const RawMaterials = () => {
   };
 
   const handleImport = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
 
     setImportResult(null);
-    setImportProgress({ percent: 0, current: 0, total: 0, created: 0, updated: 0, skipped: 0, running: true });
+    setImportProgress({
+      running: true,
+      percent: 15,
+      current: 0,
+      total: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+    });
 
     const fd = new FormData();
     fd.append('file', file);
 
-    const stored = localStorage.getItem('hotelStockAuth');
-    const token = stored ? JSON.parse(stored).token : '';
-    let baseURL = import.meta.env.VITE_API_URL || '/api';
-    if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      baseURL = '/api';
-    }
+    let progressTimer = null;
 
     try {
-      const response = await fetch(`${baseURL}/materials/import/excel?stream=true`, {
-        method: 'POST',
-        headers: {
-          Accept: 'text/event-stream',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      progressTimer = setInterval(() => {
+        setImportProgress((prev) => {
+          if (!prev || !prev.running) return prev;
+          const next = Math.min(94, (prev.percent || 15) + (prev.percent < 70 ? 12 : 3));
+          return { ...prev, percent: next };
+        });
+      }, 200);
+
+      const res = await api.post('/materials/import/excel', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+        onUploadProgress: (evt) => {
+          if (evt.total && evt.total > 0) {
+            const uploadPct = Math.round((evt.loaded / evt.total) * 65);
+            setImportProgress((prev) => ({
+              ...(prev || {}),
+              running: true,
+              percent: Math.max(prev?.percent || 0, Math.min(65, uploadPct)),
+            }));
+          }
         },
-        body: fd,
       });
 
-      if (!response.ok) {
-        let errMsg = 'Import failed';
-        try {
-          const errData = await response.json();
-          errMsg = errData.message || errMsg;
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
+      if (progressTimer) clearInterval(progressTimer);
 
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('text/event-stream')) {
-        const json = await response.json();
+      const totalCount = res.data?.total || ((res.data?.created || 0) + (res.data?.updated || 0) + (res.data?.skipped || 0));
+      const createdCount = res.data?.created || 0;
+      const updatedCount = res.data?.updated || 0;
+      const skippedCount = res.data?.skipped || 0;
+
+      setImportProgress({
+        running: false,
+        percent: 100,
+        current: totalCount,
+        total: totalCount,
+        created: createdCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+      });
+
+      setImportResult({
+        type: 'success',
+        message: res.data?.message || `Import complete: ${createdCount} created, ${updatedCount} updated out of ${totalCount} items.`,
+      });
+
+      await load();
+
+      setTimeout(() => {
         setImportProgress(null);
-        setImportResult({ type: 'success', message: json.message || 'Materials imported successfully.' });
-        load();
-        return;
-      }
+      }, 2500);
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const msg = JSON.parse(line.slice(6));
-            if (msg.type === 'start') {
-              setImportProgress((p) => ({ ...p, total: msg.total }));
-            } else if (msg.type === 'progress') {
-              setImportProgress({
-                running: true,
-                percent: msg.percent,
-                current: msg.current,
-                total: msg.total,
-                created: msg.created,
-                updated: msg.updated,
-                skipped: msg.skipped,
-              });
-            } else if (msg.type === 'done') {
-              setImportProgress(null);
-              setImportResult({
-                type: 'success',
-                message: `Import complete: ${msg.created} created, ${msg.updated} updated${msg.skipped > 0 ? `, ${msg.skipped} skipped` : ''} out of ${msg.total} rows.`,
-              });
-              load();
-            } else if (msg.type === 'error') {
-              setImportProgress(null);
-              setImportResult({
-                type: 'error',
-                message: msg.message || 'Import failed.',
-              });
-            }
-          } catch (_) {}
-        }
-      }
     } catch (err) {
+      if (progressTimer) clearInterval(progressTimer);
       setImportProgress(null);
+
+      let errMsg = 'Import failed. Please check your Excel file format and try again.';
+      if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errMsg = 'The upload timed out. Please try importing in smaller batches.';
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+
       setImportResult({
         type: 'error',
-        message: err.message || 'Import failed. Please check your Excel file format and try again.',
+        message: errMsg,
       });
     }
   };

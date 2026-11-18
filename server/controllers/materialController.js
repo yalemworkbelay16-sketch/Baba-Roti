@@ -139,8 +139,9 @@ const permanentDeleteMaterial = asyncHandler(async (req, res) => {
 });
 
 
-// Helper: find column value by checking candidate names (case-insensitive, ignores spaces & non-alphanumeric)
+// Helper: find column value by checking candidate names (case-insensitive, unicode-safe, handles Amharic & English)
 const getColValue = (row, candidates) => {
+  if (!row || typeof row !== 'object') return undefined;
   const keys = Object.keys(row);
   for (const candidate of candidates) {
     const directMatch = keys.find(k => k.trim().toLowerCase() === candidate.toLowerCase());
@@ -148,9 +149,14 @@ const getColValue = (row, candidates) => {
       return row[directMatch];
     }
   }
-  const normKeys = keys.map(k => ({ raw: k, clean: k.toLowerCase().replace(/[^a-z0-9]/g, '') }));
+  // Normalize whitespace & punctuation while preserving all Unicode letters (including Amharic fidel)
+  const normKeys = keys.map(k => ({
+    raw: k,
+    clean: k.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+  }));
   for (const candidate of candidates) {
-    const cleanCand = candidate.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanCand = candidate.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+    if (!cleanCand) continue;
     const match = normKeys.find(k => k.clean === cleanCand);
     if (match && row[match.raw] !== undefined && row[match.raw] !== null && String(row[match.raw]).trim() !== '') {
       return row[match.raw];
@@ -255,6 +261,8 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
 
 // POST /api/materials/import/excel
 const importMaterialsExcel = asyncHandler(async (req, res) => {
+  res.setHeader('X-Accel-Buffering', 'no');
+
   const isSSE = req.headers.accept?.includes('text/event-stream') || req.query.stream === 'true';
   let send = null;
   if (isSSE) {
@@ -262,11 +270,15 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     if (typeof res.flushHeaders === 'function') res.flushHeaders();
-    send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    send = (data) => {
+      if (!res.writableEnded && res.writable) {
+        try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+      }
+    };
   }
 
-  if (!req.file) {
-    const msg = 'No file uploaded';
+  if (!req.file || !req.file.buffer) {
+    const msg = 'No Excel file was uploaded. Please select a valid .xlsx or .xls file.';
     if (isSSE) {
       send({ type: 'error', message: msg });
       return res.end();
@@ -276,9 +288,9 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
 
   let wb;
   try {
-    wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    wb = XLSX.read(req.file.buffer, { type: 'buffer', cellFormula: false, cellHTML: false });
   } catch (err) {
-    const msg = `Unable to parse Excel file: ${err.message}`;
+    const msg = `Unable to read Excel file: ${err.message}`;
     if (isSSE) {
       send({ type: 'error', message: msg });
       return res.end();
@@ -293,7 +305,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
     if (!sheet) continue;
-    const testRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    const testRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
     if (testRows && testRows.length > 0) {
       ws = sheet;
       rows = testRows;
@@ -302,7 +314,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   }
 
   if (!ws || rows.length === 0) {
-    const msg = 'The uploaded file contains no data rows.';
+    const msg = 'The uploaded Excel file contains no data rows.';
     if (isSSE) {
       send({ type: 'error', message: msg });
       return res.end();
@@ -310,19 +322,55 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: msg });
   }
 
-  // 2. Comprehensive header recognition (English, Amharic, abbreviations)
+  // 2. Comprehensive column headers (English & Amharic)
   const nameKeys = [
     'name', 'material name', 'material', 'raw material', 'raw material name',
     'item name', 'item', 'ingredient', 'description', 'product', 'product name',
-    'ዕቃ', 'የዕቃ ስም', 'ስም', 'የጥሬ ዕቃ ስም'
+    'item description', 'materials', 'items', 'ingredients',
+    'ዕቃ', 'የዕቃ ስም', 'ስም', 'የጥሬ ዕቃ ስም', 'የጥሬ ዕቃ'
+  ];
+  const codeKeys = [
+    'code', 'material code', 'raw material code', 'item code', 'rm code',
+    'item no', 'item #', 'sku', 'id', 'part number', 'code no',
+    'መለያ', 'ኮድ', 'የዕቃ ኮድ'
+  ];
+  const categoryKeys = [
+    'category', 'material category', 'group', 'type', 'department', 'section', 'ምድብ'
+  ];
+  const stockKeys = [
+    'current stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity',
+    'balance', 'available stock', 'on hand', 'inventory', 'count', 'መጠን', 'ብዛት', 'ያለ ክምችት'
+  ];
+  const unitKeys = [
+    'unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement', 'መለኪያ', 'መጠኛ'
+  ];
+  const reorderKeys = [
+    'reorder level', 'reorder at', 'reorder point', 'reorder', 'min stock', 'minimum stock', 'min', 'safety stock', 'ዝቅተኛ'
+  ];
+  const costKeys = [
+    'unit cost', 'unit cost (etb)', 'unit cost (birr)', 'cost', 'unit price', 'price', 'purchase cost', 'rate', 'buying price', 'ዋጋ', 'የአንዱ ዋጋ', 'ወጪ'
+  ];
+  const locationKeys = [
+    'store location', 'location', 'store', 'warehouse', 'storage', 'room', 'መጋዘን'
   ];
 
-  const hasValidHeader = rows.some(r => getColValue(r, nameKeys) !== undefined);
-  if (!hasValidHeader) {
-    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 });
-    const headerIdx = rawRows.findIndex(r =>
-      Array.isArray(r) && r.some(cell => typeof cell === 'string' && /^(name|material|item|code|category|stock|ዕቃ|ስም|ኮድ)/i.test(cell.trim()))
-    );
+  // 3. Scan first 10 rows if row 1 was a decorative banner or title
+  let hasValidHeader = rows.some(r => getColValue(r, nameKeys) !== undefined);
+  if (!hasValidHeader && ws) {
+    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const maxScan = Math.min(rawRows.length, 10);
+    let headerIdx = -1;
+    for (let i = 0; i < maxScan; i++) {
+      const r = rawRows[i];
+      if (Array.isArray(r) && r.some(cell => {
+        const str = String(cell || '').trim();
+        return /^(name|material|item|code|category|stock|ዕቃ|ስም|ኮድ|ዋጋ)/i.test(str);
+      })) {
+        headerIdx = i;
+        break;
+      }
+    }
+
     if (headerIdx !== -1 && headerIdx < rawRows.length - 1) {
       const headers = rawRows[headerIdx].map(h => String(h || '').trim());
       rows = rawRows.slice(headerIdx + 1).map(r => {
@@ -334,19 +382,20 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   }
 
   // Pre-filter valid rows
-  const validRows = rows.filter(row => {
+  const validRows = [];
+  for (const row of rows) {
     const rawName = getColValue(row, nameKeys);
     const name = String(rawName || '').trim();
-    if (!name) return false;
-    if (/^Count:/i.test(name) || /^Total/i.test(name)) return false;
-    if (name.toLowerCase() === 'name' || name.toLowerCase() === 'material' || name === 'ስም' || name === 'የዕቃ ስም') return false;
-    return true;
-  });
+    if (!name) continue;
+    if (/^Count:/i.test(name) || /^Total/i.test(name) || /^Sum/i.test(name) || /^Grand/i.test(name)) continue;
+    if (name.toLowerCase() === 'name' || name.toLowerCase() === 'material' || name === 'ስም' || name === 'የዕቃ ስም') continue;
+    validRows.push({ ...row, _resolvedName: name });
+  }
 
   const total = validRows.length;
   if (total === 0) {
-    const sampleHeaders = rows.length > 0 ? Object.keys(rows[0]).join(', ') : 'none';
-    const msg = `No raw materials could be imported. Please ensure your file has a column for Material Name (or Name, Item, ስም). Detected columns: ${sampleHeaders}`;
+    const sampleHeaders = rows.length > 0 ? Object.keys(rows[0]).join(', ') : 'No columns detected';
+    const msg = `Could not find any items to import. Please ensure your Excel file has a column for Material Name (or Name, Item, ስም). Detected columns in your file: ${sampleHeaders}`;
     if (isSSE) {
       send({ type: 'error', message: msg });
       return res.end();
@@ -358,7 +407,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     send({ type: 'start', total });
   }
 
-  // 3. Pre-load all existing materials once into memory for instant O(1) matching
+  // 4. Pre-load all existing materials once into memory for instant O(1) matching
   const allExisting = await RawMaterial.find({}, 'code name isActive deletedAt').lean();
   const codeMap = new Map();
   const nameMap = new Map();
@@ -389,19 +438,17 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   for (let i = 0; i < validRows.length; i++) {
     const row = validRows[i];
     try {
-      const rawName = getColValue(row, nameKeys);
-      const name = String(rawName || '').trim();
-
-      const rawCode = getColValue(row, ['code', 'material code', 'raw material code', 'item code', 'rm code', 'item no', 'sku', 'id', 'መለያ', 'ኮድ']);
+      const name = row._resolvedName;
+      const rawCode = getColValue(row, codeKeys);
       let code = String(rawCode || '').trim().replace(/-+$/, '');
-      if (code === '—' || code === '-') code = '';
+      if (code === '—' || code === '-' || code.toLowerCase() === 'null') code = '';
 
-      const category = String(getColValue(row, ['category', 'material category', 'group', 'type', 'department', 'ምድብ']) || 'General').trim();
-      const rawStock = getColValue(row, ['current stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity', 'balance', 'available stock', 'መጠን', 'ብዛት']);
-      const rawReorder = getColValue(row, ['reorder level', 'reorder at', 'reorder point', 'reorder', 'min stock', 'minimum stock', 'min', 'ዝቅተኛ']);
-      const rawCost = getColValue(row, ['unit cost', 'unit cost (etb)', 'unit cost (birr)', 'cost', 'unit price', 'price', 'purchase cost', 'ዋጋ', 'የአንዱ ዋጋ']);
-      const rawUnit = getColValue(row, ['unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement', 'መለኪያ', 'መጠኛ']);
-      const storeLocation = String(getColValue(row, ['store location', 'location', 'store', 'warehouse', 'መጋዘን']) || 'Main Store').trim();
+      const category = String(getColValue(row, categoryKeys) || 'General').trim();
+      const rawStock = getColValue(row, stockKeys);
+      const rawReorder = getColValue(row, reorderKeys);
+      const rawCost = getColValue(row, costKeys);
+      const rawUnit = getColValue(row, unitKeys);
+      const storeLocation = String(getColValue(row, locationKeys) || 'Main Store').trim();
 
       let unit = String(rawUnit || extractUnit(rawStock) || extractUnit(rawReorder) || 'pcs').trim();
       if (!unit) unit = 'pcs';
@@ -467,8 +514,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
       errors.push(`Row ${i + 1}: ${rowErr.message}`);
     }
 
-    // Stream SSE progress every 5 rows or on final row
-    if (isSSE && ((i + 1) % 5 === 0 || i === total - 1)) {
+    if (isSSE && ((i + 1) % 10 === 0 || i === total - 1)) {
       send({
         type: 'progress',
         percent: Math.round(((i + 1) / total) * 100),
@@ -481,7 +527,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     }
   }
 
-  // 4. Fast batch execution in MongoDB Atlas
+  // 5. Ultra-fast batch execution in MongoDB Atlas
   if (bulkOps.length > 0) {
     await RawMaterial.bulkWrite(bulkOps, { ordered: false });
   }
@@ -500,13 +546,14 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     return res.end();
   }
 
-  res.json({
+  return res.json({
     success: true,
-    message: `Imported successfully: ${created} created, ${updated} updated${skipped > 0 ? ` (${skipped} skipped)` : ''}`,
+    message: `Import complete: ${created} created, ${updated} updated${skipped > 0 ? `, ${skipped} skipped` : ''} out of ${total} items.`,
     created,
     updated,
     skipped,
     total,
+    errors: errors.slice(0, 5),
   });
 });
 

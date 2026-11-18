@@ -16,14 +16,26 @@ const {
 } = require('../controllers/materialController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB max
+});
+
+const handleUpload = (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || 'Error processing uploaded file.' });
+    }
+    next();
+  });
+};
 
 router.use(protect);
 
 // Excel import/export/template (before /:id to avoid conflict)
 router.get('/export/excel', authorize('admin', 'manager'), exportMaterialsExcel);
 router.get('/template/excel', authorize('admin', 'manager', 'storekeeper', 'supervisor'), exportMaterialTemplate);
-router.post('/import/excel', authorize('admin', 'manager'), upload.single('file'), importMaterialsExcel);
+router.post('/import/excel', authorize('admin', 'manager', 'storekeeper', 'supervisor'), handleUpload, importMaterialsExcel);
 
 // Bulk + restore (before /:id)
 router.delete('/bulk',          authorize('admin', 'manager'), bulkDeleteMaterials);
