@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/ui/DataTable';
@@ -36,6 +36,8 @@ const statusBadge = (status) => {
 const RawMaterials = () => {
   const [materials, setMaterials] = useState([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -58,8 +60,35 @@ const RawMaterials = () => {
 
   useEffect(() => { load(); }, [search]);
 
+  // Dynamic status counters across all materials
+  const counts = useMemo(() => {
+    let inStock = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    materials.forEach((m) => {
+      if (m.status === 'out_of_stock') outOfStock++;
+      else if (m.status === 'low_stock') lowStock++;
+      else inStock++;
+    });
+    return {
+      all: materials.length,
+      inStock,
+      lowStock,
+      outOfStock,
+    };
+  }, [materials]);
+
+  // Filtered materials by status and category
+  const filteredMaterials = useMemo(() => {
+    return materials.filter((m) => {
+      if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+      if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
+      return true;
+    });
+  }, [materials, statusFilter, categoryFilter]);
+
   /* ── selection ── */
-  const allIds     = materials.map(m => m._id);
+  const allIds     = filteredMaterials.map(m => m._id);
   const allChecked = allIds.length > 0 && allIds.every(id => selected.has(id));
   const someChecked = allIds.some(id => selected.has(id));
   const toggleAll  = () => allChecked
@@ -321,7 +350,7 @@ const RawMaterials = () => {
   ];
 
   const exportData = useMemo(() => {
-    return materials.map(m => ({
+    return filteredMaterials.map(m => ({
       'Code': m.code || '—',
       'Material Name': m.name,
       'Category': m.category || 'General',
@@ -330,9 +359,9 @@ const RawMaterials = () => {
       'Reorder Level': m.reorderLevel || 10,
       'Unit Cost (ETB)': Number(m.unitCost || 0).toFixed(2),
       'Store Location': m.storeLocation || 'Main Store',
-      'Status': m.status || (m.currentStock <= m.reorderLevel ? 'Low Stock' : 'Optimal'),
+      'Status': m.status === 'out_of_stock' ? 'Out of stock' : m.status === 'low_stock' ? 'Low stock' : 'In stock',
     }));
-  }, [materials]);
+  }, [filteredMaterials]);
 
   const pdfColumns = [
     { header: 'Code', accessor: 'Code' },
@@ -450,10 +479,127 @@ const RawMaterials = () => {
         </div>
       )}
 
+      {/* Quick Status Filter Tabs / Badges */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-ink-200/80 bg-white p-2.5 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          {/* All */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'all'
+                ? 'bg-ink-900 text-white shadow-xs'
+                : 'bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+            }`}
+          >
+            <span>All</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-ink-200 text-ink-700'
+            }`}>
+              {counts.all}
+            </span>
+          </button>
+
+          {/* Normal / In Stock */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('in_stock')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'in_stock'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+            }`}
+          >
+            <CheckCircle2 size={13} className={statusFilter === 'in_stock' ? 'text-white' : 'text-emerald-600'} />
+            <span>Normal (In Stock)</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'in_stock' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+            }`}>
+              {counts.inStock}
+            </span>
+          </button>
+
+          {/* Low Level */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('low_stock')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'low_stock'
+                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+            }`}
+          >
+            <AlertTriangle size={13} className={statusFilter === 'low_stock' ? 'text-white' : 'text-amber-600'} />
+            <span>Low Level</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'low_stock' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+            }`}>
+              {counts.lowStock}
+            </span>
+          </button>
+
+          {/* Out of Stock */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('out_of_stock')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              statusFilter === 'out_of_stock'
+                ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400/40'
+                : 'bg-red-50 text-red-800 border border-red-200/80 hover:bg-red-100'
+            }`}
+          >
+            <AlertCircle size={13} className={statusFilter === 'out_of_stock' ? 'text-white' : 'text-red-600'} />
+            <span>Out of Stock</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              statusFilter === 'out_of_stock' ? 'bg-white/25 text-white' : 'bg-red-200 text-red-900'
+            }`}>
+              {counts.outOfStock}
+            </span>
+          </button>
+        </div>
+
+        {/* Quick Category Filter */}
+        {existingCategories.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-ink-600 self-end sm:self-auto">
+            <span className="font-medium text-ink-400">Category:</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-brass-400 shadow-2xs"
+            >
+              <option value="all">All Categories ({existingCategories.length})</option>
+              {existingCategories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {(statusFilter !== 'all' || categoryFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('all'); setCategoryFilter('all'); }}
+                className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
+                title="Reset filters"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
-        data={materials}
-        emptyMessage="No raw materials yet. Add your first item."
+        data={filteredMaterials}
+        emptyMessage={
+          statusFilter === 'out_of_stock'
+            ? 'No out-of-stock items found.'
+            : statusFilter === 'low_stock'
+            ? 'No low-level stock items found.'
+            : statusFilter === 'in_stock'
+            ? 'No normal in-stock items found.'
+            : categoryFilter !== 'all'
+            ? `No items found in category "${categoryFilter}".`
+            : 'No raw materials yet. Add your first item.'
+        }
         title="Raw Materials Inventory"
         icon={<Boxes size={15} />}
       />
