@@ -5,6 +5,7 @@ const {
   updateSettings,
   applyProductPriceAdjustment,
   applyRawMaterialPriceAdjustment,
+  applyStationCategoryMapping,
   updateDeveloperLicense,
   createMenuReview,
   getMenuReviews,
@@ -19,6 +20,7 @@ router.route('/')
 router.put('/developer-license', protect, updateDeveloperLicense);
 router.post('/apply-product-price-adjustment', protect, authorize('admin', 'dev'), applyProductPriceAdjustment);
 router.post('/apply-raw-material-price-adjustment', protect, authorize('admin', 'dev'), applyRawMaterialPriceAdjustment);
+router.post('/apply-station-category-mapping', protect, authorize('admin', 'manager', 'dev'), applyStationCategoryMapping);
 
 // Customer Digital Menu Ratings & Reviews
 router.post('/menu-reviews', createMenuReview); // Public submission

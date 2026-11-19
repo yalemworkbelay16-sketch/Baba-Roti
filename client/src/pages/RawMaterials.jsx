@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse, UtensilsCrossed, Coffee } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse, UtensilsCrossed, Coffee, Sliders } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/ui/DataTable';
@@ -84,6 +84,48 @@ const RawMaterials = () => {
     setSearchParams(next);
   };
 
+  // Station Category Mapping state loaded from Settings
+  const [stationMapping, setStationMapping] = useState({
+    'Bar': 'bar',
+    'Kitchen': 'kitchen',
+    'ferash Bazare': 'kitchen',
+    'Mendi': 'kitchen',
+    'Pastery': 'kitchen',
+    'CleanerMaterial': 'mainStore',
+    'Material': 'mainStore',
+  });
+
+  useEffect(() => {
+    api.get('/settings').then((res) => {
+      if (res.data?.stationCategoryMapping?.rawMaterialMap) {
+        setStationMapping((prev) => ({
+          ...prev,
+          ...res.data.stationCategoryMapping.rawMaterialMap,
+        }));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const getMaterialStation = (m) => {
+    const cat = String(m?.category || '').trim();
+    if (stationMapping[cat]) return stationMapping[cat];
+    const loc = String(m?.storeLocation || '').toLowerCase();
+    if (loc.includes('kitchen')) return 'kitchen';
+    if (loc.includes('bar')) return 'bar';
+    const lower = cat.toLowerCase();
+    if (lower === 'bar' || /beverage|drink|coffee|tea|juice|soda|beer|wine|water/i.test(lower)) return 'bar';
+    if (
+      lower === 'kitchen' ||
+      lower === 'ferash bazare' ||
+      lower === 'mendi' ||
+      lower === 'pastery' ||
+      /produce|meat|poultry|dairy|bakery|grains|spices|food|fresh|fruit|veg/i.test(lower)
+    ) {
+      return 'kitchen';
+    }
+    return 'mainStore';
+  };
+
   const load = () => {
     api.get('/materials', { params: { search } }).then((res) => {
       setMaterials(Array.isArray(res.data) ? res.data : []);
@@ -134,28 +176,44 @@ const RawMaterials = () => {
     };
   }, [materials, categoryFilter, globalCounts]);
 
+  // Contextual station counters
+  const stationCounts = useMemo(() => {
+    let main = 0;
+    let kitchen = 0;
+    let bar = 0;
+    materials.forEach((m) => {
+      const st = getMaterialStation(m);
+      const kVal = Number(m.kitchenStock || 0);
+      const bVal = Number(m.barStock || 0);
+      const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
+      if (st === 'kitchen' || kVal > 0) kitchen++;
+      if (st === 'bar' || bVal > 0) bar++;
+      if (st === 'mainStore' || mVal > 0) main++;
+    });
+    return { all: materials.length, main, kitchen, bar };
+  }, [materials, stationMapping]);
+
   // Filtered materials by status, category, and station
   const filteredMaterials = useMemo(() => {
     return materials.filter((m) => {
       if (statusFilter !== 'all' && m.status !== statusFilter) return false;
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
+      const st = getMaterialStation(m);
       if (stationFilter === 'kitchen') {
         const kVal = Number(m.kitchenStock || 0);
-        const isKitchenCat = /produce|meat|poultry|dairy|bakery|grains|spices|pantry|food/i.test(m.category || '');
-        return kVal > 0 || isKitchenCat;
+        return st === 'kitchen' || kVal > 0;
       }
       if (stationFilter === 'bar') {
         const bVal = Number(m.barStock || 0);
-        const isBarCat = /beverage|drink|bar|coffee|tea|juice|soda|beer|wine|water/i.test(m.category || '');
-        return bVal > 0 || isBarCat;
+        return st === 'bar' || bVal > 0;
       }
       if (stationFilter === 'main') {
         const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
-        return mVal > 0;
+        return st === 'mainStore' || mVal > 0;
       }
       return true;
     });
-  }, [materials, statusFilter, categoryFilter, stationFilter]);
+  }, [materials, statusFilter, categoryFilter, stationFilter, stationMapping]);
 
   /* ── selection ── */
   const allIds = filteredMaterials.map(m => m._id);
@@ -638,7 +696,7 @@ const RawMaterials = () => {
                 : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
               }`}
           >
-            All Stations (Combined)
+            All Stations ({stationCounts.all})
           </button>
           <button
             type="button"
@@ -648,7 +706,7 @@ const RawMaterials = () => {
                 : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
               }`}
           >
-            <Warehouse size={13} /> 🏢 Main Store (Warehouse)
+            <Warehouse size={13} /> 🏢 Main Store ({stationCounts.main})
           </button>
           <button
             type="button"
@@ -658,7 +716,7 @@ const RawMaterials = () => {
                 : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
               }`}
           >
-            <UtensilsCrossed size={13} /> 🍳 Kitchen Station Stock
+            <UtensilsCrossed size={13} /> 🍳 Kitchen Station ({stationCounts.kitchen})
           </button>
           <button
             type="button"
@@ -668,14 +726,25 @@ const RawMaterials = () => {
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
               }`}
           >
-            <Coffee size={13} /> ☕ Bar Station Stock
+            <Coffee size={13} /> ☕ Bar Station ({stationCounts.bar})
           </button>
         </div>
-        {stationFilter !== 'all' && (
-          <span className="text-[11px] font-semibold text-ink-500 pr-2">
-            Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter} Station</strong>
-          </span>
-        )}
+
+        <div className="flex items-center gap-2.5 flex-wrap pr-1">
+          {stationFilter !== 'all' && (
+            <span className="text-[11px] font-semibold text-ink-500">
+              Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter === 'main' ? 'Main Store' : stationFilter} Station</strong>
+            </span>
+          )}
+          <Link
+            to="/settings?tab=stations"
+            className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition shadow-2xs"
+            title="Configure which raw material & recipe categories belong to Kitchen, Bar, or Main Store"
+          >
+            <Sliders size={12} className="text-blue-600" />
+            <span>Map Stations</span>
+          </Link>
+        </div>
       </div>
 
       {/* Quick Status Filter Tabs / Badges */}

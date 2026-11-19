@@ -126,6 +126,22 @@ const getSettings = asyncHandler(async (req, res) => {
       settings.autoApplyServiceChargeDineIn = false;
       modified = true;
     }
+    if (!settings.stationCategoryMapping || !settings.stationCategoryMapping.rawMaterialMap) {
+      settings.stationCategoryMapping = {
+        rawMaterialMap: {
+          'Bar': 'bar',
+          'Kitchen': 'kitchen',
+          'ferash Bazare': 'kitchen',
+          'Mendi': 'kitchen',
+          'Pastery': 'kitchen',
+          'CleanerMaterial': 'mainStore',
+          'Material': 'mainStore',
+        },
+        productMap: {},
+      };
+      settings.markModified('stationCategoryMapping');
+      modified = true;
+    }
     if (modified) await settings.save();
   }
   res.json(settings);
@@ -202,6 +218,17 @@ const updateSettings = asyncHandler(async (req, res) => {
   if (req.body.crudPermissions !== undefined) {
     settings.crudPermissions = req.body.crudPermissions;
     settings.markModified('crudPermissions');
+  }
+
+  // Station Category Mapping (Kitchen, Bar, Main Store)
+  if (req.body.stationCategoryMapping !== undefined) {
+    settings.stationCategoryMapping = req.body.stationCategoryMapping;
+    settings.markModified('stationCategoryMapping');
+  }
+
+  if (req.body.storeLocations !== undefined && Array.isArray(req.body.storeLocations)) {
+    settings.storeLocations = req.body.storeLocations;
+    settings.markModified('storeLocations');
   }
 
   // Customer Digital Menu Settings (toggles, contacts, maps, tables)
@@ -457,11 +484,36 @@ const deleteMenuReview = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Review deleted.' });
 });
 
+// @desc   Apply station category mapping to all materials in database
+// @route  POST /api/settings/apply-station-category-mapping
+// @access Private (Admin, Manager, Dev)
+const applyStationCategoryMapping = asyncHandler(async (req, res) => {
+  const RawMaterial = require('../models/RawMaterial');
+  let settings = await Setting.findOne();
+  const rawMap = req.body.rawMaterialMap || settings?.stationCategoryMapping?.rawMaterialMap || {};
+
+  const materials = await RawMaterial.find({ isActive: true });
+  let updatedCount = 0;
+
+  for (const m of materials) {
+    const station = rawMap[m.category] || (m.category === 'Bar' ? 'bar' : /produce|meat|food|mendi|paster|ferash|kitchen/i.test(m.category) ? 'kitchen' : 'mainStore');
+    const targetLoc = station === 'kitchen' ? 'Kitchen Store' : station === 'bar' ? 'Bar Store' : 'Main Store';
+    if (m.storeLocation !== targetLoc) {
+      m.storeLocation = targetLoc;
+      await m.save();
+      updatedCount++;
+    }
+  }
+
+  res.json({ success: true, count: materials.length, updatedCount });
+});
+
 module.exports = {
   getSettings,
   updateSettings,
   applyProductPriceAdjustment,
   applyRawMaterialPriceAdjustment,
+  applyStationCategoryMapping,
   updateDeveloperLicense,
   createMenuReview,
   getMenuReviews,

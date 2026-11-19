@@ -40,8 +40,10 @@ import {
   ShieldCheck,
   BarChart3,
   RefreshCw,
+  Boxes,
 } from 'lucide-react';
 import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
+import StationSettings from '../components/settings/StationSettings';
 import api from '../api/axios';
 import posPrint from '../utils/posPrint';
 import { checkLocalBridge, checkRelayStatus, pingPrinter as dispatcherPing, printTestPage as dispatcherTestPage } from '../utils/localPrintDispatcher';
@@ -847,6 +849,18 @@ export default function Settings() {
         >
           <Layers size={16} /> Role Privileges
         </button>
+
+        {hasRole('admin', 'manager', 'supervisor') && (
+          <button
+            onClick={() => setTab('stations')}
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'stations'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-ink-400 hover:text-ink-700'
+              }`}
+          >
+            <Boxes size={16} /> Stations &amp; Categories
+          </button>
+        )}
 
         {hasRole('admin') && (
           <button
@@ -4053,6 +4067,8 @@ export default function Settings() {
       })()}
 
       {currentTab === 'digitalMenu' && <DigitalMenuSettings />}
+
+      {currentTab === 'stations' && <StationSettings />}
 
     </div>
   );

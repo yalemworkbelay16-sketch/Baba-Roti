@@ -122,6 +122,23 @@ const settingSchema = new mongoose.Schema(
       ],
     },
 
+    // ── Station Category Mapping (maps Categories to Kitchen, Bar, Main Store) ──
+    stationCategoryMapping: {
+      type: Object,
+      default: {
+        rawMaterialMap: {
+          'Bar': 'bar',
+          'Kitchen': 'kitchen',
+          'ferash Bazare': 'kitchen',
+          'Mendi': 'kitchen',
+          'Pastery': 'kitchen',
+          'CleanerMaterial': 'mainStore',
+          'Material': 'mainStore',
+        },
+        productMap: {},
+      },
+    },
+
     // ── Customer Digital Menu & QR Settings ───────────────────────
     digitalMenuSettings: {
       type: Object,
