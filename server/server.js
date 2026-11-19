@@ -54,21 +54,23 @@ const autoSeed = async () => {
 const syncStationStocks = async () => {
   try {
     const RawMaterial = require('./models/RawMaterial');
-    const materials = await RawMaterial.find({ isActive: true });
-    let migrated = 0;
-    for (const m of materials) {
-      const main = Number(m.mainStoreStock || 0);
-      const kitchen = Number(m.kitchenStock || 0);
-      const bar = Number(m.barStock || 0);
-      if (main === 0 && kitchen === 0 && bar === 0 && Number(m.currentStock || 0) > 0) {
-        m.mainStoreStock = m.currentStock;
-        await m.save();
-        migrated++;
-      }
-    }
-    if (migrated > 0) {
-      console.log(`[MIGRATION] Initialized mainStoreStock for ${migrated} raw materials`);
-    }
+    // Instant atomic update for any material missing station breakdown
+    await RawMaterial.updateMany(
+      {
+        $or: [
+          { mainStoreStock: { $exists: false } },
+          { $and: [{ mainStoreStock: 0 }, { kitchenStock: 0 }, { barStock: 0 }, { currentStock: { $gt: 0 } }] }
+        ]
+      },
+      [{
+        $set: {
+          mainStoreStock: { $ifNull: ['$currentStock', 0] },
+          kitchenStock: { $ifNull: ['$kitchenStock', 0] },
+          barStock: { $ifNull: ['$barStock', 0] }
+        }
+      }]
+    );
+    console.log('[MIGRATION] Station stocks successfully synchronized');
   } catch (err) {
     console.warn('[MIGRATION] Station stocks sync warning:', err.message);
   }

@@ -107,7 +107,6 @@ async function resolveItemCosts(items) {
         shortfall: requestedQty - storeAvail,
       });
     }
-
     resolved.push({
       material: mat._id,
       requestedQty,
@@ -118,8 +117,6 @@ async function resolveItemCosts(items) {
     });
   }
   return { resolved, total, stockWarnings };
-}
-return { resolved, total, stockWarnings };
 }
 
 // ── GET /api/stock-requests ───────────────────────────────────────

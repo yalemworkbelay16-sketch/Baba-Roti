@@ -44,11 +44,11 @@ const getConsumptions = asyncHandler(async (req, res) => {
   // No deletedAt filter in DB query — filter in JS to handle all storage variants
   const filter = {};
   if (category) filter.category = category;
-  if (status)   filter.status   = status;
+  if (status) filter.status = status;
   if (from || to) {
     filter.date = {};
     if (from) filter.date.$gte = new Date(from);
-    if (to)   filter.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+    if (to) filter.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
   }
 
   const records = await Consumption.find(filter)
@@ -101,8 +101,8 @@ const createConsumption = asyncHandler(async (req, res) => {
     totalRecipeCost += totalCost;
 
     resolvedItems.push({
-      product:    product._id,
-      quantity:   Number(item.quantity),
+      product: product._id,
+      quantity: Number(item.quantity),
       recipeCost,
       totalCost,
     });
@@ -113,9 +113,9 @@ const createConsumption = asyncHandler(async (req, res) => {
     category,
     date: date ? new Date(date) : new Date(),
     beneficiary: beneficiary || '',
-    pax:         Number(pax) || 1,
-    department:  department || '',
-    items:       resolvedItems,
+    pax: Number(pax) || 1,
+    department: department || '',
+    items: resolvedItems,
     totalRecipeCost,
     notes: notes || '',
     performedBy: req.user._id,
@@ -159,14 +159,14 @@ const updateConsumption = asyncHandler(async (req, res) => {
       totalRecipeCost += totalCost;
       resolvedItems.push({ product: product._id, quantity: Number(item.quantity), recipeCost, totalCost });
     }
-    record.items           = resolvedItems;
+    record.items = resolvedItems;
     record.totalRecipeCost = totalRecipeCost;
   }
 
-  if (category)    record.category    = category;
-  if (date)        record.date        = new Date(date);
+  if (category) record.category = category;
+  if (date) record.date = new Date(date);
   if (beneficiary !== undefined) record.beneficiary = beneficiary;
-  if (pax)         record.pax         = Number(pax);
+  if (pax) record.pax = Number(pax);
   if (department !== undefined) record.department = department;
   if (notes !== undefined) record.notes = notes;
 
@@ -192,7 +192,7 @@ const approveConsumption = asyncHandler(async (req, res) => {
   // Deduct raw materials from stock
   await applyConsumptionStock(record.items);
 
-  record.status     = 'approved';
+  record.status = 'approved';
   record.approvedBy = req.user._id;
   record.approvedAt = new Date();
   record.trail.push({ action: 'approved', by: req.user._id, byName: req.user.name, byRole: req.user.role, note });
@@ -251,35 +251,35 @@ const deleteConsumption = asyncHandler(async (req, res) => {
 const getConsumptionSummary = asyncHandler(async (req, res) => {
   const { year, month } = req.query;
   const now = new Date();
-  const y = Number(year  || now.getFullYear());
+  const y = Number(year || now.getFullYear());
   const m = Number(month || now.getMonth() + 1);
 
   const from = new Date(y, m - 1, 1);
-  const to   = new Date(y, m, 0, 23, 59, 59);
+  const to = new Date(y, m, 0, 23, 59, 59);
 
   const records = await Consumption.find({
     $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
     status: 'approved',
-    date:   { $gte: from, $lte: to },
+    date: { $gte: from, $lte: to },
   });
 
   const summary = {};
   for (const cat of CONSUMPTION_CATEGORIES) {
     const catRecords = records.filter(r => r.category === cat);
     summary[cat] = {
-      label:      CATEGORY_LABELS[cat],
-      count:      catRecords.length,
-      pax:        catRecords.reduce((s, r) => s + (r.pax || 0), 0),
-      totalCost:  catRecords.reduce((s, r) => s + (r.totalRecipeCost || 0), 0),
+      label: CATEGORY_LABELS[cat],
+      count: catRecords.length,
+      pax: catRecords.reduce((s, r) => s + (r.pax || 0), 0),
+      totalCost: catRecords.reduce((s, r) => s + (r.totalRecipeCost || 0), 0),
     };
   }
 
   res.json({
     year: y,
     month: m,
-    totalCost:    (records || []).reduce((s, r) => s + (r.totalRecipeCost || 0), 0),
+    totalCost: (records || []).reduce((s, r) => s + (r.totalRecipeCost || 0), 0),
     totalRecords: records.length,
-    byCategory:   summary,
+    byCategory: summary,
   });
 });
 

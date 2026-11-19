@@ -19,8 +19,8 @@ const getMaterials = asyncHandler(async (req, res) => {
       m.currentStock <= 0
         ? 'out_of_stock'
         : m.currentStock <= m.reorderLevel
-        ? 'low_stock'
-        : 'in_stock',
+          ? 'low_stock'
+          : 'in_stock',
   }));
 
   if (status) {
@@ -100,24 +100,24 @@ const updateMaterial = asyncHandler(async (req, res) => {
 
   // Build a human-readable diff of what actually changed
   const watchedFields = [
-    { key: 'name',           label: 'Name' },
-    { key: 'category',       label: 'Category' },
-    { key: 'unit',           label: 'Unit' },
-    { key: 'unitCost',       label: 'Unit Cost',       format: v => `ETB ${Number(v).toFixed(2)}` },
+    { key: 'name', label: 'Name' },
+    { key: 'category', label: 'Category' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'unitCost', label: 'Unit Cost', format: v => `ETB ${Number(v).toFixed(2)}` },
     { key: 'mainStoreStock', label: 'Main Store Stock', format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'kitchenStock',   label: 'Kitchen Stock',    format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'barStock',       label: 'Bar Stock',        format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'currentStock',   label: 'Total Stock',      format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'reorderLevel',   label: 'Reorder Level',    format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'storeLocation',  label: 'Store Location' },
+    { key: 'kitchenStock', label: 'Kitchen Stock', format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'barStock', label: 'Bar Stock', format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'currentStock', label: 'Total Stock', format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'reorderLevel', label: 'Reorder Level', format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'storeLocation', label: 'Store Location' },
   ];
 
   const changes = watchedFields
     .filter(f => payload[f.key] !== undefined && String(before[f.key]) !== String(payload[f.key]))
     .map(f => ({
       label: f.label,
-      from:  f.format ? f.format(before[f.key], before) : String(before[f.key] ?? '—'),
-      to:    f.format ? f.format(payload[f.key], material) : String(payload[f.key]),
+      from: f.format ? f.format(before[f.key], before) : String(before[f.key] ?? '—'),
+      to: f.format ? f.format(payload[f.key], material) : String(payload[f.key]),
     }));
 
   tg.notifyMaterialUpdated(material, req.user, changes);
@@ -128,7 +128,7 @@ const updateMaterial = asyncHandler(async (req, res) => {
 const deleteMaterial = asyncHandler(async (req, res) => {
   const material = await RawMaterial.findById(req.params.id);
   if (!material) { res.status(404); throw new Error('Raw material not found'); }
-  material.isActive  = false;
+  material.isActive = false;
   material.deletedAt = new Date();
   material.deletedBy = req.user?.name || 'System';
   material.deletedFrom = 'materials';
@@ -153,9 +153,9 @@ const bulkDeleteMaterials = asyncHandler(async (req, res) => {
 const restoreMaterial = asyncHandler(async (req, res) => {
   const material = await RawMaterial.findById(req.params.id);
   if (!material) { res.status(404); throw new Error('Raw material not found'); }
-  material.isActive    = true;
-  material.deletedAt   = null;
-  material.deletedBy   = null;
+  material.isActive = true;
+  material.deletedAt = null;
+  material.deletedBy = null;
   material.deletedFrom = null;
   await material.save();
   invalidateDashboardCache();
@@ -316,7 +316,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     if (typeof res.flushHeaders === 'function') res.flushHeaders();
     send = (data) => {
       if (!res.writableEnded && res.writable) {
-        try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+        try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) { }
       }
     };
   }
