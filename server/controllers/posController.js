@@ -146,10 +146,13 @@ const createOrder = asyncHandler(async (req, res) => {
           totalCost: ingTotalCost,
         });
 
-        if (!materialDeductions[matId]) {
-          materialDeductions[matId] = { material: mat, totalQty: 0 };
+        const stationKey = (station === 'barista' || station === 'bar') ? 'bar' : 'kitchen';
+        const deductionKey = `${matId}_${stationKey}`;
+
+        if (!materialDeductions[deductionKey]) {
+          materialDeductions[deductionKey] = { material: mat, targetStation: stationKey, totalQty: 0 };
         }
-        materialDeductions[matId].totalQty += usedQty;
+        materialDeductions[deductionKey].totalQty += usedQty;
       }
     }
 
@@ -193,26 +196,31 @@ const createOrder = asyncHandler(async (req, res) => {
   let salesRecordId = null;
 
   if (paymentStatus === 'paid') {
-    // 1. Check stock availability if negative stock is disallowed
+    // 1. Check station stock availability if negative stock is disallowed
     if (!allowNegativeStock) {
-      for (const matId of Object.keys(materialDeductions)) {
-        const { material, totalQty } = materialDeductions[matId];
-        const currentBal = Number(material.currentStock || 0);
-        if (currentBal - totalQty < 0) {
+      for (const dKey of Object.keys(materialDeductions)) {
+        const { material, targetStation, totalQty } = materialDeductions[dKey];
+        const stationBal = targetStation === 'bar' ? Number(material.barStock || 0) : Number(material.kitchenStock || 0);
+        const stationName = targetStation === 'bar' ? 'Bar Station' : 'Kitchen Station';
+        if (stationBal - totalQty < 0) {
           res.status(400);
           throw new Error(
-            `Insufficient stock for "${material.name}". Available: ${currentBal} ${material.unit}, Required: ${totalQty.toFixed(2)} ${material.unit}`
+            `Insufficient ${stationName} stock for "${material.name}". Available in ${stationName}: ${stationBal} ${material.unit}, Required: ${totalQty.toFixed(2)} ${material.unit}. Please issue stock from Main Store.`
           );
         }
       }
     }
 
-    // 2. Perform atomic stock deductions
+    // 2. Perform atomic stock deductions from respective Station (Kitchen or Bar)
     const transactionItems = [];
-    for (const matId of Object.keys(materialDeductions)) {
-      const { material, totalQty } = materialDeductions[matId];
-      await RawMaterial.findByIdAndUpdate(matId, {
-        $inc: { currentStock: -totalQty },
+    for (const dKey of Object.keys(materialDeductions)) {
+      const { material, targetStation, totalQty } = materialDeductions[dKey];
+      const incUpdate = targetStation === 'bar'
+        ? { barStock: -totalQty, currentStock: -totalQty }
+        : { kitchenStock: -totalQty, currentStock: -totalQty };
+
+      await RawMaterial.findByIdAndUpdate(material._id, {
+        $inc: incUpdate,
       });
 
       transactionItems.push({
@@ -453,11 +461,15 @@ const voidOrder = asyncHandler(async (req, res) => {
   // Reverse stock deductions if stock was deducted
   if (order.stockTransaction && order.paymentStatus === 'paid') {
     for (const item of order.items) {
+      const isBar = item.station === 'barista' || item.station === 'bar';
       if (item.ingredientsUsed && item.ingredientsUsed.length > 0) {
         for (const ing of item.ingredientsUsed) {
           if (ing.materialId && ing.quantityUsed > 0) {
+            const incReverse = isBar
+              ? { barStock: ing.quantityUsed, currentStock: ing.quantityUsed }
+              : { kitchenStock: ing.quantityUsed, currentStock: ing.quantityUsed };
             await RawMaterial.findByIdAndUpdate(ing.materialId, {
-              $inc: { currentStock: ing.quantityUsed },
+              $inc: incReverse,
             });
           }
         }

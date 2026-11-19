@@ -53,7 +53,22 @@ const createMaterial = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Unit cost cannot be negative');
   }
-  const material = await RawMaterial.create(req.body);
+
+  const payload = { ...req.body };
+  const main = payload.mainStoreStock !== undefined ? Number(payload.mainStoreStock) : undefined;
+  const kitchen = payload.kitchenStock !== undefined ? Number(payload.kitchenStock) : 0;
+  const bar = payload.barStock !== undefined ? Number(payload.barStock) : 0;
+
+  if (main === undefined && payload.currentStock !== undefined) {
+    payload.mainStoreStock = Number(payload.currentStock) || 0;
+  } else if (main !== undefined) {
+    payload.mainStoreStock = main;
+    payload.kitchenStock = kitchen;
+    payload.barStock = bar;
+    payload.currentStock = main + kitchen + bar;
+  }
+
+  const material = await RawMaterial.create(payload);
   tg.notifyMaterialCreated(material, req.user);
   invalidateDashboardCache();
   res.status(201).json(material);
@@ -64,28 +79,45 @@ const updateMaterial = asyncHandler(async (req, res) => {
   const before = await RawMaterial.findById(req.params.id).lean();
   if (!before) { res.status(404); throw new Error('Raw material not found'); }
 
-  const material = await RawMaterial.findByIdAndUpdate(req.params.id, req.body, {
+  const payload = { ...req.body };
+  if (payload.mainStoreStock !== undefined || payload.kitchenStock !== undefined || payload.barStock !== undefined) {
+    const main = Number(payload.mainStoreStock !== undefined ? payload.mainStoreStock : before.mainStoreStock ?? before.currentStock ?? 0);
+    const kitchen = Number(payload.kitchenStock !== undefined ? payload.kitchenStock : before.kitchenStock ?? 0);
+    const bar = Number(payload.barStock !== undefined ? payload.barStock : before.barStock ?? 0);
+    payload.mainStoreStock = main;
+    payload.kitchenStock = kitchen;
+    payload.barStock = bar;
+    payload.currentStock = main + kitchen + bar;
+  } else if (payload.currentStock !== undefined) {
+    const diff = Number(payload.currentStock) - Number(before.currentStock || 0);
+    payload.mainStoreStock = Math.max(0, Number(before.mainStoreStock ?? before.currentStock ?? 0) + diff);
+  }
+
+  const material = await RawMaterial.findByIdAndUpdate(req.params.id, payload, {
     new: true,
     runValidators: true,
   });
 
   // Build a human-readable diff of what actually changed
   const watchedFields = [
-    { key: 'name',          label: 'Name' },
-    { key: 'category',      label: 'Category' },
-    { key: 'unit',          label: 'Unit' },
-    { key: 'unitCost',      label: 'Unit Cost',      format: v => `ETB ${Number(v).toFixed(2)}` },
-    { key: 'currentStock',  label: 'Current Stock',  format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'reorderLevel',  label: 'Reorder Level',  format: (v, m) => `${v} ${m?.unit || ''}` },
-    { key: 'storeLocation', label: 'Store Location' },
+    { key: 'name',           label: 'Name' },
+    { key: 'category',       label: 'Category' },
+    { key: 'unit',           label: 'Unit' },
+    { key: 'unitCost',       label: 'Unit Cost',       format: v => `ETB ${Number(v).toFixed(2)}` },
+    { key: 'mainStoreStock', label: 'Main Store Stock', format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'kitchenStock',   label: 'Kitchen Stock',    format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'barStock',       label: 'Bar Stock',        format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'currentStock',   label: 'Total Stock',      format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'reorderLevel',   label: 'Reorder Level',    format: (v, m) => `${v} ${m?.unit || ''}` },
+    { key: 'storeLocation',  label: 'Store Location' },
   ];
 
   const changes = watchedFields
-    .filter(f => req.body[f.key] !== undefined && String(before[f.key]) !== String(req.body[f.key]))
+    .filter(f => payload[f.key] !== undefined && String(before[f.key]) !== String(payload[f.key]))
     .map(f => ({
       label: f.label,
       from:  f.format ? f.format(before[f.key], before) : String(before[f.key] ?? '—'),
-      to:    f.format ? f.format(req.body[f.key], material) : String(req.body[f.key]),
+      to:    f.format ? f.format(payload[f.key], material) : String(payload[f.key]),
     }));
 
   tg.notifyMaterialUpdated(material, req.user, changes);
@@ -195,16 +227,19 @@ const exportMaterialsExcel = asyncHandler(async (req, res) => {
     'Material Name': m.name,
     'Category': m.category || 'General',
     'Unit': m.unit || 'pcs',
-    'Current Stock': m.currentStock || 0,
-    'Reorder Level': m.reorderLevel || 10,
-    'Unit Cost (ETB)': m.unitCost || 0,
+    'Main Store': Number(m.mainStoreStock ?? m.currentStock ?? 0),
+    'Kitchen': Number(m.kitchenStock || 0),
+    'Bar': Number(m.barStock || 0),
+    'Total Stock': Number(m.currentStock || 0),
+    'Reorder Level': Number(m.reorderLevel || 10),
+    'Unit Cost (ETB)': Number(m.unitCost || 0),
     'Store Location': m.storeLocation || 'Main Store',
     'Status': m.status,
   }));
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [12, 24, 16, 10, 14, 14, 16, 16, 12].map((w) => ({ wch: w }));
+  ws['!cols'] = [12, 24, 16, 10, 14, 12, 12, 14, 14, 16, 16, 12].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, 'Raw Materials');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
@@ -221,7 +256,10 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
       'Material Name': 'Special Bread Flour',
       'Category': 'Bakery & Grains',
       'Unit': 'kg',
-      'Current Stock': 50,
+      'Main Store': 40,
+      'Kitchen': 10,
+      'Bar': 0,
+      'Total Stock': 50,
       'Reorder Level': 10,
       'Unit Cost (ETB)': 120.00,
       'Store Location': 'Dry Store Room A',
@@ -231,7 +269,10 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
       'Material Name': 'Butter Unsalted',
       'Category': 'Dairy & Eggs',
       'Unit': 'kg',
-      'Current Stock': 20,
+      'Main Store': 15,
+      'Kitchen': 5,
+      'Bar': 0,
+      'Total Stock': 20,
       'Reorder Level': 5,
       'Unit Cost (ETB)': 450.00,
       'Store Location': 'Cold Storage',
@@ -241,7 +282,10 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
       'Material Name': 'Coffee Beans Arabica',
       'Category': 'Beverages',
       'Unit': 'kg',
-      'Current Stock': 15,
+      'Main Store': 10,
+      'Kitchen': 0,
+      'Bar': 5,
+      'Total Stock': 15,
       'Reorder Level': 4,
       'Unit Cost (ETB)': 600.00,
       'Store Location': 'Baristas Cupboard',
@@ -250,7 +294,7 @@ const exportMaterialTemplate = asyncHandler(async (req, res) => {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [12, 26, 18, 10, 14, 14, 16, 20].map((w) => ({ wch: w }));
+  ws['!cols'] = [12, 26, 18, 10, 12, 12, 12, 14, 14, 16, 20].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, 'Materials Template');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
@@ -338,8 +382,17 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     'category', 'material category', 'group', 'type', 'department', 'section', 'ምድብ'
   ];
   const stockKeys = [
-    'current stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity',
+    'current stock', 'total stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity',
     'balance', 'available stock', 'on hand', 'inventory', 'count', 'መጠን', 'ብዛት', 'ያለ ክምችት'
+  ];
+  const mainStockKeys = [
+    'main store', 'main store stock', 'main stock', 'warehouse stock', 'store stock', 'ዋና መጋዘን'
+  ];
+  const kitchenStockKeys = [
+    'kitchen', 'kitchen stock', 'kitchen store', 'ክችን', 'ኩሽና'
+  ];
+  const barStockKeys = [
+    'bar', 'bar stock', 'barista', 'bar store', 'ባር'
   ];
   const unitKeys = [
     'unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement', 'መለኪያ', 'መጠኛ'
@@ -444,6 +497,9 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
       if (code === '—' || code === '-' || code.toLowerCase() === 'null') code = '';
 
       const category = String(getColValue(row, categoryKeys) || 'General').trim();
+      const rawMainStock = getColValue(row, mainStockKeys);
+      const rawKitchenStock = getColValue(row, kitchenStockKeys);
+      const rawBarStock = getColValue(row, barStockKeys);
       const rawStock = getColValue(row, stockKeys);
       const rawReorder = getColValue(row, reorderKeys);
       const rawCost = getColValue(row, costKeys);
@@ -453,7 +509,18 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
       let unit = String(rawUnit || extractUnit(rawStock) || extractUnit(rawReorder) || 'pcs').trim();
       if (!unit) unit = 'pcs';
 
-      const currentStock = parseNumber(rawStock, 0);
+      const parsedTotal = parseNumber(rawStock, 0);
+      let mainStoreStock = rawMainStock !== undefined ? parseNumber(rawMainStock, 0) : undefined;
+      let kitchenStock = rawKitchenStock !== undefined ? parseNumber(rawKitchenStock, 0) : 0;
+      let barStock = rawBarStock !== undefined ? parseNumber(rawBarStock, 0) : 0;
+      let currentStock = parsedTotal;
+
+      if (mainStoreStock === undefined) {
+        mainStoreStock = currentStock;
+      } else {
+        currentStock = mainStoreStock + kitchenStock + barStock;
+      }
+
       const reorderLevel = parseNumber(rawReorder, 10);
       const unitCost = parseNumber(rawCost, 0);
 
@@ -461,6 +528,9 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
         name,
         category,
         unit,
+        mainStoreStock,
+        kitchenStock,
+        barStock,
         currentStock,
         reorderLevel,
         unitCost,

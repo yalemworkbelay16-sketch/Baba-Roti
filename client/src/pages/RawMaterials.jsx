@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse, UtensilsCrossed, Coffee } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/ui/DataTable';
@@ -8,7 +8,19 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import { exportToExcel } from '../utils/exportUtils';
-const emptyForm = { code: '', name: '', category: '', unit: '', currentStock: 0, reorderLevel: 10, unitCost: 0, storeLocation: 'Main Store' };
+const emptyForm = {
+  code: '',
+  name: '',
+  category: '',
+  unit: '',
+  mainStoreStock: 0,
+  kitchenStock: 0,
+  barStock: 0,
+  currentStock: 0,
+  reorderLevel: 10,
+  unitCost: 0,
+  storeLocation: 'Main Store',
+};
 
 // Common units for hospitality / kitchen / store
 const UNITS = [
@@ -157,7 +169,13 @@ const RawMaterials = () => {
     const allCategories = [...CATEGORIES.flatMap(g => g.items), ...existingCategories];
     const isPresetCat = allCategories.includes(m.category);
     setEditing(m);
-    setForm(m);
+    setForm({
+      ...m,
+      mainStoreStock: m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock || 0,
+      kitchenStock: m.kitchenStock || 0,
+      barStock: m.barStock || 0,
+      currentStock: m.currentStock || 0,
+    });
     setUnitCustom(!isPresetUnit && !!m.unit);
     setCategoryCustom(!isPresetCat && !!m.category);
     setModalOpen(true);
@@ -359,9 +377,67 @@ const RawMaterials = () => {
     { key: 'code', header: 'Code', render: (r) => <span className="font-mono text-xs text-ink-400">{r.code || '—'}</span> },
     { key: 'name', header: 'Material' },
     { key: 'category', header: 'Category' },
-    { key: 'currentStock', header: 'In stock', render: (r) => <span className="tabular">{r.currentStock} {r.unit}</span> },
-    { key: 'reorderLevel', header: 'Reorder at', render: (r) => <span className="tabular">{r.reorderLevel} {r.unit}</span> },
-    { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular">ETB {Number(r.unitCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span> },
+    {
+      key: 'mainStoreStock',
+      header: (
+        <span className="inline-flex items-center gap-1 text-blue-700 font-semibold" title="Main Store Warehouse">
+          <Warehouse size={13} className="text-blue-500" /> Main Store
+        </span>
+      ),
+      render: (r) => {
+        const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
+        return (
+          <span className={`tabular font-medium ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
+            {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+          </span>
+        );
+      },
+    },
+    {
+      key: 'kitchenStock',
+      header: (
+        <span className="inline-flex items-center gap-1 text-amber-700 font-semibold" title="Kitchen Station Working Stock">
+          <UtensilsCrossed size={13} className="text-amber-500" /> Kitchen
+        </span>
+      ),
+      render: (r) => {
+        const val = Number(r.kitchenStock || 0);
+        return (
+          <span className={`tabular font-medium ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
+            {val > 0 ? `${val} ` : '—'}
+            {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'barStock',
+      header: (
+        <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold" title="Bar Station Working Stock">
+          <Coffee size={13} className="text-emerald-500" /> Bar
+        </span>
+      ),
+      render: (r) => {
+        const val = Number(r.barStock || 0);
+        return (
+          <span className={`tabular font-medium ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
+            {val > 0 ? `${val} ` : '—'}
+            {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'currentStock',
+      header: 'Total Stock',
+      render: (r) => (
+        <span className="tabular font-bold text-ink-900">
+          {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+        </span>
+      ),
+    },
+    { key: 'reorderLevel', header: 'Reorder at', render: (r) => <span className="tabular text-xs text-ink-500">{r.reorderLevel} {r.unit}</span> },
+    { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular text-xs font-semibold text-ink-800">ETB {Number(r.unitCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
     { key: 'status', header: 'Status', render: (r) => statusBadge(r.status) },
     ...((canEdit || canDelete) ? [{
       key: 'actions', header: '',
@@ -384,7 +460,10 @@ const RawMaterials = () => {
       'Material Name': m.name,
       'Category': m.category || 'General',
       'Unit': m.unit || 'pcs',
-      'Current Stock': Number(m.currentStock || 0),
+      'Main Store': Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0),
+      'Kitchen': Number(m.kitchenStock || 0),
+      'Bar': Number(m.barStock || 0),
+      'Total Stock': Number(m.currentStock || 0),
       'Reorder Level': Number(m.reorderLevel || 10),
       'Unit Cost (ETB)': Number(m.unitCost || 0),
       'Store Location': m.storeLocation || 'Main Store',
@@ -396,7 +475,10 @@ const RawMaterials = () => {
     { header: 'Code', accessor: 'Code' },
     { header: 'Material Name', accessor: 'Material Name' },
     { header: 'Category', accessor: 'Category' },
-    { header: 'In Stock', accessor: 'In Stock', align: 'right' },
+    { header: 'Main Store', accessor: 'Main Store', align: 'right' },
+    { header: 'Kitchen', accessor: 'Kitchen', align: 'right' },
+    { header: 'Bar', accessor: 'Bar', align: 'right' },
+    { header: 'Total Stock', accessor: 'Total Stock', align: 'right' },
     { header: 'Reorder Level', accessor: 'Reorder Level', align: 'right' },
     { header: 'Unit Cost (ETB)', accessor: 'Unit Cost (ETB)', align: 'right' },
     { header: 'Status', accessor: 'Status', align: 'center' },
@@ -778,13 +860,70 @@ const RawMaterials = () => {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Current stock</label>
-              <input type="number" step="any" required value={form.currentStock}
-                onChange={(e) => setForm({ ...form, currentStock: e.target.value === '' ? '' : Number(e.target.value) })}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
+          {/* Station Stocks breakdown */}
+          <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-3">
+            <div className="text-xs font-bold text-ink-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Inventory by Station / Department</span>
+              <span className="text-ink-500 font-semibold text-[11px]">
+                Total: <strong className="text-ink-900 font-bold">{((Number(form.mainStoreStock) || 0) + (Number(form.kitchenStock) || 0) + (Number(form.barStock) || 0))} {form.unit || ''}</strong>
+              </span>
             </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-blue-700 flex items-center gap-1">
+                  <Warehouse size={12} /> Main Store
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.mainStoreStock ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? '' : Number(e.target.value);
+                    const k = Number(form.kitchenStock || 0);
+                    const b = Number(form.barStock || 0);
+                    setForm({ ...form, mainStoreStock: val, currentStock: (Number(val) || 0) + k + b });
+                  }}
+                  className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-900 outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-amber-700 flex items-center gap-1">
+                  <UtensilsCrossed size={12} /> Kitchen
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.kitchenStock ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? '' : Number(e.target.value);
+                    const m = Number(form.mainStoreStock || 0);
+                    const b = Number(form.barStock || 0);
+                    setForm({ ...form, kitchenStock: val, currentStock: m + (Number(val) || 0) + b });
+                  }}
+                  className="w-full rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                  <Coffee size={12} /> Bar
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.barStock ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? '' : Number(e.target.value);
+                    const m = Number(form.mainStoreStock || 0);
+                    const k = Number(form.kitchenStock || 0);
+                    setForm({ ...form, barStock: val, currentStock: m + k + (Number(val) || 0) });
+                  }}
+                  className="w-full rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-900 outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Reorder level</label>
               <input type="number" step="any" required value={form.reorderLevel}
@@ -792,7 +931,7 @@ const RawMaterials = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Unit cost</label>
+              <label className="mb-1 block text-sm font-medium text-ink-600">Unit cost (ETB)</label>
               <input type="number" step="any" value={form.unitCost}
                 onChange={(e) => setForm({ ...form, unitCost: e.target.value === '' ? '' : Number(e.target.value) })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />

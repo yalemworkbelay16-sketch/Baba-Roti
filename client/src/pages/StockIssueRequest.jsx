@@ -222,14 +222,16 @@ export default function StockIssueRequest() {
     if (formType === 'direct_issue') {
       const overItems = validItems.filter(i => {
         const mat = materials.find(m => m._id === i.material);
-        return mat && Number(i.requestedQty) > mat.currentStock;
+        const storeStock = Number(mat?.mainStoreStock !== undefined ? mat.mainStoreStock : mat?.currentStock ?? 0);
+        return mat && Number(i.requestedQty) > storeStock;
       });
       if (overItems.length > 0) {
         const msgs = overItems.map(i => {
           const mat = materials.find(m => m._id === i.material);
-          return `${mat?.name}: requested ${i.requestedQty} but only ${mat?.currentStock} ${mat?.unit} available`;
+          const storeStock = Number(mat?.mainStoreStock !== undefined ? mat.mainStoreStock : mat?.currentStock ?? 0);
+          return `${mat?.name}: requested ${i.requestedQty} but only ${storeStock} ${mat?.unit} in Main Store`;
         }).join('\n');
-        setFormError(`⚠ Insufficient stock for direct issue:\n${msgs}`);
+        setFormError(`⚠ Insufficient Main Store stock for issue:\n${msgs}`);
         return;
       }
     }
@@ -347,7 +349,7 @@ export default function StockIssueRequest() {
 
   const getMaterialStock = (matId) => {
     const mat = materials.find(m => (m._id || m) === matId);
-    return mat?.currentStock ?? '—';
+    return mat?.mainStoreStock !== undefined ? mat.mainStoreStock : mat?.currentStock ?? '—';
   };
 
   const getMaterialUnit = (matId) => {
@@ -785,7 +787,7 @@ export default function StockIssueRequest() {
                           {mat && (
                             <div className="col-span-3 flex items-center gap-3 text-[10px] text-ink-500 -mt-1 px-1">
                               <span>Unit: <strong>{mat.unit}</strong></span>
-                              <span>In stock: <strong className={mat.currentStock < item.requestedQty ? 'text-rose-600' : 'text-emerald-700'}>{mat.currentStock}</strong></span>
+                              <span>Main Store: <strong className={(mat.mainStoreStock !== undefined ? mat.mainStoreStock : mat.currentStock) < item.requestedQty ? 'text-rose-600' : 'text-blue-700'}>{mat.mainStoreStock !== undefined ? mat.mainStoreStock : mat.currentStock}</strong></span>
                               <span>Unit cost: <strong>{formatETB(mat.unitCost)}</strong></span>
                             </div>
                           )}
@@ -866,7 +868,7 @@ export default function StockIssueRequest() {
                 </button>
               </div>
               <p className="text-xs text-white/70 mt-1">
-                {actionTarget.voucherNo} · {actionTarget.department}
+                {actionTarget.voucherNo} · Main Store ➔ {actionTarget.department}
               </p>
             </div>
 
@@ -875,7 +877,7 @@ export default function StockIssueRequest() {
               <div className="rounded-xl border border-ink-100 bg-ink-50/40 p-3 space-y-2.5">
                 {actionTarget.items?.map((item, i) => {
                   const matId       = item.material?._id || item.material;
-                  const currentStock = item.material?.currentStock ?? 0;
+                  const currentStock = Number(item.material?.mainStoreStock !== undefined ? item.material.mainStoreStock : item.material?.currentStock ?? 0);
                   const issueQty    = Number(issueQtys[matId] ?? item.requestedQty);
                   const isOverStock = actionType === 'issue' && issueQty > currentStock;
 
@@ -886,12 +888,12 @@ export default function StockIssueRequest() {
                         {actionType === 'issue' && (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             currentStock >= issueQty
-                              ? 'bg-emerald-100 text-emerald-700'
+                              ? 'bg-blue-100 text-blue-700'
                               : 'bg-amber-100 text-amber-800'
                           }`}>
                             {currentStock >= issueQty
-                              ? `✓ ${currentStock} ${item.material?.unit} in store`
-                              : `⚡ Store stock: ${currentStock} ${item.material?.unit}`
+                              ? `✓ ${currentStock} ${item.material?.unit} in Main Store`
+                              : `⚡ Main Store stock: ${currentStock} ${item.material?.unit}`
                             }
                           </span>
                         )}

@@ -1,10 +1,10 @@
-const asyncHandler        = require('express-async-handler');
-const StockRequest        = require('../models/StockRequest');
-const RawMaterial         = require('../models/RawMaterial');
-const { DEPARTMENTS }     = require('../models/StockRequest');
+const asyncHandler = require('express-async-handler');
+const StockRequest = require('../models/StockRequest');
+const RawMaterial = require('../models/RawMaterial');
+const { DEPARTMENTS } = require('../models/StockRequest');
 const { invalidateDashboardCache } = require('./dashboardController');
-const tg                  = require('../utils/telegramNotifier');
-const notify              = require('../utils/notificationHelper');
+const tg = require('../utils/telegramNotifier');
+const notify = require('../utils/notificationHelper');
 
 // ── In-memory fast cache for stock request summary (TTL 30s) ──────
 let summaryCache = null;
@@ -23,24 +23,57 @@ const generateVoucherNo = async () => {
   return `SIR-${String(count + 1).padStart(5, '0')}`;
 };
 
-// ── Helper: apply/reverse stock deduction ────────────────────────
-// In single main-branch mode, affectsStock defaults to false.
-// Internal handoffs do NOT deduct RawMaterial.currentStock;
-// consumption occurs when sales are imported/recorded.
-async function applyStockDeduction(items, reverse = false, affectsStock = false) {
-  if (!affectsStock) {
-    // Single main-branch mode: internal handoffs do NOT deduct RawMaterial.currentStock.
-    // Stock is deducted upon Sales Import / menu item sales.
-    return;
-  }
+// ── Helper: execute stock transfer from Main Store to Kitchen / Bar ────────
+// 1. Kitchen issue: Main Store stock decreases, Kitchen stock increases
+// 2. Bar issue: Main Store stock decreases, Bar stock increases
+// 3. Other (Housekeeping/Laundry/etc.): Direct consumption from Main Store
+async function executeStockTransfer(items, department, reverse = false) {
+  const dept = String(department || '').toLowerCase();
+  const isKitchen = ['kitchen', 'restaurant', 'pastry & bakery store', 'pastry', 'bakery'].some(d => dept.includes(d));
+  const isBar = ['bar', 'barista', 'beverage', 'drinks'].some(d => dept.includes(d));
+
+  const round = (n) => Math.round((Number(n) || 0) * 1000) / 1000;
+
   for (const item of items) {
-    const mat = await RawMaterial.findById(item.material);
+    const matId = item.material?._id || item.material;
+    const mat = await RawMaterial.findById(matId);
     if (!mat) continue;
-    const qty = item.issuedQty || item.requestedQty;
-    mat.currentStock = reverse
-      ? mat.currentStock + qty
-      : mat.currentStock - qty;
-    if (mat.currentStock < 0) mat.currentStock = 0;
+    const qty = Number(item.issuedQty || item.requestedQty || 0);
+    if (qty <= 0) continue;
+
+    const mainStore = Number(mat.mainStoreStock ?? mat.currentStock ?? 0);
+    const kitchen = Number(mat.kitchenStock || 0);
+    const bar = Number(mat.barStock || 0);
+
+    if (isKitchen) {
+      if (!reverse) {
+        mat.mainStoreStock = round(Math.max(0, mainStore - qty));
+        mat.kitchenStock = round(kitchen + qty);
+      } else {
+        mat.mainStoreStock = round(mainStore + qty);
+        mat.kitchenStock = round(Math.max(0, kitchen - qty));
+      }
+      mat.currentStock = round((mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
+    } else if (isBar) {
+      if (!reverse) {
+        mat.mainStoreStock = round(Math.max(0, mainStore - qty));
+        mat.barStock = round(bar + qty);
+      } else {
+        mat.mainStoreStock = round(mainStore + qty);
+        mat.barStock = round(Math.max(0, bar - qty));
+      }
+      mat.currentStock = round((mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
+    } else {
+      // Direct departmental consumption (Housekeeping, Laundry, Maintenance, etc.)
+      if (!reverse) {
+        mat.mainStoreStock = round(Math.max(0, mainStore - qty));
+        mat.currentStock = round(Math.max(0, Number(mat.currentStock || 0) - qty));
+      } else {
+        mat.mainStoreStock = round(mainStore + qty);
+        mat.currentStock = round(Number(mat.currentStock || 0) + qty);
+      }
+    }
+
     await mat.save();
   }
 }
@@ -49,7 +82,7 @@ async function applyStockDeduction(items, reverse = false, affectsStock = false)
 async function resolveItemCosts(items) {
   let total = 0;
   const resolved = [];
-  const stockWarnings = []; // items where requestedQty > currentStock
+  const stockWarnings = [];
 
   for (const item of items) {
     if (!item.material) throw new Error('Material is required for each item');
@@ -57,27 +90,28 @@ async function resolveItemCosts(items) {
     if (isNaN(requestedQty) || requestedQty <= 0) {
       throw new Error('Requested quantity must be greater than zero');
     }
-    const mat = await RawMaterial.findById(item.material).select('unitCost name unit currentStock');
+    const mat = await RawMaterial.findById(item.material).select('unitCost name unit currentStock mainStoreStock kitchenStock barStock');
     if (!mat) throw new Error(`Material not found: ${item.material}`);
-    const unitCost    = Math.max(0, Number(mat.unitCost) || 0);
-    const totalCost   = Math.round(unitCost * requestedQty * 100) / 100;
+    const unitCost = Math.max(0, Number(mat.unitCost) || 0);
+    const totalCost = Math.round(unitCost * requestedQty * 100) / 100;
     total += totalCost;
 
-    // Flag if requested exceeds available stock
-    if (requestedQty > mat.currentStock) {
+    // Available stock in Main Store Warehouse
+    const storeAvail = Number(mat.mainStoreStock ?? mat.currentStock ?? 0);
+    if (requestedQty > storeAvail) {
       stockWarnings.push({
-        name:        mat.name,
-        unit:        mat.unit,
-        requested:   requestedQty,
-        available:   mat.currentStock,
-        shortfall:   requestedQty - mat.currentStock,
+        name: mat.name,
+        unit: mat.unit,
+        requested: requestedQty,
+        available: storeAvail,
+        shortfall: requestedQty - storeAvail,
       });
     }
 
     resolved.push({
-      material:     mat._id,
+      material: mat._id,
       requestedQty,
-      issuedQty:    0,
+      issuedQty: 0,
       unitCost,
       totalCost,
       note: item.note || '',
@@ -85,19 +119,21 @@ async function resolveItemCosts(items) {
   }
   return { resolved, total, stockWarnings };
 }
+return { resolved, total, stockWarnings };
+}
 
 // ── GET /api/stock-requests ───────────────────────────────────────
 const getStockRequests = asyncHandler(async (req, res) => {
   const { status, department, from, to, type, limit = 100 } = req.query;
   const filter = { deletedAt: null };
 
-  if (status)     filter.status     = status;
+  if (status) filter.status = status;
   if (department) filter.department = department;
-  if (type)       filter.requestType = type;
+  if (type) filter.requestType = type;
   if (from || to) {
     filter.date = {};
     if (from) filter.date.$gte = new Date(from);
-    if (to)   filter.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+    if (to) filter.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
   }
 
   const maxLimit = Math.min(Number(limit) || 100, 200);
@@ -119,10 +155,10 @@ const getStockRequestById = asyncHandler(async (req, res) => {
   const request = await StockRequest.findById(req.params.id)
     .populate('items.material', 'name unit unitCost currentStock category')
     .populate('requestedBy', 'name role email')
-    .populate('approvedBy',  'name role')
-    .populate('issuedBy',    'name role')
-    .populate('rejectedBy',  'name role')
-    .populate('trail.by',    'name')
+    .populate('approvedBy', 'name role')
+    .populate('issuedBy', 'name role')
+    .populate('rejectedBy', 'name role')
+    .populate('trail.by', 'name')
     .lean();
 
   if (!request || request.deletedAt) {
@@ -171,28 +207,28 @@ const createStockRequest = asyncHandler(async (req, res) => {
   const newRequest = await StockRequest.create({
     voucherNo,
     requestType: isDirectIssue ? 'direct_issue' : 'request',
-    affectsStock: false, // Internal departmental hand-off in main branch; sales handle stock deduction
+    affectsStock: true,
     department,
     requestedBy: req.user._id,
     requestedAt: date ? new Date(date) : new Date(),
-    items:       resolved,
-    priority:    priority || 'normal',
+    items: resolved,
+    priority: priority || 'normal',
     status,
-    totalCost:   total,
-    notes:       notes || '',
-    date:        date ? new Date(date) : new Date(),
-    issuedBy:    isDirectIssue ? req.user._id : undefined,
-    issuedAt:    isDirectIssue ? new Date() : undefined,
+    totalCost: total,
+    notes: notes || '',
+    date: date ? new Date(date) : new Date(),
+    issuedBy: isDirectIssue ? req.user._id : undefined,
+    issuedAt: isDirectIssue ? new Date() : undefined,
     trail: [trailEntry],
   });
 
-  // Deduct stock immediately only if affectsStock is explicitly true
-  if (isDirectIssue && newRequest.affectsStock) {
-    await applyStockDeduction(resolved, false, true);
+  // Execute internal transfer from Main Store to Kitchen / Bar immediately for direct issue
+  if (isDirectIssue) {
+    await executeStockTransfer(resolved, department, false);
   }
 
   const populated = await StockRequest.findById(newRequest._id)
-    .populate('items.material', 'name unit unitCost')
+    .populate('items.material', 'name unit unitCost mainStoreStock kitchenStock barStock currentStock')
     .populate('requestedBy', 'name role')
     .lean();
 
@@ -220,12 +256,12 @@ const updateStockRequest = asyncHandler(async (req, res) => {
 
   if (items && items.length) {
     const { resolved, total } = await resolveItemCosts(items);
-    request.items     = resolved;
+    request.items = resolved;
     request.totalCost = total;
   }
   if (department && DEPARTMENTS.includes(department)) request.department = department;
   if (notes !== undefined) request.notes = notes;
-  if (priority)            request.priority = priority;
+  if (priority) request.priority = priority;
 
   await request.save();
 
@@ -249,9 +285,9 @@ const approveStockRequest = asyncHandler(async (req, res) => {
     res.status(400); throw new Error(`Cannot approve a request in "${request.status}" status`);
   }
 
-  request.status      = 'approved';
-  request.approvedBy  = req.user._id;
-  request.approvedAt  = new Date();
+  request.status = 'approved';
+  request.approvedBy = req.user._id;
+  request.approvedAt = new Date();
   request.approveNote = note;
   request.trail.push({
     action: 'approved',
@@ -325,9 +361,9 @@ const issueStock = asyncHandler(async (req, res) => {
   // Recalculate total
   request.totalCost = request.items.reduce((s, i) => s + (i.totalCost || 0), 0);
 
-  request.status    = 'issued';
-  request.issuedBy  = req.user._id;
-  request.issuedAt  = new Date();
+  request.status = 'issued';
+  request.issuedBy = req.user._id;
+  request.issuedAt = new Date();
   request.issueNote = note;
   request.trail.push({
     action: 'issued',
@@ -339,21 +375,19 @@ const issueStock = asyncHandler(async (req, res) => {
 
   await request.save();
 
-  // Deduct stock only if affectsStock is explicitly true (false for main-branch internal issue)
-  if (request.affectsStock) {
-    await applyStockDeduction(request.items, false, true);
-  }
+  // Execute internal stock transfer from Main Store to Kitchen / Bar
+  await executeStockTransfer(request.items, request.department, false);
 
   const populated = await StockRequest.findById(request._id)
-    .populate('items.material', 'name unit unitCost currentStock')
+    .populate('items.material', 'name unit unitCost currentStock mainStoreStock kitchenStock barStock')
     .populate('requestedBy approvedBy issuedBy', 'name role')
     .lean();
 
   invalidateDashboardCache();
   tg.notifyStockIssued && tg.notifyStockIssued(populated, req.user);
-  notify.push({ type: 'stock_request', title: 'Stock Issued', message: `${req.user.name} issued stock for ${populated.department} — ETB ${Number(populated.totalCost || 0).toLocaleString()} (Internal hand-off)`, icon: '📦', link: '/stock-requests', severity: 'success', userId: req.user._id });
+  notify.push({ type: 'stock_request', title: 'Stock Issued', message: `${req.user.name} issued stock for ${populated.department} — ETB ${Number(populated.totalCost || 0).toLocaleString()} (Transferred from Main Store to ${populated.department})`, icon: '📦', link: '/stock-requests', severity: 'success', userId: req.user._id });
   res.json({
-    message: 'Stock issued successfully (Internal hand-off · Raw material stock remains intact for sales consumption).',
+    message: `Stock issued successfully. Transferred from Main Store to ${populated.department}.`,
     request: populated,
     stockWarnings,
   });
@@ -370,9 +404,9 @@ const rejectStockRequest = asyncHandler(async (req, res) => {
     res.status(400); throw new Error(`Cannot reject a request in "${request.status}" status`);
   }
 
-  request.status       = 'rejected';
-  request.rejectedBy   = req.user._id;
-  request.rejectedAt   = new Date();
+  request.status = 'rejected';
+  request.rejectedBy = req.user._id;
+  request.rejectedAt = new Date();
   request.rejectReason = reason;
   request.trail.push({
     action: 'rejected',

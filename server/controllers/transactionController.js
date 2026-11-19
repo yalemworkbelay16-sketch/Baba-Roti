@@ -8,6 +8,7 @@ const { invalidateDashboardCache } = require('./dashboardController');
 const { hasPermission } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
+const { determineProductStation } = require('../utils/stationHelper');
 
 // ── helpers ───────────────────────────────────────────────────────────
 const verifyUserPassword = async (userId, password) => {
@@ -305,7 +306,13 @@ const deleteTransaction = asyncHandler(async (req, res) => {
     for (const item of itemsToReverse) {
       const mat = await RawMaterial.findById(item.material);
       if (mat) {
-        mat.currentStock += direction === 'in' ? -item.quantity : item.quantity;
+        if (direction === 'in') {
+          mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);
+          mat.currentStock = Math.max(0, (mat.currentStock || 0) - item.quantity);
+        } else {
+          mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
+          mat.currentStock = (mat.currentStock || 0) + item.quantity;
+        }
         await mat.save();
       }
     }
@@ -339,7 +346,13 @@ const bulkDeleteTransactions = asyncHandler(async (req, res) => {
       for (const item of items) {
         const mat = await RawMaterial.findById(item.material);
         if (mat) {
-          mat.currentStock += direction === 'in' ? -item.quantity : item.quantity;
+          if (direction === 'in') {
+            mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);
+            mat.currentStock = Math.max(0, (mat.currentStock || 0) - item.quantity);
+          } else {
+            mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
+            mat.currentStock = (mat.currentStock || 0) + item.quantity;
+          }
           await mat.save();
         }
       }
@@ -498,9 +511,12 @@ const advanceTransaction = asyncHandler(async (req, res) => {
             // Round to 4 decimal places to avoid floating-point noise
             mat.unitCost = Math.round(mat.unitCost * 10000) / 10000;
           }
-          mat.currentStock += inQty;
+          // Goods received from suppliers enter Main Store Warehouse
+          mat.mainStoreStock = (mat.mainStoreStock || 0) + inQty;
+          mat.currentStock = (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0);
         } else {
-          mat.currentStock -= item.quantity;
+          mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);
+          mat.currentStock = Math.max(0, (mat.currentStock || 0) - item.quantity);
         }
         await mat.save();
       }
@@ -514,7 +530,13 @@ const advanceTransaction = asyncHandler(async (req, res) => {
       for (const item of stockItems) {
         const mat = await RawMaterial.findById(item.material);
         if (mat) {
-          mat.currentStock += direction === 'in' ? -item.quantity : item.quantity;
+          if (direction === 'in') {
+            mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);
+            mat.currentStock = Math.max(0, (mat.currentStock || 0) - item.quantity);
+          } else {
+            mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
+            mat.currentStock = (mat.currentStock || 0) + item.quantity;
+          }
           await mat.save();
         }
       }
@@ -644,6 +666,7 @@ const importSales = asyncHandler(async (req, res) => {
   }
 
   const materialDeductions = {};
+  const stationDeductions = {};
   const saleLines = [];
   const allSoldProducts = [];
   const notFound = [];
@@ -713,6 +736,9 @@ const importSales = asyncHandler(async (req, res) => {
           const ingCost = (Number(mat.unitCost) || 0) * deductQty;
           cogs += ingCost;
           materialDeductions[matId] = (materialDeductions[matId] || 0) + deductQty;
+          const prodStation = determineProductStation(product); // 'kitchen' or 'bar'
+          const sKey = `${matId}_${prodStation}`;
+          stationDeductions[sKey] = (stationDeductions[sKey] || 0) + deductQty;
           lineIngredients.push({
             materialId: mat._id,
             materialName: mat.name,
@@ -768,6 +794,9 @@ const importSales = asyncHandler(async (req, res) => {
       const matId = material._id.toString();
       const ingCost = (Number(material.unitCost) || 0) * qty;
       materialDeductions[matId] = (materialDeductions[matId] || 0) + qty;
+      const matStation = (material.category && /beverage|drink|coffee|tea|bar|juice|soda/i.test(material.category)) || /coffee|tea|juice|soda|beer|wine|latte/i.test(material.name) ? 'bar' : 'kitchen';
+      const sKey = `${matId}_${matStation}`;
+      stationDeductions[sKey] = (stationDeductions[sKey] || 0) + qty;
       lineIngredients.push({
         materialId: material._id,
         materialName: material.name,
@@ -896,8 +925,10 @@ const importSales = asyncHandler(async (req, res) => {
   const resolvedItems = [];
   const bulkStockUpdates = [];
 
-  for (const [matId, qty] of Object.entries(materialDeductions)) {
+  const dedMap = Object.keys(stationDeductions).length > 0 ? stationDeductions : materialDeductions;
+  for (const [key, qty] of Object.entries(dedMap)) {
     if (qty <= 0) continue;
+    const [matId, station] = key.includes('_') ? key.split('_') : [key, 'kitchen'];
     const mat = rawMaterialById.get(matId);
     if (mat) {
       resolvedItems.push({
@@ -906,10 +937,13 @@ const importSales = asyncHandler(async (req, res) => {
         unitCost: mat.unitCost || 0,
         totalCost: (mat.unitCost || 0) * qty,
       });
+      const incUpdate = station === 'bar'
+        ? { barStock: -qty, currentStock: -qty }
+        : { kitchenStock: -qty, currentStock: -qty };
       bulkStockUpdates.push({
         updateOne: {
           filter: { _id: mat._id },
-          update: { $inc: { currentStock: -qty } },
+          update: { $inc: incUpdate },
         },
       });
     }

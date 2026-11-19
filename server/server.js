@@ -50,11 +50,36 @@ const autoSeed = async () => {
   }
 };
 
+// ── Multi-Station stock initialization migration ────────────────────────
+const syncStationStocks = async () => {
+  try {
+    const RawMaterial = require('./models/RawMaterial');
+    const materials = await RawMaterial.find({ isActive: true });
+    let migrated = 0;
+    for (const m of materials) {
+      const main = Number(m.mainStoreStock || 0);
+      const kitchen = Number(m.kitchenStock || 0);
+      const bar = Number(m.barStock || 0);
+      if (main === 0 && kitchen === 0 && bar === 0 && Number(m.currentStock || 0) > 0) {
+        m.mainStoreStock = m.currentStock;
+        await m.save();
+        migrated++;
+      }
+    }
+    if (migrated > 0) {
+      console.log(`[MIGRATION] Initialized mainStoreStock for ${migrated} raw materials`);
+    }
+  } catch (err) {
+    console.warn('[MIGRATION] Station stocks sync warning:', err.message);
+  }
+};
+
 const { migrateLocalUploads } = require('./utils/gridfs');
 
 connectDB()
   .then(async () => {
     await autoSeed();
+    await syncStationStocks();
     await migrateLocalUploads();
   })
   .catch((err) => {

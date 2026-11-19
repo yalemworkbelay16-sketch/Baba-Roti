@@ -6,6 +6,7 @@ const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
+const { determineProductStation } = require('../utils/stationHelper');
 
 // ── Auto voucher number ───────────────────────────────────────────
 const generateVoucherNo = async () => {
@@ -17,14 +18,21 @@ const generateVoucherNo = async () => {
 async function applyConsumptionStock(items, reverse = false) {
   for (const item of items) {
     const product = await Product.findById(item.product)
-      .populate('ingredients.material', 'name unit currentStock unitCost');
+      .populate('ingredients.material', 'name unit currentStock mainStoreStock kitchenStock barStock unitCost');
     if (!product) continue;
+
+    const station = determineProductStation(product); // 'kitchen' or 'bar'
 
     for (const ing of product.ingredients) {
       const mat = await RawMaterial.findById(ing.material._id || ing.material);
       if (!mat) continue;
       const qty = ing.quantity * item.quantity;
-      mat.currentStock += reverse ? qty : -qty;
+      if (station === 'bar') {
+        mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));
+      } else {
+        mat.kitchenStock = Math.max(0, Number(mat.kitchenStock || 0) + (reverse ? qty : -qty));
+      }
+      mat.currentStock = Math.max(0, (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
       await mat.save();
     }
   }
