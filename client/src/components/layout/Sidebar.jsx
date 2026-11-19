@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import BabaRotiLogo from '../ui/BabaRotiLogo';
@@ -26,6 +27,7 @@ import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
 import LocalShippingRoundedIcon from '@mui/icons-material/LocalShippingRounded';
 import CoffeeRoundedIcon from '@mui/icons-material/CoffeeRounded';
+import StoreRoundedIcon from '@mui/icons-material/StoreRounded';
 import WidgetsRoundedIcon from '@mui/icons-material/WidgetsRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
@@ -73,9 +75,18 @@ const REPORT_ITEMS = [
 ];
 
 /* ── Sub-item Link (Compact & Refined) ── */
-const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel }) => {
+const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel, isItemActive, badge }) => {
   const { sidebarTheme } = useAuth();
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
+  const location = useLocation();
+
+  const active = typeof isItemActive === 'boolean'
+    ? isItemActive
+    : (to.includes('?')
+      ? (location.pathname + location.search === to)
+      : (to === '/materials'
+        ? (location.pathname === '/materials' && !location.search)
+        : (end ? location.pathname === to : location.pathname.startsWith(to))));
 
   return (
     <NavLink
@@ -84,18 +95,29 @@ const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel }) =
       onClick={onClick}
       target={target}
       rel={rel}
-      className={({ isActive }) =>
-        `group flex items-center gap-2 rounded-lg px-2 py-1 text-[11px] font-medium transition-all duration-150 ${isActive
+      className={() =>
+        `group flex items-center justify-between rounded-lg px-2 py-1 text-[11px] font-medium transition-all duration-150 ${active
           ? theme.subitemActive
           : theme.subitemInactive
         }`
       }
     >
-      <span className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${theme.isLight ? 'text-slate-500 group-hover:text-slate-900' : 'text-white/70 group-hover:text-white'
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${theme.isLight ? 'text-slate-500 group-hover:text-slate-900' : 'text-white/70 group-hover:text-white'
+          }`}>
+          <Icon sx={{ fontSize: 13 }} />
+        </span>
+        <span className="truncate">{label}</span>
+      </div>
+      {badge !== undefined && badge !== null && (
+        <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${
+          active
+            ? (theme.isLight ? 'bg-blue-600 text-white' : 'bg-white/30 text-white')
+            : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/70')
         }`}>
-        <Icon sx={{ fontSize: 13 }} />
-      </span>
-      <span className="truncate">{label}</span>
+          {badge}
+        </span>
+      )}
     </NavLink>
   );
 };
@@ -333,6 +355,36 @@ const Sidebar = ({
   const [staffOpen, setStaffOpen] = useState(onStaff);
   const [subsystemOpen, setSubsystemOpen] = useState(onSubsystem);
 
+  // Live item counts per station for sidebar badges
+  const [stationCounts, setStationCounts] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.get('/materials').then((res) => {
+      if (!isMounted) return;
+      const data = Array.isArray(res.data) ? res.data : [];
+      let main = 0, kitchen = 0, bar = 0;
+      data.forEach((m) => {
+        const cat = String(m.category || '').toLowerCase();
+        const kVal = Number(m.kitchenStock || 0);
+        const bVal = Number(m.barStock || 0);
+        const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
+        const isBar = cat === 'bar' || /beverage|drink|coffee|tea|juice/i.test(cat);
+        const isKitchen =
+          cat === 'kitchen' ||
+          cat === 'ferash bazare' ||
+          cat === 'mendi' ||
+          cat === 'pastery' ||
+          /food|produce|meat|poultry|dairy|bakery/i.test(cat);
+        if (isKitchen || kVal > 0) kitchen++;
+        if (isBar || bVal > 0) bar++;
+        if (mVal > 0 || (!isKitchen && !isBar)) main++;
+      });
+      setStationCounts({ all: data.length, main, kitchen, bar });
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [location.pathname]);
+
   useEffect(() => {
     if (onTransactions) setStockOpen(true);
     if (onReports) setReportOpen(true);
@@ -419,8 +471,9 @@ const Sidebar = ({
 
   const inventoryItems = [
     canSeeNav('rawMaterials') && { to: '/materials', label: t('nav.rawMaterials'), icon: WidgetsRoundedIcon, end: true },
-    canSeeNav('rawMaterials') && { to: '/materials?station=kitchen', label: isAmharic ? '🍳 የኩሽና ክምችት' : '🍳 Kitchen Stock', icon: RestaurantMenuRoundedIcon },
-    canSeeNav('rawMaterials') && { to: '/materials?station=bar', label: isAmharic ? '☕ የባር ክምችት' : '☕ Bar Stock', icon: CoffeeRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials?station=main', label: isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store', icon: StoreRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials?station=kitchen', label: isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store', icon: RestaurantMenuRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials?station=bar', label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store', icon: CoffeeRoundedIcon },
     canSeeNav('products') && { to: '/products', label: t('nav.products'), icon: RestaurantMenuRoundedIcon },
     canSeeNav('suppliers') && { to: '/suppliers', label: t('nav.suppliers'), icon: LocalShippingRoundedIcon },
     canSeeNav('consumption') && { to: '/consumption', label: t('nav.consumption'), icon: CoffeeRoundedIcon },
@@ -652,7 +705,37 @@ const Sidebar = ({
                 collapsed={collapsed}
               >
                 {canSeeNav('rawMaterials') && (
-                  <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} />
+                  <>
+                    <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} end={true} />
+                    
+                    {/* ── Multi-Station Working Stock Sub-links ── */}
+                    <div className="my-1 ml-3.5 space-y-0.5 border-l-2 border-white/15 pl-2">
+                      <SubLink
+                        to="/materials?station=main"
+                        label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
+                        icon={StoreRoundedIcon}
+                        onClick={onClose}
+                        isItemActive={location.pathname === '/materials' && location.search === '?station=main'}
+                        badge={stationCounts?.main}
+                      />
+                      <SubLink
+                        to="/materials?station=kitchen"
+                        label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
+                        icon={RestaurantMenuRoundedIcon}
+                        onClick={onClose}
+                        isItemActive={location.pathname === '/materials' && location.search === '?station=kitchen'}
+                        badge={stationCounts?.kitchen}
+                      />
+                      <SubLink
+                        to="/materials?station=bar"
+                        label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
+                        icon={CoffeeRoundedIcon}
+                        onClick={onClose}
+                        isItemActive={location.pathname === '/materials' && location.search === '?station=bar'}
+                        badge={stationCounts?.bar}
+                      />
+                    </div>
+                  </>
                 )}
                 {canSeeNav('products') && (
                   <SubLink to="/products" label={t('nav.products')} icon={RestaurantMenuRoundedIcon} onClick={onClose} />
