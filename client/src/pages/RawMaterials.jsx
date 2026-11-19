@@ -47,8 +47,12 @@ const statusBadge = (status) => {
 };
 
 const RawMaterials = () => {
+  const { user, hasRole, can, canCrud } = useAuth();
+  const userStation = user?.assignedStation || 'all';
+  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'dev', 'manager');
+
   const [searchParams, setSearchParams] = useSearchParams();
-  const stationFromUrl = searchParams.get('station') || 'all';
+  const stationFromUrl = isStationRestricted ? userStation : (searchParams.get('station') || 'all');
   const [stationFilter, setStationFilter] = useState(stationFromUrl);
 
   const [materials, setMaterials] = useState([]);
@@ -64,16 +68,22 @@ const RawMaterials = () => {
   const [importResult, setImportResult] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
   const importRef = useRef();
-  const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('rawMaterials', 'delete') : hasRole('admin');
 
   useEffect(() => {
+    if (isStationRestricted) {
+      if (stationFilter !== userStation) {
+        setStationFilter(userStation);
+      }
+      return;
+    }
     const fromUrl = searchParams.get('station') || 'all';
     setStationFilter(fromUrl);
-  }, [searchParams]);
+  }, [searchParams, isStationRestricted, userStation]);
 
   const handleStationChange = (newStation) => {
+    if (isStationRestricted) return;
     setStationFilter(newStation);
     const next = new URLSearchParams(searchParams);
     if (newStation === 'all') {
@@ -135,48 +145,71 @@ const RawMaterials = () => {
 
   useEffect(() => { load(); }, [search]);
 
-  // Global status counters across all materials
-  const globalCounts = useMemo(() => {
-    let inStock = 0;
-    let lowStock = 0;
-    let outOfStock = 0;
-    materials.forEach((m) => {
-      if (m.status === 'out_of_stock') outOfStock++;
-      else if (m.status === 'low_stock') lowStock++;
-      else inStock++;
-    });
-    return {
-      all: materials.length,
-      inStock,
-      lowStock,
-      outOfStock,
-    };
-  }, [materials]);
+  // Reset category filter when station view changes
+  useEffect(() => {
+    setCategoryFilter('all');
+  }, [stationFilter]);
 
-  // Contextual status counters (scoped to selected category if filtered)
+  // Determine material status relative to the current station
+  const getMaterialStatusForStation = (m, station) => {
+    if (station === 'kitchen') {
+      const val = Number(m.kitchenStock || 0);
+      const reorder = Number(m.reorderLevel || 10);
+      if (val <= 0) return 'out_of_stock';
+      if (val <= reorder) return 'low_stock';
+      return 'in_stock';
+    }
+    if (station === 'bar') {
+      const val = Number(m.barStock || 0);
+      const reorder = Number(m.reorderLevel || 10);
+      if (val <= 0) return 'out_of_stock';
+      if (val <= reorder) return 'low_stock';
+      return 'in_stock';
+    }
+    return m.status;
+  };
+
+  // Station subset: which materials belong to the current station view
+  const stationSubset = useMemo(() => {
+    return materials.filter((m) => {
+      const st = getMaterialStation(m);
+      if (stationFilter === 'kitchen') {
+        const kVal = Number(m.kitchenStock || 0);
+        return st === 'kitchen' || kVal > 0;
+      }
+      if (stationFilter === 'bar') {
+        const bVal = Number(m.barStock || 0);
+        return st === 'bar' || bVal > 0;
+      }
+      // Main Store holds 100% of materials as central mother warehouse
+      return true;
+    });
+  }, [materials, stationFilter, stationMapping]);
+
+  // Contextual status counters scoped to the active station and selected category
   const counts = useMemo(() => {
-    if (categoryFilter === 'all') return globalCounts;
     let inStock = 0;
     let lowStock = 0;
     let outOfStock = 0;
-    let totalInCat = 0;
-    materials.forEach((m) => {
-      if (m.category === categoryFilter) {
-        totalInCat++;
-        if (m.status === 'out_of_stock') outOfStock++;
-        else if (m.status === 'low_stock') lowStock++;
+    let total = 0;
+    stationSubset.forEach((m) => {
+      if (categoryFilter === 'all' || m.category === categoryFilter) {
+        total++;
+        const s = getMaterialStatusForStation(m, stationFilter);
+        if (s === 'out_of_stock') outOfStock++;
+        else if (s === 'low_stock') lowStock++;
         else inStock++;
       }
     });
     return {
-      all: totalInCat,
+      all: total,
       inStock,
       lowStock,
       outOfStock,
     };
-  }, [materials, categoryFilter, globalCounts]);
+  }, [stationSubset, categoryFilter, stationFilter]);
 
-  // Contextual station counters
+  // Global station counters for badges and switcher
   const stationCounts = useMemo(() => {
     let kitchen = 0;
     let bar = 0;
@@ -187,31 +220,19 @@ const RawMaterials = () => {
       if (st === 'kitchen' || kVal > 0) kitchen++;
       if (st === 'bar' || bVal > 0) bar++;
     });
-    // Main Store is the mother warehouse holding ALL items
+    // Main Store is the mother warehouse holding ALL items (161 / 100%)
     return { all: materials.length, main: materials.length, kitchen, bar };
   }, [materials, stationMapping]);
 
   // Filtered materials by status, category, and station
   const filteredMaterials = useMemo(() => {
-    return materials.filter((m) => {
-      if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+    return stationSubset.filter((m) => {
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
-      const st = getMaterialStation(m);
-      if (stationFilter === 'kitchen') {
-        const kVal = Number(m.kitchenStock || 0);
-        return st === 'kitchen' || kVal > 0;
-      }
-      if (stationFilter === 'bar') {
-        const bVal = Number(m.barStock || 0);
-        return st === 'bar' || bVal > 0;
-      }
-      if (stationFilter === 'main') {
-        // Main Store holds all items without exception
-        return true;
-      }
+      const s = getMaterialStatusForStation(m, stationFilter);
+      if (statusFilter !== 'all' && s !== statusFilter) return false;
       return true;
     });
-  }, [materials, statusFilter, categoryFilter, stationFilter, stationMapping]);
+  }, [stationSubset, statusFilter, categoryFilter, stationFilter]);
 
   /* ── selection ── */
   const allIds = filteredMaterials.map(m => m._id);
@@ -231,11 +252,11 @@ const RawMaterials = () => {
     load();
   };
 
-  // Extract unique categories currently in database and count items per category
+  // Extract unique categories currently available in the active station view
   const { existingCategories, categoryItemCounts } = useMemo(() => {
     const countsMap = {};
     const set = new Set();
-    materials.forEach(m => {
+    stationSubset.forEach(m => {
       const cat = m.category && m.category.trim() ? m.category.trim() : 'General';
       set.add(cat);
       countsMap[cat] = (countsMap[cat] || 0) + 1;
@@ -244,7 +265,7 @@ const RawMaterials = () => {
       existingCategories: Array.from(set).sort((a, b) => a.localeCompare(b)),
       categoryItemCounts: countsMap,
     };
-  }, [materials]);
+  }, [stationSubset]);
 
   const openCreate = () => {
     setEditing(null);
@@ -450,130 +471,245 @@ const RawMaterials = () => {
     }
   };
 
-  const columns = [
-    ...(canDelete ? [{
-      key: '__check',
-      header: (
-        <input type="checkbox" checked={allChecked}
-          ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }}
-          onChange={toggleAll}
-          className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
-      ),
-      render: (r) => (
-        <input type="checkbox" checked={selected.has(r._id)}
-          onChange={() => toggleOne(r._id)}
-          className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
-      ),
-    }] : []),
-    { key: 'code', header: 'Code', render: (r) => <span className="font-mono text-xs text-ink-400">{r.code || '—'}</span> },
-    { key: 'name', header: 'Material' },
-    { key: 'category', header: 'Category' },
-    {
-      key: 'mainStoreStock',
-      header: (
-        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse">
-          <Warehouse size={13} className="text-sky-300" /> Main Store
-        </span>
-      ),
-      render: (r) => {
-        const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
-        return (
-          <span className={`tabular font-semibold ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
-            {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+  const columns = useMemo(() => {
+    const isKitchen = stationFilter === 'kitchen';
+    const isBar = stationFilter === 'bar';
+    const isMain = stationFilter === 'main';
+    const isAll = stationFilter === 'all';
+
+    return [
+      ...(canDelete ? [{
+        key: '__check',
+        header: (
+          <input type="checkbox" checked={allChecked}
+            ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }}
+            onChange={toggleAll}
+            className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
+        ),
+        render: (r) => (
+          <input type="checkbox" checked={selected.has(r._id)}
+            onChange={() => toggleOne(r._id)}
+            className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
+        ),
+      }] : []),
+      { key: 'code', header: 'Code', render: (r) => <span className="font-mono text-xs text-ink-400">{r.code || '—'}</span> },
+      { key: 'name', header: 'Material' },
+      { key: 'category', header: 'Category' },
+
+      // 🍳 Kitchen Station: Display ONLY Kitchen Working Balance
+      ...(isKitchen ? [{
+        key: 'kitchenStock',
+        header: (
+          <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Kitchen Working Stock Balance">
+            <UtensilsCrossed size={14} className="text-amber-300" /> 🍳 Kitchen Balance
           </span>
-        );
-      },
-    },
-    {
-      key: 'kitchenStock',
-      header: (
-        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Kitchen Station Working Stock">
-          <UtensilsCrossed size={13} className="text-amber-300" /> Kitchen
-        </span>
-      ),
-      render: (r) => {
-        const val = Number(r.kitchenStock || 0);
-        return (
-          <span className={`tabular font-semibold ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
-            {val > 0 ? `${val} ` : '—'}
-            {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
+        ),
+        render: (r) => {
+          const val = Number(r.kitchenStock || 0);
+          return (
+            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-amber-700 font-bold' : 'text-ink-400'}`}>
+              {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+            </span>
+          );
+        },
+      }] : []),
+
+      // ☕ Bar Station: Display ONLY Bar Working Balance
+      ...(isBar ? [{
+        key: 'barStock',
+        header: (
+          <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Bar Working Stock Balance">
+            <Coffee size={14} className="text-emerald-300" /> ☕ Bar Balance
           </span>
-        );
+        ),
+        render: (r) => {
+          const val = Number(r.barStock || 0);
+          return (
+            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-emerald-700 font-bold' : 'text-ink-400'}`}>
+              {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+            </span>
+          );
+        },
+      }] : []),
+
+      // 🏢 Main Store: Display Central Warehouse Stock & Total Stock
+      ...(isMain ? [
+        {
+          key: 'mainStoreStock',
+          header: (
+            <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse Stock">
+              <Warehouse size={14} className="text-sky-300" /> 🏢 Warehouse Stock
+            </span>
+          ),
+          render: (r) => {
+            const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
+            return (
+              <span className={`tabular font-bold text-sm ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
+                {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+              </span>
+            );
+          },
+        },
+        {
+          key: 'currentStock',
+          header: 'Total Stock',
+          render: (r) => (
+            <span className="tabular font-bold text-ink-900">
+              {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+            </span>
+          ),
+        },
+      ] : []),
+
+      // 🌐 All Stations Combined: Display Full Breakdown Across All Stations
+      ...(isAll ? [
+        {
+          key: 'mainStoreStock',
+          header: (
+            <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse">
+              <Warehouse size={13} className="text-sky-300" /> Main Store
+            </span>
+          ),
+          render: (r) => {
+            const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
+            return (
+              <span className={`tabular font-semibold ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
+                {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+              </span>
+            );
+          },
+        },
+        {
+          key: 'kitchenStock',
+          header: (
+            <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Kitchen Station Working Stock">
+              <UtensilsCrossed size={13} className="text-amber-300" /> Kitchen
+            </span>
+          ),
+          render: (r) => {
+            const val = Number(r.kitchenStock || 0);
+            return (
+              <span className={`tabular font-semibold ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
+                {val > 0 ? `${val} ` : '—'}
+                {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
+              </span>
+            );
+          },
+        },
+        {
+          key: 'barStock',
+          header: (
+            <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Bar Station Working Stock">
+              <Coffee size={13} className="text-emerald-300" /> Bar
+            </span>
+          ),
+          render: (r) => {
+            const val = Number(r.barStock || 0);
+            return (
+              <span className={`tabular font-semibold ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
+                {val > 0 ? `${val} ` : '—'}
+                {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
+              </span>
+            );
+          },
+        },
+        {
+          key: 'currentStock',
+          header: 'Total Stock',
+          render: (r) => (
+            <span className="tabular font-bold text-ink-900">
+              {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+            </span>
+          ),
+        },
+      ] : []),
+
+      { key: 'reorderLevel', header: 'Reorder at', render: (r) => <span className="tabular text-xs text-ink-500">{r.reorderLevel} {r.unit}</span> },
+      { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular text-xs font-semibold text-ink-800">ETB {Number(r.unitCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (r) => {
+          const s = getMaterialStatusForStation(r, stationFilter);
+          return statusBadge(s);
+        },
       },
-    },
-    {
-      key: 'barStock',
-      header: (
-        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Bar Station Working Stock">
-          <Coffee size={13} className="text-emerald-300" /> Bar
-        </span>
-      ),
-      render: (r) => {
-        const val = Number(r.barStock || 0);
-        return (
-          <span className={`tabular font-semibold ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
-            {val > 0 ? `${val} ` : '—'}
-            {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'currentStock',
-      header: 'Total Stock',
-      render: (r) => (
-        <span className="tabular font-bold text-ink-900">
-          {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
-        </span>
-      ),
-    },
-    { key: 'reorderLevel', header: 'Reorder at', render: (r) => <span className="tabular text-xs text-ink-500">{r.reorderLevel} {r.unit}</span> },
-    { key: 'unitCost', header: 'Unit cost', render: (r) => <span className="tabular text-xs font-semibold text-ink-800">ETB {Number(r.unitCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
-    { key: 'status', header: 'Status', render: (r) => statusBadge(r.status) },
-    ...((canEdit || canDelete) ? [{
-      key: 'actions', header: '',
-      render: (r) => (
-        <div className="flex gap-2">
-          {canEdit && (
-            <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700" title="Edit"><Pencil size={15} /></button>
-          )}
-          {canDelete && (
-            <button onClick={() => handleDelete(r._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete"><Trash2 size={15} /></button>
-          )}
-        </div>
-      ),
-    }] : []),
-  ];
+      ...((canEdit || canDelete) ? [{
+        key: 'actions', header: '',
+        render: (r) => (
+          <div className="flex gap-2">
+            {canEdit && (
+              <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700" title="Edit"><Pencil size={15} /></button>
+            )}
+            {canDelete && (
+              <button onClick={() => handleDelete(r._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete"><Trash2 size={15} /></button>
+            )}
+          </div>
+        ),
+      }] : []),
+    ];
+  }, [stationFilter, allChecked, someChecked, selected, canEdit, canDelete]);
 
   const exportData = useMemo(() => {
-    return filteredMaterials.map(m => ({
-      'Code': m.code || '—',
-      'Material Name': m.name,
-      'Category': m.category || 'General',
-      'Unit': m.unit || 'pcs',
-      'Main Store': Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0),
-      'Kitchen': Number(m.kitchenStock || 0),
-      'Bar': Number(m.barStock || 0),
-      'Total Stock': Number(m.currentStock || 0),
-      'Reorder Level': Number(m.reorderLevel || 10),
-      'Unit Cost (ETB)': Number(m.unitCost || 0),
-      'Store Location': m.storeLocation || 'Main Store',
-      'Status': m.status === 'out_of_stock' ? 'Out of stock' : m.status === 'low_stock' ? 'Low stock' : 'In stock',
-    }));
-  }, [filteredMaterials]);
+    const isKitchen = stationFilter === 'kitchen';
+    const isBar = stationFilter === 'bar';
+    const isMain = stationFilter === 'main';
 
-  const pdfColumns = [
-    { header: 'Code', accessor: 'Code' },
-    { header: 'Material Name', accessor: 'Material Name' },
-    { header: 'Category', accessor: 'Category' },
-    { header: 'Main Store', accessor: 'Main Store', align: 'right' },
-    { header: 'Kitchen', accessor: 'Kitchen', align: 'right' },
-    { header: 'Bar', accessor: 'Bar', align: 'right' },
-    { header: 'Total Stock', accessor: 'Total Stock', align: 'right' },
-    { header: 'Reorder Level', accessor: 'Reorder Level', align: 'right' },
-    { header: 'Unit Cost (ETB)', accessor: 'Unit Cost (ETB)', align: 'right' },
-    { header: 'Status', accessor: 'Status', align: 'center' },
-  ];
+    return filteredMaterials.map(m => {
+      const row = {
+        'Code': m.code || '—',
+        'Material Name': m.name,
+        'Category': m.category || 'General',
+        'Unit': m.unit || 'pcs',
+      };
+      if (isKitchen) {
+        row['Kitchen Balance'] = Number(m.kitchenStock || 0);
+      } else if (isBar) {
+        row['Bar Balance'] = Number(m.barStock || 0);
+      } else if (isMain) {
+        row['Warehouse Stock'] = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
+        row['Total Stock'] = Number(m.currentStock || 0);
+      } else {
+        row['Main Store'] = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
+        row['Kitchen'] = Number(m.kitchenStock || 0);
+        row['Bar'] = Number(m.barStock || 0);
+        row['Total Stock'] = Number(m.currentStock || 0);
+      }
+      row['Reorder Level'] = Number(m.reorderLevel || 10);
+      row['Unit Cost (ETB)'] = Number(m.unitCost || 0);
+      row['Store Location'] = m.storeLocation || 'Main Store';
+      const effStatus = getMaterialStatusForStation(m, stationFilter);
+      row['Status'] = effStatus === 'out_of_stock' ? 'Out of stock' : effStatus === 'low_stock' ? 'Low stock' : 'In stock';
+      return row;
+    });
+  }, [filteredMaterials, stationFilter]);
+
+  const pdfColumns = useMemo(() => {
+    const isKitchen = stationFilter === 'kitchen';
+    const isBar = stationFilter === 'bar';
+    const isMain = stationFilter === 'main';
+
+    return [
+      { header: 'Code', accessor: 'Code' },
+      { header: 'Material Name', accessor: 'Material Name' },
+      { header: 'Category', accessor: 'Category' },
+      ...(isKitchen ? [{ header: 'Kitchen Balance', accessor: 'Kitchen Balance', align: 'right' }] : []),
+      ...(isBar ? [{ header: 'Bar Balance', accessor: 'Bar Balance', align: 'right' }] : []),
+      ...(isMain ? [
+        { header: 'Warehouse Stock', accessor: 'Warehouse Stock', align: 'right' },
+        { header: 'Total Stock', accessor: 'Total Stock', align: 'right' },
+      ] : []),
+      ...(!isKitchen && !isBar && !isMain ? [
+        { header: 'Main Store', accessor: 'Main Store', align: 'right' },
+        { header: 'Kitchen', accessor: 'Kitchen', align: 'right' },
+        { header: 'Bar', accessor: 'Bar', align: 'right' },
+        { header: 'Total Stock', accessor: 'Total Stock', align: 'right' },
+      ] : []),
+      { header: 'Reorder Level', accessor: 'Reorder Level', align: 'right' },
+      { header: 'Unit Cost (ETB)', accessor: 'Unit Cost (ETB)', align: 'right' },
+      { header: 'Status', accessor: 'Status', align: 'center' },
+    ];
+  }, [stationFilter]);
 
   return (
     <div className="space-y-4">
@@ -686,46 +822,64 @@ const RawMaterials = () => {
           <span className="text-xs font-bold text-ink-500 uppercase tracking-wider pl-2 pr-1 flex items-center gap-1.5">
             <Boxes size={14} className="text-ink-600" /> Station View:
           </span>
-          <button
-            type="button"
-            onClick={() => handleStationChange('all')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'all'
-                ? 'bg-ink-900 text-white shadow-xs'
-                : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
-              }`}
-          >
-            All Stations ({stationCounts.all})
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStationChange('main')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'main'
-                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
-                : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
-              }`}
-          >
-            <Warehouse size={13} /> 🏢 Main Store ({stationCounts.main})
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStationChange('kitchen')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'kitchen'
-                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
-                : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-              }`}
-          >
-            <UtensilsCrossed size={13} /> 🍳 Kitchen Station ({stationCounts.kitchen})
-          </button>
-          <button
-            type="button"
-            onClick={() => handleStationChange('bar')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'bar'
-                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-              }`}
-          >
-            <Coffee size={13} /> ☕ Bar Station ({stationCounts.bar})
-          </button>
+
+          {!isStationRestricted && (
+            <button
+              type="button"
+              onClick={() => handleStationChange('all')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'all'
+                  ? 'bg-ink-900 text-white shadow-xs'
+                  : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
+                }`}
+            >
+              All Stations ({stationCounts.all})
+            </button>
+          )}
+
+          {(!isStationRestricted || userStation === 'main') && (
+            <button
+              type="button"
+              onClick={() => handleStationChange('main')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'main'
+                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                  : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
+                }`}
+            >
+              <Warehouse size={13} /> 🏢 Main Store ({stationCounts.main})
+            </button>
+          )}
+
+          {(!isStationRestricted || userStation === 'kitchen') && (
+            <button
+              type="button"
+              onClick={() => handleStationChange('kitchen')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'kitchen'
+                  ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
+                  : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                }`}
+            >
+              <UtensilsCrossed size={13} /> 🍳 Kitchen Station ({stationCounts.kitchen})
+            </button>
+          )}
+
+          {(!isStationRestricted || userStation === 'bar') && (
+            <button
+              type="button"
+              onClick={() => handleStationChange('bar')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'bar'
+                  ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                }`}
+            >
+              <Coffee size={13} /> ☕ Bar Station ({stationCounts.bar})
+            </button>
+          )}
+
+          {isStationRestricted && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 ml-1">
+              🔒 Scoped to assigned station
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap pr-1">
@@ -734,14 +888,16 @@ const RawMaterials = () => {
               Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter === 'main' ? 'Main Store' : stationFilter} Station</strong>
             </span>
           )}
-          <Link
-            to="/settings?tab=stations"
-            className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition shadow-2xs"
-            title="Configure which raw material & recipe categories belong to Kitchen, Bar, or Main Store"
-          >
-            <Sliders size={12} className="text-blue-600" />
-            <span>Map Stations</span>
-          </Link>
+          {!isStationRestricted && hasRole('admin', 'manager') && (
+            <Link
+              to="/settings?tab=stations"
+              className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition shadow-2xs"
+              title="Configure which raw material & recipe categories belong to Kitchen, Bar, or Main Store"
+            >
+              <Sliders size={12} className="text-blue-600" />
+              <span>Map Stations</span>
+            </Link>
+          )}
         </div>
       </div>
 

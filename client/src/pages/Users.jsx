@@ -14,6 +14,7 @@ import { normalizeFileUrl } from '../utils/fileUrl';
 
 const emptyForm = {
   name: '', email: '', password: '', role: 'storekeeper',
+  assignedStation: 'all',
   phone: '', telegramChatId: '', photoUrl: '',
 };
 
@@ -119,6 +120,7 @@ const Users = () => {
       email: u.email || '',
       password: '',
       role: u.role || 'storekeeper',
+      assignedStation: u.assignedStation || 'all',
       phone: u.phone || '',
       telegramChatId: u.telegramChatId || '',
       photoUrl: u.photoUrl || u.avatar || '',
@@ -175,6 +177,7 @@ const Users = () => {
         const payload = {
           name: form.name,
           role: form.role,
+          assignedStation: form.assignedStation || 'all',
           phone: form.phone,
           telegramChatId: form.telegramChatId,
           photoUrl: form.photoUrl,
@@ -331,7 +334,7 @@ const Users = () => {
           <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead style={{ background: 'linear-gradient(90deg,#1e3a8a 0%,#1d4ed8 50%,#2563eb 100%)' }}>
               <tr>
-                {['Name', 'Email', 'Phone', 'Telegram', 'Role', 'Status', 'Actions'].map(h => (
+                {['Name', 'Email', 'Phone', 'Telegram', 'Role', 'Station', 'Status', 'Actions'].map(h => (
                   <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100"
                     style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>{h}</th>
                 ))}
@@ -340,7 +343,7 @@ const Users = () => {
             <tbody>
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={8} className="px-4 py-10 text-center text-ink-400">
                     {roleFilter !== 'all' || statusFilter !== 'all' || search
                       ? 'No staff accounts match your filters.'
                       : 'No accounts yet.'}
@@ -392,6 +395,25 @@ const Users = () => {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <Badge color={roleColor[u.role] || 'ink'}>{roleLabels[u.role] || u.role}</Badge>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {u.assignedStation === 'kitchen' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                        🍳 Kitchen Station
+                      </span>
+                    ) : u.assignedStation === 'bar' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        ☕ Bar Station
+                      </span>
+                    ) : u.assignedStation === 'main' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                        🏢 Main Store
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                        All Stations
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <Badge color={u.isActive ? 'green' : 'red'}>{u.isActive ? 'Active' : 'Disabled'}</Badge>
@@ -516,6 +538,26 @@ const Users = () => {
                 placeholder={editUser ? '••••••' : 'min 6 chars'}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
+          </div>
+
+          {/* Assigned Station / Working Location */}
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-ink-700">
+              Assigned Station & Security Scope
+            </label>
+            <select
+              value={form.assignedStation || 'all'}
+              onChange={e => f('assignedStation', e.target.value)}
+              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="all">🏢 All Stations (Full Access — Manager / Storekeeper / Admin)</option>
+              <option value="main">🏢 Main Store (Central Warehouse Staff)</option>
+              <option value="kitchen">🍳 Kitchen Station (Chef / Kitchen Staff)</option>
+              <option value="bar">☕ Bar Station (Barista / Bartender)</option>
+            </select>
+            <p className="text-[10px] text-ink-400 mt-0.5">
+              Station-assigned staff will be restricted to view only their assigned station and stock balance.
+            </p>
           </div>
 
           {/* 3x4 Passport Photo Upload for Staff Account */}

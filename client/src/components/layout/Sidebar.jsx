@@ -110,11 +110,10 @@ const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel, isI
         <span className="truncate">{label}</span>
       </div>
       {badge !== undefined && badge !== null && (
-        <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${
-          active
+        <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${active
             ? (theme.isLight ? 'bg-blue-600 text-white' : 'bg-white/30 text-white')
             : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/70')
-        }`}>
+          }`}>
           {badge}
         </span>
       )}
@@ -380,7 +379,7 @@ const Sidebar = ({
       });
       // Main Store holds ALL materials because everything arrives & starts at Main Store
       setStationCounts({ all: data.length, main: data.length, kitchen, bar });
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { isMounted = false; };
   }, [location.pathname]);
 
@@ -468,11 +467,31 @@ const Sidebar = ({
     canSeeNav('digitalMenu') && { to: '/menu', label: t('nav.digitalMenu'), icon: MenuBookRoundedIcon },
   ].filter(Boolean);
 
+  const userStation = user?.assignedStation || 'all';
+  const isStationRestricted = userStation !== 'all' && !['admin', 'dev', 'manager'].includes(user?.role);
+
   const inventoryItems = [
-    canSeeNav('rawMaterials') && { to: '/materials', label: t('nav.rawMaterials'), icon: WidgetsRoundedIcon, end: true },
-    canSeeNav('rawMaterials') && { to: '/materials?station=main', label: isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store', icon: StoreRoundedIcon },
-    canSeeNav('rawMaterials') && { to: '/materials?station=kitchen', label: isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store', icon: RestaurantMenuRoundedIcon },
-    canSeeNav('rawMaterials') && { to: '/materials?station=bar', label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store', icon: CoffeeRoundedIcon },
+    canSeeNav('rawMaterials') && {
+      to: isStationRestricted ? `/materials?station=${userStation}` : '/materials',
+      label: t('nav.rawMaterials'),
+      icon: WidgetsRoundedIcon,
+      end: !isStationRestricted,
+    },
+    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'main') && {
+      to: '/materials?station=main',
+      label: isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store',
+      icon: StoreRoundedIcon,
+    },
+    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'kitchen') && {
+      to: '/materials?station=kitchen',
+      label: isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store',
+      icon: RestaurantMenuRoundedIcon,
+    },
+    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'bar') && {
+      to: '/materials?station=bar',
+      label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store',
+      icon: CoffeeRoundedIcon,
+    },
     canSeeNav('products') && { to: '/products', label: t('nav.products'), icon: RestaurantMenuRoundedIcon },
     canSeeNav('suppliers') && { to: '/suppliers', label: t('nav.suppliers'), icon: LocalShippingRoundedIcon },
     canSeeNav('consumption') && { to: '/consumption', label: t('nav.consumption'), icon: CoffeeRoundedIcon },
@@ -705,34 +724,42 @@ const Sidebar = ({
               >
                 {canSeeNav('rawMaterials') && (
                   <>
-                    <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} end={true} />
-                    
+                    {!isStationRestricted && (
+                      <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} end={true} />
+                    )}
+
                     {/* ── Multi-Station Working Stock Sub-links ── */}
                     <div className="my-1 ml-3.5 space-y-0.5 border-l-2 border-white/15 pl-2">
-                      <SubLink
-                        to="/materials?station=main"
-                        label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
-                        icon={StoreRoundedIcon}
-                        onClick={onClose}
-                        isItemActive={location.pathname === '/materials' && location.search === '?station=main'}
-                        badge={stationCounts?.main}
-                      />
-                      <SubLink
-                        to="/materials?station=kitchen"
-                        label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
-                        icon={RestaurantMenuRoundedIcon}
-                        onClick={onClose}
-                        isItemActive={location.pathname === '/materials' && location.search === '?station=kitchen'}
-                        badge={stationCounts?.kitchen}
-                      />
-                      <SubLink
-                        to="/materials?station=bar"
-                        label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
-                        icon={CoffeeRoundedIcon}
-                        onClick={onClose}
-                        isItemActive={location.pathname === '/materials' && location.search === '?station=bar'}
-                        badge={stationCounts?.bar}
-                      />
+                      {(!isStationRestricted || userStation === 'main') && (
+                        <SubLink
+                          to="/materials?station=main"
+                          label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
+                          icon={StoreRoundedIcon}
+                          onClick={onClose}
+                          isItemActive={location.pathname === '/materials' && (location.search === '?station=main' || isStationRestricted)}
+                          badge={stationCounts?.main}
+                        />
+                      )}
+                      {(!isStationRestricted || userStation === 'kitchen') && (
+                        <SubLink
+                          to="/materials?station=kitchen"
+                          label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
+                          icon={RestaurantMenuRoundedIcon}
+                          onClick={onClose}
+                          isItemActive={location.pathname === '/materials' && (location.search === '?station=kitchen' || isStationRestricted)}
+                          badge={stationCounts?.kitchen}
+                        />
+                      )}
+                      {(!isStationRestricted || userStation === 'bar') && (
+                        <SubLink
+                          to="/materials?station=bar"
+                          label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
+                          icon={CoffeeRoundedIcon}
+                          onClick={onClose}
+                          isItemActive={location.pathname === '/materials' && (location.search === '?station=bar' || isStationRestricted)}
+                          badge={stationCounts?.bar}
+                        />
+                      )}
                     </div>
                   </>
                 )}

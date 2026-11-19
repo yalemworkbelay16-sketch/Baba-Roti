@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     photoUrl: { type: String, trim: true, default: '' },
     employeeId: { type: String, trim: true, default: '' },
+    assignedStation: {
+      type: String,
+      enum: ['all', 'main', 'kitchen', 'bar'],
+      default: 'all',
+    },
     isActive: { type: Boolean, default: true },
     // OTP fields for 2-step login
     otpHash:   { type: String, default: null },

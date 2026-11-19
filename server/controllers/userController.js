@@ -34,6 +34,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
   user.name           = req.body.name          ?? user.name;
   user.role           = req.body.role          ?? user.role;
+  user.assignedStation = req.body.assignedStation ?? user.assignedStation;
   user.isActive       = req.body.isActive      ?? user.isActive;
   user.phone          = req.body.phone         ?? user.phone;
   user.telegramChatId = req.body.telegramChatId ?? user.telegramChatId;
@@ -151,6 +152,7 @@ const updateUser = asyncHandler(async (req, res) => {
     name:           updated.name,
     email:          updated.email,
     role:           updated.role,
+    assignedStation: updated.assignedStation || 'all',
     isActive:       updated.isActive,
     phone:          updated.phone || '',
     telegramChatId: updated.telegramChatId || '',

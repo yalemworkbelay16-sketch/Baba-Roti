@@ -6,7 +6,7 @@ const tg = require('../utils/telegramNotifier');
 
 // @desc  Register a new user (admin only, in practice)
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role, phone, telegramChatId, photoUrl, avatar, employeeId } = req.body;
+  const { name, email, password, role, phone, telegramChatId, photoUrl, avatar, employeeId, assignedStation } = req.body;
 
   const userExists = await User.findOne({ email });
   if (userExists) {
@@ -28,6 +28,7 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar: photo,
     photoUrl: photo,
     employeeId: employeeId || '',
+    assignedStation: assignedStation || 'all',
   });
 
   // Auto-subscribe to Telegram if chatId provided
@@ -59,6 +60,7 @@ const registerUser = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    assignedStation: user.assignedStation || 'all',
     phone: user.phone || '',
     telegramChatId: user.telegramChatId || '',
     avatar: user.avatar || '',
@@ -109,6 +111,7 @@ const loginUser = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    assignedStation: user.assignedStation || 'all',
     phone: user.phone || '',
     avatar: user.avatar || '',
     token: generateToken(user._id),

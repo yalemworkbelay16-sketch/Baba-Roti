@@ -458,11 +458,10 @@ export default function StationSettings() {
                         <button
                           type="button"
                           onClick={() => setCategoryStation(c.name, isKitchen ? 'none' : 'kitchen')}
-                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                            isKitchen
+                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${isKitchen
                               ? 'bg-amber-600 text-white shadow-xs'
                               : 'text-ink-600 hover:text-ink-900 hover:bg-white'
-                          }`}
+                            }`}
                           title={isKitchen ? 'Assigned to Kitchen (Click to unassign)' : 'Assign to Kitchen Station'}
                         >
                           <UtensilsCrossed size={12} /> Kitchen
@@ -470,11 +469,10 @@ export default function StationSettings() {
                         <button
                           type="button"
                           onClick={() => setCategoryStation(c.name, isBar ? 'none' : 'bar')}
-                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                            isBar
+                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${isBar
                               ? 'bg-emerald-600 text-white shadow-xs'
                               : 'text-ink-600 hover:text-ink-900 hover:bg-white'
-                          }`}
+                            }`}
                           title={isBar ? 'Assigned to Bar (Click to unassign)' : 'Assign to Bar Station'}
                         >
                           <Coffee size={12} /> Bar
@@ -530,9 +528,8 @@ export default function StationSettings() {
                         {p.name}
                       </td>
                       <td className="px-4 py-2.5 text-xs text-ink-500">
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 font-bold text-[10px] uppercase ${
-                          p.parentCategory === 'BEVERAGE' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
-                        }`}>
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 font-bold text-[10px] uppercase ${p.parentCategory === 'BEVERAGE' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
+                          }`}>
                           {p.parentCategory}
                         </span>
                       </td>
@@ -552,22 +549,20 @@ export default function StationSettings() {
                           <button
                             type="button"
                             onClick={() => setProductCategoryStation(p.name, 'kitchen')}
-                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                              currentStation === 'kitchen'
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${currentStation === 'kitchen'
                                 ? 'bg-amber-600 text-white shadow-xs'
                                 : 'text-ink-600 hover:text-ink-900 hover:bg-white'
-                            }`}
+                              }`}
                           >
                             <UtensilsCrossed size={11} /> Food (Kitchen)
                           </button>
                           <button
                             type="button"
                             onClick={() => setProductCategoryStation(p.name, 'bar')}
-                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                              currentStation === 'bar'
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${currentStation === 'bar'
                                 ? 'bg-emerald-600 text-white shadow-xs'
                                 : 'text-ink-600 hover:text-ink-900 hover:bg-white'
-                            }`}
+                              }`}
                           >
                             <Coffee size={11} /> Drink (Bar)
                           </button>
