@@ -116,41 +116,473 @@ export default function EmployeeIdBadgeModal({
     setPhotoLoadError(false);
   }, [photoSrc]);
 
-  if (!open || !employee) return null;
+  // Isolated iframe print engine — works 100% reliably across Chrome, Edge, and Safari
+  const handlePrint = (mode = 'both') => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const resolvedPhoto = photoSrc
+      ? (photoSrc.startsWith('/') ? `${origin}${photoSrc}` : photoSrc)
+      : '';
+    const logoUrl = `${origin}/baba-roti-logo.png`;
 
-  const handlePrint = () => {
-    window.print();
+    const frontCardHtml = `
+      <div class="badge-card">
+        <!-- Slot Hole -->
+        <div class="slot-hole">
+          <div class="slot-pill"></div>
+        </div>
+
+        <!-- Top Header: Logo + Diagonal Stripes -->
+        <div class="header-row">
+          <div class="brand-box">
+            <img src="${logoUrl}" class="brand-logo" alt="Logo" onerror="this.style.display='none'">
+            <div class="brand-text">
+              <h1>BABA ROTI</h1>
+              <p>CAFÉ &amp; RESTAURANT</p>
+            </div>
+          </div>
+          <div class="stripes-box">
+            <div class="stripe-amber"></div>
+            <div class="stripe-maroon"></div>
+          </div>
+        </div>
+
+        <!-- 3x4 Passport Photo Area -->
+        <div class="photo-area">
+          <div class="photo-frame">
+            ${resolvedPhoto ? `
+              <img src="${resolvedPhoto}" class="photo-img" alt="${fullName}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="initials-fallback" style="display:none;">
+                <div class="initials-circle">${initials}</div>
+                <div style="font-size:9px;color:#64748b;font-weight:700;">3×4 Photo</div>
+              </div>
+            ` : `
+              <div class="initials-fallback">
+                <div class="initials-circle">${initials}</div>
+                <div style="font-size:9px;color:#64748b;font-weight:700;">3×4 Photo</div>
+              </div>
+            `}
+            <div class="status-dot"></div>
+          </div>
+        </div>
+
+        <!-- Employee Info Block -->
+        <div class="info-area">
+          <div class="info-item">
+            <div class="label">ስም / Name:</div>
+            <div class="val-name">${fullName}</div>
+          </div>
+
+          <div class="info-item">
+            <div class="label">የሥራ መደብ / Position:</div>
+            <div class="val-position">
+              <span>${position}</span>
+              <span class="dept-pill">${department}</span>
+            </div>
+          </div>
+
+          <div class="id-row">
+            <div>
+              <div class="label">መለያ ቁጥር / ID No:</div>
+              <div class="val-id">${employeeId}</div>
+              <div style="font-size:8px;color:#64748b;margin-top:2px;">Issue: ${hireDate}</div>
+            </div>
+            ${qrCodeUrl ? `
+              <div style="text-align:center;">
+                <img src="${qrCodeUrl}" class="qr-img" alt="QR">
+                <div style="font-size:6px;font-weight:800;color:#94a3b8;letter-spacing:1px;margin-top:1px;">VERIFY</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-bar">
+          <div>☎ +251 97 566 6667</div>
+          <div>✉ info@babaroti.com</div>
+        </div>
+      </div>
+    `;
+
+    const backCardHtml = `
+      <div class="badge-card back-card">
+        <div class="slot-hole">
+          <div class="slot-pill"></div>
+        </div>
+
+        <div style="padding: 10px 14px 6px 14px; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <img src="${logoUrl}" style="width:24px;height:24px;border-radius:50%;" onerror="this.style.display='none'">
+            <div>
+              <div style="font-size:10px;font-weight:900;color:#0f172a;">BABA ROTI CAFÉ</div>
+              <div style="font-size:7.5px;font-weight:700;color:#5c1616;text-transform:uppercase;">Staff Pass Guidelines</div>
+            </div>
+          </div>
+          <div style="font-family:monospace;font-size:9px;font-weight:800;color:#64748b;">${employeeId}</div>
+        </div>
+
+        <div style="padding: 10px 14px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="font-size:8px;color:#334155;line-height:1.5;">
+            <p style="margin-bottom:3px;"><b>1.</b> ይህ መታወቂያ የባባ ሮቲ ካፌ ንብረት ሲሆን በሥራ ሰዓት መያዝ ግዴታ ነው። / Must be worn on duty.</p>
+            <p style="margin-bottom:3px;"><b>2.</b> ካርዱ ለሌላ ሰው አሳልፎ መስጠት የተከለከለ ነው። / Strictly non-transferable.</p>
+            <p style="margin-bottom:3px;"><b>3.</b> ቢጠፋ በአስቸኳይ ለካፌው አስተዳደር ያሳውቁ። / Report immediately if lost.</p>
+            <p><b>4.</b> ያገኘ ሰው እባክዎ ለባባ ሮቲ ካፌ ቅርንጫፍ ያስረክቡ። / If found, please return to Baba Roti.</p>
+          </div>
+
+          <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:5px 8px;font-size:8px;color:#78350f;">
+            <div style="font-weight:800;text-transform:uppercase;font-size:7.5px;margin-bottom:1px;">Baba Roti Café Management</div>
+            <div>Tel: +251 97 566 6667 / +251 91 123 4567</div>
+            <div>Email: info@babaroti.com · Addis Ababa, Ethiopia</div>
+          </div>
+
+          <div style="border-top:1px solid #e2e8f0;padding-top:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px;">
+              <div>
+                <div style="font-size:7px;color:#94a3b8;font-family:monospace;">Card Serial</div>
+                <div style="font-size:8.5px;font-weight:900;color:#0f172a;font-family:monospace;">${employeeId}</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:serif;font-style:italic;font-size:10px;color:#334155;border-bottom:1px solid #94a3b8;padding:0 10px 1px 10px;">Hashem H.</div>
+                <div style="font-size:6.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;margin-top:1px;">የሥራ ኃላፊ ፊርማ / Authorized Sign</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="display:flex;height:18px;gap:1.5px;justify-content:center;align-items:center;">
+                ${[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 1, 3, 2, 1, 3].map(w => `<div style="width:${w}px;height:100%;background:#0f172a;"></div>`).join('')}
+              </div>
+              <div style="font-family:monospace;font-size:7.5px;color:#64748b;letter-spacing:1px;margin-top:1px;">*${employeeId}*</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Staff Identity Pass - ${fullName} (${employeeId})</title>
+  <style>
+    @page {
+      size: auto;
+      margin: 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #ffffff;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .print-sheet {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    .badge-card {
+      width: 295px;
+      height: 460px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      page-break-inside: avoid;
+    }
+    .back-card {
+      background: #fafafa;
+    }
+    .slot-hole {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 6px 0 5px 0;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .slot-pill {
+      width: 48px;
+      height: 9px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+    }
+    .header-row {
+      padding: 8px 14px 4px 14px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #f59e0b;
+    }
+    .brand-text h1 {
+      font-size: 11px;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .brand-text p {
+      font-size: 7.5px;
+      font-weight: 700;
+      color: #b45309;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stripes-box {
+      position: relative;
+      width: 65px;
+      height: 32px;
+      overflow: hidden;
+    }
+    .stripe-amber {
+      position: absolute;
+      right: 0;
+      top: 3px;
+      width: 55px;
+      height: 4.5px;
+      background: #f59e0b;
+      border-radius: 999px;
+      transform: rotate(-25deg);
+      transform-origin: top right;
+    }
+    .stripe-maroon {
+      position: absolute;
+      right: 8px;
+      top: 13px;
+      width: 45px;
+      height: 4.5px;
+      background: #5c1616;
+      border-radius: 999px;
+      transform: rotate(-25deg);
+      transform-origin: top right;
+    }
+    .photo-area {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+    }
+    .photo-frame {
+      width: 116px;
+      height: 155px;
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1.5px solid #cbd5e1;
+      background: #f8fafc;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+    }
+    .initials-fallback {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+    }
+    .initials-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #fef3c7;
+      border: 2px solid #fcd34d;
+      color: #5c1616;
+      font-size: 17px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 5px;
+    }
+    .status-dot {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+      border: 2px solid #ffffff;
+    }
+    .info-area {
+      padding: 6px 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .info-item {
+      margin-bottom: 3px;
+    }
+    .label {
+      font-size: 7.5px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .val-name {
+      font-size: 12px;
+      font-weight: 900;
+      color: #0f172a;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .val-position {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #6b1e1e;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dept-pill {
+      font-size: 7.5px;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #78350f;
+      border: 1px solid #fde68a;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+    .id-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 3px;
+    }
+    .val-id {
+      font-family: monospace;
+      font-size: 12px;
+      font-weight: 900;
+      color: #1e3a8a;
+    }
+    .qr-img {
+      width: 42px;
+      height: 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px;
+      background: #ffffff;
+    }
+    .footer-bar {
+      margin-top: auto;
+      background: #5c1616;
+      color: #ffffff;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 8px;
+      font-weight: 600;
+      border-top: 2px solid #f59e0b;
+    }
+    .cut-guide {
+      width: 100%;
+      text-align: center;
+      margin-top: 12px;
+      font-size: 9.5px;
+      color: #64748b;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-sheet">
+    ${mode === 'both' ? `
+      ${frontCardHtml}
+      ${backCardHtml}
+      <div class="cut-guide">✂ Cut along card borders &middot; Insert into standard physical badge pouch (CR80) &middot; Baba Roti Café</div>
+    ` : mode === 'back' ? backCardHtml : frontCardHtml}
+  </div>
+</body>
+</html>`;
+
+    // Remove any previous print frame
+    const oldFrame = document.getElementById('__staff_badge_print_frame__');
+    if (oldFrame) oldFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = '__staff_badge_print_frame__';
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;z-index:-9999;';
+    document.body.appendChild(iframe);
+
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+
+    const trigger = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error('Print trigger error:', err);
+      } finally {
+        setTimeout(() => iframe.remove(), 2500);
+      }
+    };
+
+    const imgs = iframe.contentDocument.images;
+    if (imgs && imgs.length > 0) {
+      let loaded = 0;
+      const total = imgs.length;
+      const onDone = () => {
+        loaded++;
+        if (loaded >= total) setTimeout(trigger, 150);
+      };
+      for (let i = 0; i < total; i++) {
+        if (imgs[i].complete) onDone();
+        else {
+          imgs[i].onload = onDone;
+          imgs[i].onerror = onDone;
+        }
+      }
+      setTimeout(trigger, 1200);
+    } else {
+      setTimeout(trigger, 250);
+    }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:fixed print:inset-0">
-      
-      {/* Print Specific CSS to isolate Badge during window.print() */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-employee-badge-area,
-          #printable-employee-badge-area * {
-            visibility: visible !important;
-          }
-          #printable-employee-badge-area {
-            position: absolute !important;
-            left: 50% !important;
-            top: 30px !important;
-            transform: translateX(-50%) !important;
-            box-shadow: none !important;
-            border: 1px solid #cbd5e1 !important;
-            page-break-inside: avoid !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}} />
+  if (!open || !employee) return null;
 
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[96vh] print:max-h-none print:shadow-none print:border-none print:w-auto">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-xs overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[96vh]">
 
         {/* Modal Header */}
         <div className="no-print flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-[#450f0f] via-[#5c1616] to-[#7f1d1d] text-white">
@@ -529,17 +961,27 @@ export default function EmployeeIdBadgeModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
             >
               Close
             </button>
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={() => handlePrint('front')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition"
+              title="Print front side only"
+            >
+              <Printer size={13} />
+              Print Front
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePrint('both')}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition"
+              title="Print complete double-sided badge (CR80 pouch size)"
             >
               <Printer size={15} />
-              Print Badge (CR80)
+              Print Badge (Front &amp; Back)
             </button>
           </div>
         </div>
