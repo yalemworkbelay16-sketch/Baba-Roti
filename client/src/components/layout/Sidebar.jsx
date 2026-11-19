@@ -418,7 +418,9 @@ const Sidebar = ({
   ].filter(Boolean);
 
   const inventoryItems = [
-    canSeeNav('rawMaterials') && { to: '/materials', label: t('nav.rawMaterials'), icon: WidgetsRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials', label: t('nav.rawMaterials'), icon: WidgetsRoundedIcon, end: true },
+    canSeeNav('rawMaterials') && { to: '/materials?station=kitchen', label: isAmharic ? '🍳 የኩሽና ክምችት' : '🍳 Kitchen Stock', icon: RestaurantMenuRoundedIcon },
+    canSeeNav('rawMaterials') && { to: '/materials?station=bar', label: isAmharic ? '☕ የባር ክምችት' : '☕ Bar Stock', icon: CoffeeRoundedIcon },
     canSeeNav('products') && { to: '/products', label: t('nav.products'), icon: RestaurantMenuRoundedIcon },
     canSeeNav('suppliers') && { to: '/suppliers', label: t('nav.suppliers'), icon: LocalShippingRoundedIcon },
     canSeeNav('consumption') && { to: '/consumption', label: t('nav.consumption'), icon: CoffeeRoundedIcon },

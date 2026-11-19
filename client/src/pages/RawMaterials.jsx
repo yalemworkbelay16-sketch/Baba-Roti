@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse, UtensilsCrossed, Coffee } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,10 @@ const statusBadge = (status) => {
 };
 
 const RawMaterials = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const stationFromUrl = searchParams.get('station') || 'all';
+  const [stationFilter, setStationFilter] = useState(stationFromUrl);
+
   const [materials, setMaterials] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
@@ -62,6 +67,22 @@ const RawMaterials = () => {
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('rawMaterials', 'delete') : hasRole('admin');
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('station') || 'all';
+    setStationFilter(fromUrl);
+  }, [searchParams]);
+
+  const handleStationChange = (newStation) => {
+    setStationFilter(newStation);
+    const next = new URLSearchParams(searchParams);
+    if (newStation === 'all') {
+      next.delete('station');
+    } else {
+      next.set('station', newStation);
+    }
+    setSearchParams(next);
+  };
 
   const load = () => {
     api.get('/materials', { params: { search } }).then((res) => {
@@ -113,14 +134,28 @@ const RawMaterials = () => {
     };
   }, [materials, categoryFilter, globalCounts]);
 
-  // Filtered materials by status and category
+  // Filtered materials by status, category, and station
   const filteredMaterials = useMemo(() => {
     return materials.filter((m) => {
       if (statusFilter !== 'all' && m.status !== statusFilter) return false;
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
+      if (stationFilter === 'kitchen') {
+        const kVal = Number(m.kitchenStock || 0);
+        const isKitchenCat = /produce|meat|poultry|dairy|bakery|grains|spices|pantry|food/i.test(m.category || '');
+        return kVal > 0 || isKitchenCat;
+      }
+      if (stationFilter === 'bar') {
+        const bVal = Number(m.barStock || 0);
+        const isBarCat = /beverage|drink|bar|coffee|tea|juice|soda|beer|wine|water/i.test(m.category || '');
+        return bVal > 0 || isBarCat;
+      }
+      if (stationFilter === 'main') {
+        const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
+        return mVal > 0;
+      }
       return true;
     });
-  }, [materials, statusFilter, categoryFilter]);
+  }, [materials, statusFilter, categoryFilter, stationFilter]);
 
   /* ── selection ── */
   const allIds = filteredMaterials.map(m => m._id);
@@ -588,6 +623,64 @@ const RawMaterials = () => {
           </button>
         </div>
       )}
+
+      {/* Station / Store Location Selector */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-ink-200/90 bg-white p-2.5 shadow-2xs">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-ink-500 uppercase tracking-wider pl-2 pr-1 flex items-center gap-1.5">
+            <Boxes size={14} className="text-ink-600" /> Station View:
+          </span>
+          <button
+            type="button"
+            onClick={() => handleStationChange('all')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              stationFilter === 'all'
+                ? 'bg-ink-900 text-white shadow-xs'
+                : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
+            }`}
+          >
+            All Stations (Combined)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStationChange('main')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              stationFilter === 'main'
+                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
+            }`}
+          >
+            <Warehouse size={13} /> 🏢 Main Store (Warehouse)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStationChange('kitchen')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              stationFilter === 'kitchen'
+                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
+                : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <UtensilsCrossed size={13} /> 🍳 Kitchen Station Stock
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStationChange('bar')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              stationFilter === 'bar'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+            }`}
+          >
+            <Coffee size={13} /> ☕ Bar Station Stock
+          </button>
+        </div>
+        {stationFilter !== 'all' && (
+          <span className="text-[11px] font-semibold text-ink-500 pr-2">
+            Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter} Station</strong>
+          </span>
+        )}
+      </div>
 
       {/* Quick Status Filter Tabs / Badges */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-ink-200/80 bg-white p-2.5 shadow-2xs">
