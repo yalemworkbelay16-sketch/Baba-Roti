@@ -37,6 +37,14 @@ const updateUser = asyncHandler(async (req, res) => {
   user.isActive       = req.body.isActive      ?? user.isActive;
   user.phone          = req.body.phone         ?? user.phone;
   user.telegramChatId = req.body.telegramChatId ?? user.telegramChatId;
+  user.employeeId     = req.body.employeeId    ?? user.employeeId;
+  if (req.body.photoUrl !== undefined) {
+    user.photoUrl = req.body.photoUrl;
+    user.avatar   = req.body.photoUrl;
+  } else if (req.body.avatar !== undefined) {
+    user.avatar   = req.body.avatar;
+    user.photoUrl = req.body.avatar;
+  }
   if (req.body.password) user.password = req.body.password;
 
   const updated = await user.save();

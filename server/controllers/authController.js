@@ -6,7 +6,7 @@ const tg = require('../utils/telegramNotifier');
 
 // @desc  Register a new user (admin only, in practice)
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role, phone, telegramChatId } = req.body;
+  const { name, email, password, role, phone, telegramChatId, photoUrl, avatar, employeeId } = req.body;
 
   const userExists = await User.findOne({ email });
   if (userExists) {
@@ -20,10 +20,14 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('Only a System Owner / Developer can create accounts with the dev role.');
   }
 
+  const photo = photoUrl || avatar || '';
   const user = await User.create({
     name, email, password, role: assignedRole,
     phone: phone || '',
     telegramChatId: telegramChatId || '',
+    avatar: photo,
+    photoUrl: photo,
+    employeeId: employeeId || '',
   });
 
   // Auto-subscribe to Telegram if chatId provided
@@ -58,6 +62,9 @@ const registerUser = asyncHandler(async (req, res) => {
     phone: user.phone || '',
     telegramChatId: user.telegramChatId || '',
     avatar: user.avatar || '',
+    photoUrl: user.photoUrl || user.avatar || '',
+    employeeId: user.employeeId || '',
+    isActive: user.isActive,
     token: generateToken(user._id),
   });
 });
