@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2, Upload, Download, X, Zap, Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse, UtensilsCrossed, Coffee, Sliders } from 'lucide-react';
+import {
+  Plus, Search, Pencil, Trash2, Upload, Download, X, Zap,
+  Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse,
+  UtensilsCrossed, Coffee, Sliders, ArrowRightLeft, Send, ArrowRight
+} from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/ui/DataTable';
@@ -65,6 +69,12 @@ const RawMaterials = () => {
   const [form, setForm] = useState(emptyForm);
   const [unitCustom, setUnitCustom] = useState(false);
   const [categoryCustom, setCategoryCustom] = useState(false);
+
+  // Quick Dispatch / Stock Transfer state (send from Main Store to Kitchen/Bar)
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferItem, setTransferItem] = useState(null);
+  const [transferForm, setTransferForm] = useState({ toStation: 'kitchen', quantity: 1 });
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
   const importRef = useRef();
@@ -316,6 +326,54 @@ const RawMaterials = () => {
     load();
   };
 
+  const openTransfer = (m) => {
+    const dest = getMaterialStation(m) === 'bar' ? 'bar' : 'kitchen';
+    const mainAvail = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock || 0);
+    setTransferItem(m);
+    setTransferForm({
+      toStation: dest,
+      quantity: mainAvail > 0 ? mainAvail : 1,
+    });
+    setTransferModalOpen(true);
+  };
+
+  const handleTransferSubmit = async (e) => {
+    e.preventDefault();
+    if (!transferItem) return;
+    const qty = Number(transferForm.quantity);
+    if (!qty || qty <= 0) {
+      alert('Please enter a valid transfer quantity greater than 0.');
+      return;
+    }
+    const currentMain = Number(transferItem.mainStoreStock !== undefined ? transferItem.mainStoreStock : transferItem.currentStock || 0);
+    if (qty > currentMain) {
+      alert(`Cannot transfer ${qty} ${transferItem.unit || ''}. Only ${currentMain} ${transferItem.unit || ''} available in Main Store.`);
+      return;
+    }
+
+    setTransferSubmitting(true);
+    const currentK = Number(transferItem.kitchenStock || 0);
+    const currentB = Number(transferItem.barStock || 0);
+
+    const payload = {
+      mainStoreStock: Math.max(0, currentMain - qty),
+      kitchenStock: transferForm.toStation === 'kitchen' ? currentK + qty : currentK,
+      barStock: transferForm.toStation === 'bar' ? currentB + qty : currentB,
+    };
+    payload.currentStock = payload.mainStoreStock + payload.kitchenStock + payload.barStock;
+
+    try {
+      await api.put(`/materials/${transferItem._id}`, payload);
+      setTransferModalOpen(false);
+      setTransferItem(null);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to dispatch stock.');
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('Move to recycle bin?')) return;
     await api.delete(`/materials/${id}`);
@@ -474,8 +532,7 @@ const RawMaterials = () => {
   const columns = useMemo(() => {
     const isKitchen = stationFilter === 'kitchen';
     const isBar = stationFilter === 'bar';
-    const isMain = stationFilter === 'main';
-    const isAll = stationFilter === 'all';
+    const isMainOrAll = stationFilter === 'main' || stationFilter === 'all';
 
     return [
       ...(canDelete ? [{
@@ -496,73 +553,45 @@ const RawMaterials = () => {
       { key: 'name', header: 'Material' },
       { key: 'category', header: 'Category' },
 
-      // 🍳 Kitchen Station: Display ONLY Kitchen Working Balance
+      // 🍳 Kitchen Station: Display ONLY Kitchen Working Balance (Hide Main Store, Hide Bar, Hide Total)
       ...(isKitchen ? [{
         key: 'kitchenStock',
         header: (
           <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Kitchen Working Stock Balance">
-            <UtensilsCrossed size={14} className="text-amber-300" /> 🍳 Kitchen Balance
+            <UtensilsCrossed size={14} className="text-amber-300" /> Kitchen Balance
           </span>
         ),
         render: (r) => {
           const val = Number(r.kitchenStock || 0);
           return (
-            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-amber-700 font-bold' : 'text-ink-400'}`}>
+            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-amber-700' : 'text-rose-600 font-bold'}`}>
               {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
             </span>
           );
         },
       }] : []),
 
-      // ☕ Bar Station: Display ONLY Bar Working Balance
+      // ☕ Bar Station: Display ONLY Bar Working Balance (Hide Main Store, Hide Kitchen, Hide Total)
       ...(isBar ? [{
         key: 'barStock',
         header: (
           <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Bar Working Stock Balance">
-            <Coffee size={14} className="text-emerald-300" /> ☕ Bar Balance
+            <Coffee size={14} className="text-emerald-300" /> Bar Balance
           </span>
         ),
         render: (r) => {
           const val = Number(r.barStock || 0);
           return (
-            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-emerald-700 font-bold' : 'text-ink-400'}`}>
+            <span className={`tabular font-bold text-sm ${val > 0 ? 'text-emerald-700' : 'text-rose-600 font-bold'}`}>
               {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
             </span>
           );
         },
       }] : []),
 
-      // 🏢 Main Store: Display Central Warehouse Stock & Total Stock
-      ...(isMain ? [
-        {
-          key: 'mainStoreStock',
-          header: (
-            <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse Stock">
-              <Warehouse size={14} className="text-sky-300" /> 🏢 Warehouse Stock
-            </span>
-          ),
-          render: (r) => {
-            const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
-            return (
-              <span className={`tabular font-bold text-sm ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
-                {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
-              </span>
-            );
-          },
-        },
-        {
-          key: 'currentStock',
-          header: 'Total Stock',
-          render: (r) => (
-            <span className="tabular font-bold text-ink-900">
-              {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
-            </span>
-          ),
-        },
-      ] : []),
-
-      // 🌐 All Stations Combined: Display Full Breakdown Across All Stations
-      ...(isAll ? [
+      // 🏢 Main Store & All Stations: Display NORMAL breakdown (Main Store, Kitchen, Bar, Total Stock)
+      // Because Main Store is the top mother warehouse overseeing all stations!
+      ...(isMainOrAll ? [
         {
           key: 'mainStoreStock',
           header: (
@@ -615,7 +644,9 @@ const RawMaterials = () => {
         },
         {
           key: 'currentStock',
-          header: 'Total Stock',
+          header: (
+            <span className="text-white font-bold uppercase tracking-wider">Total Stock</span>
+          ),
           render: (r) => (
             <span className="tabular font-bold text-ink-900">
               {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
@@ -637,7 +668,17 @@ const RawMaterials = () => {
       ...((canEdit || canDelete) ? [{
         key: 'actions', header: '',
         render: (r) => (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 items-center">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => openTransfer(r)}
+                className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition"
+                title="Send / Transfer from Main Store to Kitchen or Bar"
+              >
+                <ArrowRightLeft size={14} />
+              </button>
+            )}
             {canEdit && (
               <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700" title="Edit"><Pencil size={15} /></button>
             )}
@@ -1259,6 +1300,105 @@ const RawMaterials = () => {
             <Button type="submit" variant="brass">{editing ? 'Save changes' : 'Add material'}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Quick Dispatch / Stock Transfer Modal (Send from Main Store to Kitchen or Bar) */}
+      <Modal
+        open={transferModalOpen}
+        onClose={() => { setTransferModalOpen(false); setTransferItem(null); }}
+        title="Dispatch Stock from Main Store"
+        width="max-w-md"
+      >
+        {transferItem && (
+          <form onSubmit={handleTransferSubmit} className="space-y-4">
+            <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-blue-900">{transferItem.name}</span>
+                <span className="font-mono text-blue-700 font-bold">{transferItem.code || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-blue-200/70">
+                <span className="text-ink-600">Available in Main Store:</span>
+                <span className="font-bold text-blue-900 tabular">
+                  {Number(transferItem.mainStoreStock !== undefined ? transferItem.mainStoreStock : transferItem.currentStock || 0)} {transferItem.unit}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-blue-200/40 text-ink-500">
+                <span>Current Kitchen: <strong>{Number(transferItem.kitchenStock || 0)} {transferItem.unit}</strong></span>
+                <span>Current Bar: <strong>{Number(transferItem.barStock || 0)} {transferItem.unit}</strong></span>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-bold text-ink-700 uppercase tracking-wider">
+                Destination Department / Station *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTransferForm(f => ({ ...f, toStation: 'kitchen' }))}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${
+                    transferForm.toStation === 'kitchen'
+                      ? 'border-amber-400 bg-amber-50 text-amber-900 ring-2 ring-amber-300'
+                      : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
+                  }`}
+                >
+                  <UtensilsCrossed size={14} className="text-amber-600" />
+                  <span>🍳 Kitchen Station</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransferForm(f => ({ ...f, toStation: 'bar' }))}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${
+                    transferForm.toStation === 'bar'
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-300'
+                      : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
+                  }`}
+                >
+                  <Coffee size={14} className="text-emerald-600" />
+                  <span>☕ Bar Station</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-ink-700 uppercase tracking-wider">
+                  Transfer Quantity ({transferItem.unit}) *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const avail = Number(transferItem.mainStoreStock !== undefined ? transferItem.mainStoreStock : transferItem.currentStock || 0);
+                    setTransferForm(f => ({ ...f, quantity: avail }));
+                  }}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                >
+                  Transfer All
+                </button>
+              </div>
+              <input
+                type="number"
+                step="any"
+                min="0.001"
+                max={Number(transferItem.mainStoreStock !== undefined ? transferItem.mainStoreStock : transferItem.currentStock || 0)}
+                required
+                value={transferForm.quantity}
+                onChange={e => setTransferForm(f => ({ ...f, quantity: e.target.value }))}
+                className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm font-bold text-ink-900 outline-none focus:border-blue-500 shadow-2xs"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-ink-100">
+              <Button type="button" variant="ghost" onClick={() => { setTransferModalOpen(false); setTransferItem(null); }}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="brass" disabled={transferSubmitting}>
+                <Send size={13} className="mr-1" />
+                {transferSubmitting ? 'Transferring…' : `Send to ${transferForm.toStation === 'kitchen' ? 'Kitchen' : 'Bar'}`}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
