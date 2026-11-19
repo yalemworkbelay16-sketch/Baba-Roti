@@ -415,14 +415,14 @@ const RawMaterials = () => {
     {
       key: 'mainStoreStock',
       header: (
-        <span className="inline-flex items-center gap-1 text-blue-700 font-semibold" title="Main Store Warehouse">
-          <Warehouse size={13} className="text-blue-500" /> Main Store
+        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse">
+          <Warehouse size={13} className="text-sky-300" /> Main Store
         </span>
       ),
       render: (r) => {
         const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
         return (
-          <span className={`tabular font-medium ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
+          <span className={`tabular font-semibold ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
             {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
           </span>
         );
@@ -431,14 +431,14 @@ const RawMaterials = () => {
     {
       key: 'kitchenStock',
       header: (
-        <span className="inline-flex items-center gap-1 text-amber-700 font-semibold" title="Kitchen Station Working Stock">
-          <UtensilsCrossed size={13} className="text-amber-500" /> Kitchen
+        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Kitchen Station Working Stock">
+          <UtensilsCrossed size={13} className="text-amber-300" /> Kitchen
         </span>
       ),
       render: (r) => {
         const val = Number(r.kitchenStock || 0);
         return (
-          <span className={`tabular font-medium ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
+          <span className={`tabular font-semibold ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
             {val > 0 ? `${val} ` : '—'}
             {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
           </span>
@@ -448,14 +448,14 @@ const RawMaterials = () => {
     {
       key: 'barStock',
       header: (
-        <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold" title="Bar Station Working Stock">
-          <Coffee size={13} className="text-emerald-500" /> Bar
+        <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Bar Station Working Stock">
+          <Coffee size={13} className="text-emerald-300" /> Bar
         </span>
       ),
       render: (r) => {
         const val = Number(r.barStock || 0);
         return (
-          <span className={`tabular font-medium ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
+          <span className={`tabular font-semibold ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
             {val > 0 ? `${val} ` : '—'}
             {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
           </span>
@@ -633,44 +633,40 @@ const RawMaterials = () => {
           <button
             type="button"
             onClick={() => handleStationChange('all')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-              stationFilter === 'all'
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'all'
                 ? 'bg-ink-900 text-white shadow-xs'
                 : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
-            }`}
+              }`}
           >
             All Stations (Combined)
           </button>
           <button
             type="button"
             onClick={() => handleStationChange('main')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-              stationFilter === 'main'
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'main'
                 ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
                 : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
-            }`}
+              }`}
           >
             <Warehouse size={13} /> 🏢 Main Store (Warehouse)
           </button>
           <button
             type="button"
             onClick={() => handleStationChange('kitchen')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-              stationFilter === 'kitchen'
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'kitchen'
                 ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
                 : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-            }`}
+              }`}
           >
             <UtensilsCrossed size={13} /> 🍳 Kitchen Station Stock
           </button>
           <button
             type="button"
             onClick={() => handleStationChange('bar')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-              stationFilter === 'bar'
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'bar'
                 ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <Coffee size={13} /> ☕ Bar Station Stock
           </button>
