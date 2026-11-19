@@ -22,47 +22,48 @@ export function normalizeFileUrl(url) {
     return trimmed;
   }
 
-  // Determine backend base origin from VITE_API_URL if defined and absolute
-  let apiOrigin = '';
-  const viteApiUrl = import.meta.env?.VITE_API_URL;
-  if (viteApiUrl && /^https?:\/\//i.test(viteApiUrl)) {
-    try {
-      const parsedApi = new URL(viteApiUrl);
-      if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost' && parsedApi.hostname === 'localhost') {
-        parsedApi.hostname = window.location.hostname;
-      }
-      apiOrigin = parsedApi.origin;
-    } catch {
-      apiOrigin = '';
-    }
-  }
+  const isBrowser = typeof window !== 'undefined' && window.location;
+  const isCloudHost = isBrowser && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
   // Case 1: URL contains '/api/upload/' (e.g. http://localhost:5000/api/upload/receipt-1.pdf or /api/upload/...)
   const uploadIndex = trimmed.indexOf('/api/upload/');
   if (uploadIndex !== -1) {
     const uploadPath = trimmed.slice(uploadIndex); // '/api/upload/filename.ext'
-    if (apiOrigin) {
-      return `${apiOrigin}${uploadPath}`;
+
+    // On any cloud host (Aletcloud, Render, VPS, custom domain), ALWAYS return clean relative path
+    // so current HTTPS domain without port 5000 is used!
+    if (isCloudHost) {
+      return uploadPath;
     }
-    // Return relative path so current browser origin + HTTPS is naturally used
+
+    // On local dev with Vite on port 5173, point to backend port 5000
+    if (isBrowser && window.location.hostname === 'localhost' && window.location.port !== '5000') {
+      return `http://localhost:5000${uploadPath}`;
+    }
+
     return uploadPath;
   }
 
   // Case 2: Raw filename only (e.g. 'receipt-1729000-12345.pdf')
   if (!trimmed.includes('/') && /^[a-zA-Z0-9_\-.]+\.[a-zA-Z0-9]+$/.test(trimmed)) {
     const uploadPath = `/api/upload/${trimmed}`;
-    return apiOrigin ? `${apiOrigin}${uploadPath}` : uploadPath;
+    if (isCloudHost) return uploadPath;
+    if (isBrowser && window.location.hostname === 'localhost' && window.location.port !== '5000') {
+      return `http://localhost:5000${uploadPath}`;
+    }
+    return uploadPath;
   }
 
   // Case 3: Absolute URL on http: while active window is https: (mixed content prevention)
   if (
-    typeof window !== 'undefined' &&
-    window.location &&
+    isBrowser &&
     window.location.protocol === 'https:' &&
     trimmed.startsWith('http://')
   ) {
-    // If it points to localhost or private IP, relative route is safer
-    if (trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
+    // If it points to localhost or private IP or port 5000, relative route is safer
+    if (trimmed.includes('localhost') || trimmed.includes('127.0.0.1') || trimmed.includes(':5000')) {
+      const match = trimmed.match(/\/api\/upload\/[^\s?#]+/);
+      if (match) return match[0];
       return trimmed.replace(/^http:\/\/[^/]+/, '');
     }
     // Otherwise upgrade http:// to https://

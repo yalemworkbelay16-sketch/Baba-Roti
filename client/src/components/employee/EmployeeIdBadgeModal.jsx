@@ -22,6 +22,7 @@ export default function EmployeeIdBadgeModal({
 }) {
   const [side, setSide] = useState('front'); // 'front' | 'back'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [photoLoadError, setPhotoLoadError] = useState(false);
   const badgeRef = useRef(null);
 
   const rolePositions = {
@@ -109,6 +110,11 @@ export default function EmployeeIdBadgeModal({
       .then(url => setQrCodeUrl(url))
       .catch(err => console.error('QR code generation failed:', err));
   }, [employee, fullName, employeeId, department, position]);
+
+  // Reset photo load error when photo source changes
+  useEffect(() => {
+    setPhotoLoadError(false);
+  }, [photoSrc]);
 
   if (!open || !employee) return null;
 
@@ -267,46 +273,41 @@ export default function EmployeeIdBadgeModal({
                         height: '168px', // Exact 3:4 passport aspect ratio
                       }}
                     >
-                      {photoSrc ? (
+                      {photoSrc && !photoLoadError ? (
                         <img
                           src={photoSrc}
-                          alt={fullName}
-                          className="w-full h-full object-cover object-top"
-                          crossOrigin="anonymous"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fb = document.getElementById('badge-photo-fallback');
-                            if (fb) fb.style.display = 'flex';
+                          alt=""
+                          className="w-full h-full object-cover object-top select-none"
+                          onError={() => {
+                            console.warn('[Badge] Failed to load photo:', photoSrc);
+                            setPhotoLoadError(true);
                           }}
                         />
-                      ) : null}
-
-                      {/* Fallback if no photo or loading error */}
-                      <div
-                        id="badge-photo-fallback"
-                        className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 text-slate-400 p-2 text-center ${
-                          photoSrc ? 'hidden' : 'flex'
-                        }`}
-                      >
-                        <div className="w-14 h-14 rounded-full bg-amber-100 text-[#5c1616] font-extrabold text-xl flex items-center justify-center border-2 border-amber-300 shadow-xs mb-1">
-                          {initials}
+                      ) : (
+                        /* Fallback when no photo uploaded or photo failed to load */
+                        <div
+                          className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 text-slate-400 p-2 text-center"
+                        >
+                          <div className="w-14 h-14 rounded-full bg-amber-100 text-[#5c1616] font-extrabold text-xl flex items-center justify-center border-2 border-amber-300 shadow-xs mb-1">
+                            {initials}
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-600">3×4 Photo</span>
+                          <span className="text-[8px] text-slate-400">Passport View</span>
+                          
+                          {onEdit && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                onEdit(employee);
+                              }}
+                              className="no-print mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-blue-600 hover:underline"
+                            >
+                              <Camera size={9} /> Upload Photo
+                            </button>
+                          )}
                         </div>
-                        <span className="text-[10px] font-bold text-slate-600">3×4 Photo</span>
-                        <span className="text-[8px] text-slate-400">Passport View</span>
-                        
-                        {onEdit && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onEdit(employee);
-                            }}
-                            className="no-print mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-blue-600 hover:underline"
-                          >
-                            <Camera size={9} /> Upload Photo
-                          </button>
-                        )}
-                      </div>
+                      )}
 
                       {/* Active Status Badge Dot */}
                       <div

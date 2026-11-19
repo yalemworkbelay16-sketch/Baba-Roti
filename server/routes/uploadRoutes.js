@@ -52,7 +52,8 @@ router.post('/', protect, upload.array('files', 5), async (req, res, next) => {
       await saveLocalCache(filename, file.buffer);
 
       uploaded.push({
-        url: `${baseUrl}/api/upload/${filename}`,
+        url: `/api/upload/${filename}`,
+        fullUrl: `${baseUrl}/api/upload/${filename}`,
         filename: filename,
         name: file.originalname,
         mimeType: mimeType,
@@ -69,6 +70,9 @@ router.post('/', protect, upload.array('files', 5), async (req, res, next) => {
 router.get('/:filename', async (req, res, next) => {
   try {
     const filename = path.basename(req.params.filename);
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
     // 1. Query MongoDB GridFS first
     const fileDoc = await findGridFSFile(filename);
     if (fileDoc) {
