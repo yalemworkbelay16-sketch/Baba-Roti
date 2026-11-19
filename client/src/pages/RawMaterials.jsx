@@ -178,19 +178,17 @@ const RawMaterials = () => {
 
   // Contextual station counters
   const stationCounts = useMemo(() => {
-    let main = 0;
     let kitchen = 0;
     let bar = 0;
     materials.forEach((m) => {
       const st = getMaterialStation(m);
       const kVal = Number(m.kitchenStock || 0);
       const bVal = Number(m.barStock || 0);
-      const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
       if (st === 'kitchen' || kVal > 0) kitchen++;
       if (st === 'bar' || bVal > 0) bar++;
-      if (st === 'mainStore' || mVal > 0) main++;
     });
-    return { all: materials.length, main, kitchen, bar };
+    // Main Store is the mother warehouse holding ALL items
+    return { all: materials.length, main: materials.length, kitchen, bar };
   }, [materials, stationMapping]);
 
   // Filtered materials by status, category, and station
@@ -208,8 +206,8 @@ const RawMaterials = () => {
         return st === 'bar' || bVal > 0;
       }
       if (stationFilter === 'main') {
-        const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
-        return st === 'mainStore' || mVal > 0;
+        // Main Store holds all items without exception
+        return true;
       }
       return true;
     });

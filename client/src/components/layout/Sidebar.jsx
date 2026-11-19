@@ -363,12 +363,11 @@ const Sidebar = ({
     api.get('/materials').then((res) => {
       if (!isMounted) return;
       const data = Array.isArray(res.data) ? res.data : [];
-      let main = 0, kitchen = 0, bar = 0;
+      let kitchen = 0, bar = 0;
       data.forEach((m) => {
         const cat = String(m.category || '').toLowerCase();
         const kVal = Number(m.kitchenStock || 0);
         const bVal = Number(m.barStock || 0);
-        const mVal = Number(m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock ?? 0);
         const isBar = cat === 'bar' || /beverage|drink|coffee|tea|juice/i.test(cat);
         const isKitchen =
           cat === 'kitchen' ||
@@ -378,9 +377,9 @@ const Sidebar = ({
           /food|produce|meat|poultry|dairy|bakery/i.test(cat);
         if (isKitchen || kVal > 0) kitchen++;
         if (isBar || bVal > 0) bar++;
-        if (mVal > 0 || (!isKitchen && !isBar)) main++;
       });
-      setStationCounts({ all: data.length, main, kitchen, bar });
+      // Main Store holds ALL materials because everything arrives & starts at Main Store
+      setStationCounts({ all: data.length, main: data.length, kitchen, bar });
     }).catch(() => {});
     return () => { isMounted = false; };
   }, [location.pathname]);

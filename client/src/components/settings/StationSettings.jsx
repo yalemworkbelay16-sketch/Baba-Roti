@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Info,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import api from '../../api/axios';
 import Card from '../ui/Card';
@@ -326,18 +327,18 @@ export default function StationSettings() {
         <div className="rounded-2xl border border-blue-200 bg-white p-4 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2 font-bold text-blue-900 text-sm">
-              <Warehouse size={16} className="text-blue-600" /> Main Store (Warehouse)
+              <Warehouse size={16} className="text-blue-600" /> Main Store (Central Warehouse)
             </span>
             <span className="rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5">
-              {stationSummary.main.items} items
+              {rawMaterials.length} items (100%)
             </span>
           </div>
           <p className="text-[11px] text-ink-500 leading-relaxed">
-            Central bulk receiving storage for all supplier orders, packaging, cleaning supplies, and inventory reserve.
+            Central mother store for <strong>ALL {rawMaterials.length} materials</strong>. Every supply order starts in Main Store before being dispatched to Kitchen or Bar.
           </p>
           <div className="text-xs font-semibold text-blue-800 pt-1 border-t border-blue-100 flex justify-between">
-            <span>Mapped categories:</span>
-            <strong>{stationSummary.main.cats}</strong>
+            <span>Warehouse Status:</span>
+            <strong>All Materials Available</strong>
           </div>
         </div>
 
@@ -385,10 +386,10 @@ export default function StationSettings() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-ink-100">
           <div>
             <h4 className="font-display text-sm font-bold text-ink-900 flex items-center gap-2">
-              <Layers size={16} className="text-blue-600" /> Raw Material Categories &amp; Station Destination
+              <Layers size={16} className="text-blue-600" /> Route Categories to Kitchen or Bar Station
             </h4>
             <p className="text-xs text-ink-500 mt-0.5">
-              Select which operational station each category belongs to. Once mapped, the materials appear directly in that Station’s View.
+              Main Store holds all items. Below, simply select whether a category belongs to <strong>Kitchen Station</strong> or <strong>Bar Station</strong>.
             </p>
           </div>
           <button
@@ -410,20 +411,22 @@ export default function StationSettings() {
               <tr>
                 <th className="px-4 py-2.5 text-left">Category Name</th>
                 <th className="px-4 py-2.5 text-center">Items Count</th>
-                <th className="px-4 py-2.5 text-left">Current Station Assignment</th>
-                <th className="px-4 py-2.5 text-right">Assign Station</th>
+                <th className="px-4 py-2.5 text-left">Station Assignment</th>
+                <th className="px-4 py-2.5 text-right">Route to Station (Kitchen / Bar)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-50">
               {rawCategories.map((c) => {
                 const currentStation = c.station;
+                const isKitchen = currentStation === 'kitchen';
+                const isBar = currentStation === 'bar';
                 return (
                   <tr key={c.name} className="hover:bg-ink-50/40 transition">
                     <td className="px-4 py-3 font-semibold text-ink-900">
                       <span className="flex items-center gap-2">
-                        {currentStation === 'kitchen' && <UtensilsCrossed size={14} className="text-amber-500" />}
-                        {currentStation === 'bar' && <Coffee size={14} className="text-emerald-500" />}
-                        {currentStation === 'mainStore' && <Warehouse size={14} className="text-blue-500" />}
+                        {isKitchen && <UtensilsCrossed size={14} className="text-amber-500" />}
+                        {isBar && <Coffee size={14} className="text-emerald-500" />}
+                        {!isKitchen && !isBar && <Warehouse size={14} className="text-blue-500" />}
                         <span>{c.name}</span>
                       </span>
                     </td>
@@ -433,61 +436,59 @@ export default function StationSettings() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {currentStation === 'kitchen' && (
+                      {isKitchen && (
                         <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">
                           <UtensilsCrossed size={12} /> Kitchen Station
                         </span>
                       )}
-                      {currentStation === 'bar' && (
+                      {isBar && (
                         <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
                           <Coffee size={12} /> Bar Station
                         </span>
                       )}
-                      {currentStation === 'mainStore' && (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800 border border-blue-200">
-                          <Warehouse size={12} /> Main Store Warehouse
+                      {!isKitchen && !isBar && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-ink-500 font-semibold">
+                          <Warehouse size={12} className="text-blue-500" /> Main Store (All Items Available)
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {/* Segmented station button group */}
-                      <div className="inline-flex rounded-xl border border-ink-200/90 p-0.5 bg-ink-50/70 shadow-2xs">
+                      {/* Segmented station button group (Kitchen or Bar) */}
+                      <div className="inline-flex items-center rounded-xl border border-ink-200/90 p-0.5 bg-ink-50/70 shadow-2xs">
                         <button
                           type="button"
-                          onClick={() => setCategoryStation(c.name, 'mainStore')}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                            currentStation === 'mainStore'
-                              ? 'bg-blue-600 text-white shadow-xs'
-                              : 'text-ink-600 hover:text-ink-900 hover:bg-white'
-                          }`}
-                          title="Assign to Main Store Central Warehouse"
-                        >
-                          <Warehouse size={11} /> Main Store
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCategoryStation(c.name, 'kitchen')}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                            currentStation === 'kitchen'
+                          onClick={() => setCategoryStation(c.name, isKitchen ? 'none' : 'kitchen')}
+                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            isKitchen
                               ? 'bg-amber-600 text-white shadow-xs'
                               : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                           }`}
-                          title="Assign to Kitchen Station"
+                          title={isKitchen ? 'Assigned to Kitchen (Click to unassign)' : 'Assign to Kitchen Station'}
                         >
-                          <UtensilsCrossed size={11} /> Kitchen
+                          <UtensilsCrossed size={12} /> Kitchen
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCategoryStation(c.name, 'bar')}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                            currentStation === 'bar'
+                          onClick={() => setCategoryStation(c.name, isBar ? 'none' : 'bar')}
+                          className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            isBar
                               ? 'bg-emerald-600 text-white shadow-xs'
                               : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                           }`}
-                          title="Assign to Bar Station"
+                          title={isBar ? 'Assigned to Bar (Click to unassign)' : 'Assign to Bar Station'}
                         >
-                          <Coffee size={11} /> Bar
+                          <Coffee size={12} /> Bar
                         </button>
+                        {(isKitchen || isBar) && (
+                          <button
+                            type="button"
+                            onClick={() => setCategoryStation(c.name, 'none')}
+                            className="inline-flex items-center rounded-lg px-2 py-1.5 text-xs text-ink-400 hover:text-ink-700 hover:bg-white transition cursor-pointer"
+                            title="Remove from station (stays in Main Store only)"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
