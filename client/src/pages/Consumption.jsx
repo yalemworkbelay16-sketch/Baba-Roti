@@ -13,62 +13,62 @@ import Pagination from '../components/ui/Pagination';
 
 /* ── Category config ─────────────────────────────────────────────── */
 const CATEGORIES = [
-  { key: 'staff_meal',          label: 'Staff Meal',          icon: UtensilsCrossed, color: 'bg-emerald-100 text-emerald-700', activeCls: 'bg-emerald-600' },
-  { key: 'guest_entertainment', label: 'Guest Entertainment', icon: Users,           color: 'bg-violet-100 text-violet-700',   activeCls: 'bg-violet-600'  },
-  { key: 'owner_management',    label: 'Owner / Management',  icon: Briefcase,       color: 'bg-blue-100 text-blue-700',       activeCls: 'bg-blue-600'    },
-  { key: 'training_event',      label: 'Training & Events',   icon: BookOpen,        color: 'bg-amber-100 text-amber-700',     activeCls: 'bg-amber-600'   },
-  { key: 'complimentary',       label: 'Complimentary',       icon: Gift,            color: 'bg-pink-100 text-pink-700',       activeCls: 'bg-pink-600'    },
-  { key: 'other',               label: 'Other',               icon: FileText,        color: 'bg-slate-100 text-slate-700',     activeCls: 'bg-slate-600'   },
+  { key: 'staff_meal', label: 'Staff Meal', icon: UtensilsCrossed, color: 'bg-emerald-100 text-emerald-700', activeCls: 'bg-emerald-600' },
+  { key: 'guest_entertainment', label: 'Guest Entertainment', icon: Users, color: 'bg-violet-100 text-violet-700', activeCls: 'bg-violet-600' },
+  { key: 'owner_management', label: 'Owner / Management', icon: Briefcase, color: 'bg-blue-100 text-blue-700', activeCls: 'bg-blue-600' },
+  { key: 'training_event', label: 'Training & Events', icon: BookOpen, color: 'bg-amber-100 text-amber-700', activeCls: 'bg-amber-600' },
+  { key: 'complimentary', label: 'Complimentary', icon: Gift, color: 'bg-pink-100 text-pink-700', activeCls: 'bg-pink-600' },
+  { key: 'other', label: 'Other', icon: FileText, color: 'bg-slate-100 text-slate-700', activeCls: 'bg-slate-600' },
 ];
 const catByKey = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
 const emptyItem = () => ({ product: '', quantity: 1 });
 
 const emptyForm = {
-  category:    'staff_meal',
-  date:        new Date().toISOString().slice(0, 16),
+  category: 'staff_meal',
+  date: new Date().toISOString().slice(0, 16),
   beneficiary: '',
-  pax:         1,
-  department:  '',
-  notes:       '',
-  items:       [emptyItem()],
+  pax: 1,
+  department: '',
+  notes: '',
+  items: [emptyItem()],
 };
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function Consumption() {
   const { can, hasRole } = useAuth();
-  const canCreate  = can('recordGoods');
+  const canCreate = can('recordGoods');
   const canApprove = can('approveGoods');
-  const canVoid    = can('voidTransactions');
+  const canVoid = can('voidTransactions');
 
-  const [records,   setRecords]   = useState([]);
-  const [products,  setProducts]  = useState([]);
+  const [records, setRecords] = useState([]);
+  const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [search,    setSearch]    = useState('');
+  const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
-  const [loading,   setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Form modal
-  const [modalOpen,  setModalOpen]  = useState(false);
-  const [editing,    setEditing]    = useState(null);
-  const [form,       setForm]       = useState(emptyForm);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
-  const [formError,  setFormError]  = useState('');
+  const [formError, setFormError] = useState('');
 
   // Detail modal
-  const [detailOpen,   setDetailOpen]   = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecord, setDetailRecord] = useState(null);
 
   // Approve/Void confirmation
-  const [actionOpen,   setActionOpen]   = useState(false);
-  const [actionType,   setActionType]   = useState(null); // 'approve'|'void'
+  const [actionOpen, setActionOpen] = useState(false);
+  const [actionType, setActionType] = useState(null); // 'approve'|'void'
   const [actionRecord, setActionRecord] = useState(null);
-  const [actionNote,   setActionNote]   = useState('');
-  const [actionWorking,setActionWorking]= useState(false);
-  const [actionError,  setActionError]  = useState('');
+  const [actionNote, setActionNote] = useState('');
+  const [actionWorking, setActionWorking] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   // Pagination
-  const [page,     setPage]     = useState(1);
+  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loadError, setLoadError] = useState('');
 
@@ -116,17 +116,17 @@ export default function Consumption() {
 
   /* ── form helpers ── */
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(''); setModalOpen(true); };
-  const openEdit   = (r) => {
+  const openEdit = (r) => {
     setEditing(r);
     setForm({
-      category:    r.category,
-      date:        new Date(r.date).toISOString().slice(0, 16),
+      category: r.category,
+      date: new Date(r.date).toISOString().slice(0, 16),
       beneficiary: r.beneficiary || '',
-      pax:         r.pax || 1,
-      department:  r.department || '',
-      notes:       r.notes || '',
-      items:       r.items.map(i => ({
-        product:  i.product?._id || i.product,
+      pax: r.pax || 1,
+      department: r.department || '',
+      notes: r.notes || '',
+      items: r.items.map(i => ({
+        product: i.product?._id || i.product,
         quantity: i.quantity,
       })),
     });
@@ -134,7 +134,7 @@ export default function Consumption() {
     setModalOpen(true);
   };
 
-  const addItem    = () => setForm(f => ({ ...f, items: [...f.items, emptyItem()] }));
+  const addItem = () => setForm(f => ({ ...f, items: [...f.items, emptyItem()] }));
   const removeItem = i => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
   const updateItem = (i, k, v) => setForm(f => {
     const items = [...f.items];
@@ -149,7 +149,7 @@ export default function Consumption() {
       const payload = {
         ...form,
         items: form.items.filter(i => i.product).map(i => ({
-          product:  i.product,
+          product: i.product,
           quantity: Number(i.quantity),
         })),
       };
@@ -190,15 +190,15 @@ export default function Consumption() {
 
   /* ── export data ── */
   const exportData = useMemo(() => (Array.isArray(records) ? records : []).map(r => ({
-    'Voucher No':    r.voucherNo || '—',
-    'Date':          new Date(r.date).toLocaleDateString(),
-    'Category':      catByKey[r.category]?.label || r.category,
-    'Beneficiary':   r.beneficiary || '—',
-    'Pax':           r.pax || 1,
-    'Department':    r.department || '—',
-    'Recipe Cost':   Number(r.totalRecipeCost || 0).toFixed(2),
-    'Status':        r.status?.toUpperCase(),
-    'Recorded By':   r.performedBy?.name || '—',
+    'Voucher No': r.voucherNo || '—',
+    'Date': new Date(r.date).toLocaleDateString(),
+    'Category': catByKey[r.category]?.label || r.category,
+    'Beneficiary': r.beneficiary || '—',
+    'Pax': r.pax || 1,
+    'Department': r.department || '—',
+    'Recipe Cost': Number(r.totalRecipeCost || 0).toFixed(2),
+    'Status': r.status?.toUpperCase(),
+    'Recorded By': r.performedBy?.name || '—',
   })), [records]);
 
   // Dynamic category counts
@@ -251,16 +251,14 @@ export default function Consumption() {
       <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
         <button
           onClick={() => { setFilterCat(''); }}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-            !filterCat
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${!filterCat
               ? 'bg-blue-900 text-white shadow-xs'
               : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
+            }`}
         >
           <span>All</span>
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-            !filterCat ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-          }`}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${!filterCat ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
             {records.length}
           </span>
         </button>
@@ -271,15 +269,13 @@ export default function Consumption() {
           return (
             <button key={cat.key}
               onClick={() => setFilterCat(isActive ? '' : cat.key)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
+                }`}
             >
               <Icon size={12} className={isActive ? 'text-white' : ''} />
               <span>{cat.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
                 {count}
               </span>
             </button>
@@ -408,14 +404,14 @@ export default function Consumption() {
                           </button>
                         )}
                         {/* Void */}
-                        {canVoid && ['pending','approved'].includes(r.status) && (
+                        {canVoid && ['pending', 'approved'].includes(r.status) && (
                           <button onClick={() => openAction(r, 'void')}
                             className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition">
                             <Ban size={11} /> Void
                           </button>
                         )}
                         {/* Delete */}
-                        {canVoid && ['pending','voided'].includes(r.status) && (
+                        {canVoid && ['pending', 'voided'].includes(r.status) && (
                           <button onClick={() => handleDelete(r._id)}
                             className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600 transition">
                             <Trash2 size={13} />
@@ -451,9 +447,8 @@ export default function Consumption() {
                 return (
                   <button key={cat.key} type="button"
                     onClick={() => setForm(f => ({ ...f, category: cat.key, beneficiary: '' }))}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border transition ${
-                      isActive ? `${cat.activeCls} text-white border-transparent` : 'bg-white border-ink-200 text-ink-600 hover:border-blue-400'
-                    }`}>
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border transition ${isActive ? `${cat.activeCls} text-white border-transparent` : 'bg-white border-ink-200 text-ink-600 hover:border-blue-400'
+                      }`}>
                     <Icon size={12} /> {cat.label}
                   </button>
                 );
@@ -656,7 +651,7 @@ export default function Consumption() {
                     <CheckCircle size={13} /> Approve
                   </button>
                 )}
-                {canVoid && ['pending','approved'].includes(detailRecord.status) && (
+                {canVoid && ['pending', 'approved'].includes(detailRecord.status) && (
                   <button onClick={() => { setDetailOpen(false); openAction(detailRecord, 'void'); }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition">
                     <Ban size={13} /> Void
@@ -694,9 +689,8 @@ export default function Consumption() {
               Cancel
             </button>
             <button onClick={handleAction} disabled={actionWorking}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 ${
-                actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-              }`}>
+              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 ${actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                }`}>
               {actionWorking ? 'Working…' : (actionType === 'approve' ? 'Approve & Deduct Stock' : 'Void')}
             </button>
           </div>

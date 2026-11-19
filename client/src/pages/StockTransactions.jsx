@@ -436,8 +436,8 @@ export default function StockTransactions({ defaultVoucher } = {}) {
                   type="button"
                   onClick={() => applyDatePreset(p.id)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${active
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
                     }`}
                 >
                   {p.label}
@@ -544,16 +544,14 @@ export default function StockTransactions({ defaultVoucher } = {}) {
           <button
             type="button"
             onClick={() => setQuickVoucherFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              quickVoucherFilter === 'all'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${quickVoucherFilter === 'all'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
+              }`}
           >
             <span>All Movements</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              quickVoucherFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${quickVoucherFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {transactions.length}
             </span>
           </button>
@@ -568,17 +566,15 @@ export default function StockTransactions({ defaultVoucher } = {}) {
                 key={v.key}
                 type="button"
                 onClick={() => setQuickVoucherFilter(isActive ? 'all' : v.key)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  isActive
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive
                     ? `${v.activeCls} text-white shadow-xs ring-2 ring-blue-400/40`
                     : `${v.badgeCls} border border-transparent hover:opacity-90`
-                }`}
+                  }`}
               >
                 <Icon size={12} className={isActive ? 'text-white' : ''} />
                 <span>{v.label}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  isActive ? 'bg-white/25 text-white' : 'bg-black/10 text-current'
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-black/10 text-current'
+                  }`}>
                   {count}
                 </span>
               </button>

@@ -1,14 +1,16 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   Plus, Search, Pencil, Trash2, X, RefreshCw,
   UserCheck, UserX, Clock, Users, Building2, Phone, Mail, Calendar,
-  ChevronDown,
+  ChevronDown, Camera, Upload, Check, Award,
 } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/ui/Modal';
 import WorkflowBadge from '../components/ui/WorkflowBadge';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
+import EmployeeIdBadgeModal from '../components/employee/EmployeeIdBadgeModal';
+import { normalizeFileUrl } from '../utils/fileUrl';
 import { useAuth } from '../context/AuthContext';
 
 const DEPARTMENTS = [
@@ -27,6 +29,7 @@ const emptyForm = {
   employeeId: '', firstName: '', lastName: '',
   department: 'Waiter', position: '', phone: '',
   email: '', hireDate: '', status: 'active', notes: '',
+  photoUrl: '',
 };
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
@@ -51,6 +54,16 @@ export default function Employees() {
   const [form, setForm] = useState(emptyForm);
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // 3x4 Photo upload state
+  const fileInputRef = useRef(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoUploadErr, setPhotoUploadErr] = useState('');
+
+  // Digital ID Badge Modal state
+  const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+  const [badgeEmployee, setBadgeEmployee] = useState(null);
+  const [isNewlyCreated, setIsNewlyCreated] = useState(false);
 
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -100,6 +113,7 @@ export default function Employees() {
     setEditing(null);
     setForm(emptyForm);
     setFormErr('');
+    setPhotoUploadErr('');
     setModalOpen(true);
   };
   const openEdit = (emp) => {
@@ -115,25 +129,75 @@ export default function Employees() {
       hireDate: emp.hireDate ? new Date(emp.hireDate).toISOString().slice(0, 10) : '',
       status: emp.status || 'active',
       notes: emp.notes || '',
+      photoUrl: emp.photoUrl || '',
     });
     setFormErr('');
+    setPhotoUploadErr('');
     setModalOpen(true);
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoUploadErr('Please select a valid image file (JPG, PNG, WEBP).');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPhotoUploadErr('Photo must be under 10MB.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoUploadErr('');
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadedUrl = res.data?.files?.[0]?.url;
+      if (uploadedUrl) {
+        setForm(p => ({ ...p, photoUrl: uploadedUrl }));
+      } else {
+        setPhotoUploadErr('Upload failed. No file URL returned.');
+      }
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      setPhotoUploadErr(err.response?.data?.message || 'Failed to upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true); setFormErr('');
     try {
+      let savedEmp = null;
       if (editing) {
-        await api.put(`/employees/${editing._id}`, form);
+        const res = await api.put(`/employees/${editing._id}`, form);
+        savedEmp = res.data;
       } else {
-        await api.post('/employees', form);
+        const res = await api.post('/employees', form);
+        savedEmp = res.data;
       }
       setModalOpen(false);
       load();
       try {
         localStorage.setItem('baba_roti_employees_updated', Date.now().toString());
       } catch (_) { }
+
+      // Auto-open Digital ID Badge for the registered / updated employee
+      if (savedEmp) {
+        setBadgeEmployee(savedEmp);
+        setIsNewlyCreated(!editing);
+        setBadgeModalOpen(true);
+      }
     } catch (err) {
       setFormErr(err.response?.data?.message || 'Failed to save.');
     } finally { setSaving(false); }
@@ -218,8 +282,8 @@ export default function Employees() {
               type="button"
               onClick={() => setFilterStatus(isSelected && key !== '' ? '' : key)}
               className={`text-left rounded-xl border bg-white p-4 shadow-xs transition cursor-pointer hover:shadow-md ${isSelected
-                  ? `border-transparent ring-2 ${ring} shadow-sm`
-                  : 'border-ink-100 hover:border-ink-200'
+                ? `border-transparent ring-2 ${ring} shadow-sm`
+                : 'border-ink-100 hover:border-ink-200'
                 }`}
             >
               <div className="flex items-center justify-between">
@@ -317,8 +381,17 @@ export default function Employees() {
                     <td className="px-4 py-3 font-mono text-xs text-blue-600 whitespace-nowrap">{emp.employeeId || '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold shrink-0">
-                          {emp.firstName?.[0]}{emp.lastName?.[0]}
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-slate-200 bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold shrink-0 shadow-2xs">
+                          {emp.photoUrl ? (
+                            <img
+                              src={normalizeFileUrl(emp.photoUrl)}
+                              alt={emp.firstName}
+                              className="h-full w-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <span>{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-ink-900 text-xs">{emp.firstName} {emp.lastName}</p>
@@ -340,7 +413,18 @@ export default function Employees() {
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setBadgeEmployee(emp);
+                            setIsNewlyCreated(false);
+                            setBadgeModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1 text-xs font-semibold text-white transition shadow-2xs"
+                          title="View & Print Digital Staff ID Badge"
+                        >
+                          <Award size={12} /> ID Badge
+                        </button>
                         {canEdit && (
                           <button onClick={() => openEdit(emp)}
                             className="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 px-2 py-1 text-xs font-semibold text-white transition">
@@ -445,14 +529,115 @@ export default function Employees() {
             </div>
           </div>
 
-          {/* Row 5: Hire date */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Row 5: Hire date & 3x4 Photo Upload */}
+          <div className="grid grid-cols-2 gap-3 items-start">
             <div>
               <label className="block text-xs font-semibold text-ink-700 mb-1">
                 <Calendar size={11} className="inline mr-1" />Hire Date
               </label>
               <input type="date" value={form.hireDate} onChange={e => f('hireDate', e.target.value)}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            </div>
+
+            {/* 3x4 Photo Upload (matches user red-box position) */}
+            <div>
+              <label className="block text-xs font-semibold text-ink-700 mb-1 flex items-center justify-between">
+                <span>
+                  <Camera size={11} className="inline mr-1 text-blue-600" />
+                  3×4 Passport Photo
+                </span>
+                {form.photoUrl && (
+                  <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
+                    <Check size={10} /> Ready
+                  </span>
+                )}
+              </label>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/jpg"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+
+              {form.photoUrl ? (
+                <div className="flex items-center gap-2.5 p-2 rounded-xl border border-blue-200 bg-blue-50/40">
+                  {/* 3:4 aspect ratio preview thumbnail */}
+                  <div
+                    className="relative rounded-lg overflow-hidden border border-blue-300 shadow-xs bg-white shrink-0"
+                    style={{ width: '45px', height: '60px' }} // 3:4 aspect ratio
+                  >
+                    <img
+                      src={normalizeFileUrl(form.photoUrl)}
+                      alt="3x4 Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                      3×4 Photo
+                    </span>
+                    <p className="text-[11px] text-ink-500 truncate mt-0.5">Ready for Digital ID</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        Change
+                      </button>
+                      <span className="text-ink-300">·</span>
+                      <button
+                        type="button"
+                        onClick={() => f('photoUrl', '')}
+                        disabled={uploadingPhoto}
+                        className="text-[11px] font-semibold text-red-500 hover:text-red-700 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
+                  className={`w-full rounded-xl border-2 border-dashed px-3 py-2 text-center cursor-pointer transition flex items-center justify-center gap-2.5 ${uploadingPhoto
+                      ? 'border-blue-400 bg-blue-50/60 cursor-wait'
+                      : 'border-ink-200 hover:border-blue-400 hover:bg-blue-50/20 bg-ink-50/30'
+                    }`}
+                  style={{ minHeight: '60px' }}
+                >
+                  {uploadingPhoto ? (
+                    <div className="flex items-center gap-2 text-xs font-medium text-blue-600">
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Uploading 3×4 photo…</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-8 w-6 rounded border border-ink-300 bg-white shadow-2xs flex items-center justify-center text-ink-400 shrink-0">
+                        <Camera size={13} className="text-blue-600" />
+                      </div>
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-ink-700 leading-tight">
+                          Upload 3×4 Photo
+                        </div>
+                        <div className="text-[10px] text-ink-400 leading-tight">
+                          Passport size (JPG, PNG)
+                        </div>
+                      </div>
+                      <Upload size={13} className="text-ink-400 shrink-0" />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {photoUploadErr && (
+                <p className="text-[10px] text-red-600 mt-1">⚠ {photoUploadErr}</p>
+              )}
             </div>
           </div>
 
@@ -501,6 +686,18 @@ export default function Employees() {
           </div>
         </div>
       </Modal>
+
+      {/* ══ Digital Staff ID Badge Modal ══ */}
+      <EmployeeIdBadgeModal
+        open={badgeModalOpen}
+        onClose={() => setBadgeModalOpen(false)}
+        employee={badgeEmployee}
+        onEdit={(emp) => {
+          setBadgeModalOpen(false);
+          openEdit(emp);
+        }}
+        isNewlyCreated={isNewlyCreated}
+      />
 
     </div>
   );

@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const Employee     = require('../models/Employee');
+const Employee = require('../models/Employee');
 const { DEPARTMENTS } = require('../models/Employee');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
@@ -15,7 +15,7 @@ const getEmployees = asyncHandler(async (req, res) => {
   const filter = { deletedAt: null };
 
   if (department) filter.department = { $regex: new RegExp(`^${department.trim()}$`, 'i') };
-  if (status)     filter.status     = { $regex: new RegExp(`^${status.trim()}$`, 'i') };
+  if (status) filter.status = { $regex: new RegExp(`^${status.trim()}$`, 'i') };
   if (search) {
     const q = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ firstName: q }, { lastName: q }, { employeeId: q }, { position: q }];
@@ -31,23 +31,24 @@ const getDepartments = asyncHandler(async (req, res) => {
 
 // ── POST /api/employees ───────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
-  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId } = req.body;
+  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl } = req.body;
 
   if (!firstName || !lastName) {
     res.status(400); throw new Error('First name and last name are required.');
   }
 
   const emp = await Employee.create({
-    employeeId:  employeeId || (await generateEmployeeId()),
-    firstName:   firstName.trim(),
-    lastName:    lastName.trim(),
-    department:  department || 'Other',
-    position:    position   || '',
-    phone:       phone      || '',
-    email:       email      || '',
-    hireDate:    hireDate   ? new Date(hireDate) : null,
-    status:      status     || 'active',
-    notes:       notes      || '',
+    employeeId: employeeId || (await generateEmployeeId()),
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    department: department || 'Other',
+    position: position || '',
+    phone: phone || '',
+    email: email || '',
+    hireDate: hireDate ? new Date(hireDate) : null,
+    status: status || 'active',
+    notes: notes || '',
+    photoUrl: photoUrl || '',
   });
 
   res.status(201).json(emp);
@@ -60,7 +61,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const emp = await Employee.findById(req.params.id);
   if (!emp || emp.deletedAt) { res.status(404); throw new Error('Employee not found'); }
 
-  const fields = ['firstName','lastName','department','position','phone','email','hireDate','status','notes','employeeId'];
+  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl'];
   fields.forEach(f => {
     if (req.body[f] !== undefined) {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];

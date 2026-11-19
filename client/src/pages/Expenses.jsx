@@ -850,8 +850,8 @@ export default function Expenses() {
                 key={p.id}
                 onClick={() => setDatePreset(p.id)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${datePreset === p.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-ink-50 text-ink-600 hover:bg-ink-100'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-ink-50 text-ink-600 hover:bg-ink-100'
                   }`}
               >
                 {p.label}

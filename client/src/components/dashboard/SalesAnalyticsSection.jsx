@@ -267,11 +267,11 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
     : formattedDate;
 
   const filterTabs = [
-    { id: 'daily',  label: `Daily (${dailyFormatted})` },
+    { id: 'daily', label: `Daily (${dailyFormatted})` },
     { id: 'latest', label: `Latest Batch (${batchFormatted})` },
-    { id: 'week',   label: 'Last 7 Days' },
-    { id: 'month',  label: 'This Month' },
-    { id: 'all',    label: 'All Time' },
+    { id: 'week', label: 'Last 7 Days' },
+    { id: 'month', label: 'This Month' },
+    { id: 'all', label: 'All Time' },
     { id: 'custom', label: period === 'custom' && customData ? `Range: ${formattedCustomLabel}` : 'Date Range' },
   ];
 
@@ -304,11 +304,10 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  period === tab.id
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${period === tab.id
                     ? 'bg-blue-900 text-white shadow-xs'
                     : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
-                }`}
+                  }`}
               >
                 {tab.id === 'custom' && (
                   <Calendar size={13} className={period === 'custom' ? 'text-white' : 'text-blue-600'} />
@@ -367,8 +366,8 @@ export default function SalesAnalyticsSection({ salesAnalytics }) {
               <span className="text-ink-400 font-medium mr-1 text-[11px]">Presets:</span>
               {[
                 { label: 'Yesterday', key: 'yesterday' },
-                { label: 'Last 14D',  key: 'last14' },
-                { label: 'Last 30D',  key: 'last30' },
+                { label: 'Last 14D', key: 'last14' },
+                { label: 'Last 30D', key: 'last30' },
                 { label: 'Last Month', key: 'lastMonth' },
               ].map((preset) => (
                 <button

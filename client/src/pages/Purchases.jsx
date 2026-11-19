@@ -14,51 +14,51 @@ const emptyItem = { material: '', quantity: 1, unitCost: 0 };
 
 // Which action buttons to show per status
 const NEXT_ACTIONS = {
-  draft:    [{ action: 'check',   label: 'Check',   cap: 'checkReview' },
-             { action: 'cancel',  label: 'Cancel',  cap: 'voidTransactions', danger: true }],
-  checked:  [{ action: 'approve', label: 'Approve', cap: 'approveGoods' },
-             { action: 'cancel',  label: 'Cancel',  cap: 'voidTransactions', danger: true }],
+  draft: [{ action: 'check', label: 'Check', cap: 'checkReview' },
+  { action: 'cancel', label: 'Cancel', cap: 'voidTransactions', danger: true }],
+  checked: [{ action: 'approve', label: 'Approve', cap: 'approveGoods' },
+  { action: 'cancel', label: 'Cancel', cap: 'voidTransactions', danger: true }],
   approved: [{ action: 'receive', label: 'Receive', cap: 'recordGoods' },
-             { action: 'cancel',  label: 'Cancel',  cap: 'voidTransactions', danger: true }],
+  { action: 'cancel', label: 'Cancel', cap: 'voidTransactions', danger: true }],
   received: [],
-  cancelled:[],
+  cancelled: [],
 };
 
 const ACTION_COLORS = {
-  check:   'bg-blue-600 hover:bg-blue-700',
+  check: 'bg-blue-600 hover:bg-blue-700',
   approve: 'bg-violet-600 hover:bg-violet-700',
   receive: 'bg-emerald-600 hover:bg-emerald-700',
-  cancel:  'bg-red-50 hover:bg-red-100 !text-red-600',
+  cancel: 'bg-red-50 hover:bg-red-100 !text-red-600',
 };
 
 export default function Purchases() {
   const { user, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('purchases', 'edit') : can('recordGoods');
-  const [purchases,  setPurchases]  = useState([]);
-  const [suppliers,  setSuppliers]  = useState([]);
-  const [materials,  setMaterials]  = useState([]);
-  const [search,     setSearch]     = useState('');
+  const [purchases, setPurchases] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'draft' | 'checked' | 'approved' | 'received' | 'cancelled'
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [importResult, setImportResult] = useState(null);
   const importRef = useRef();
 
   // Create modal
-  const [createOpen,    setCreateOpen]    = useState(false);
-  const [supplier,      setSupplier]      = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [supplier, setSupplier] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [items,         setItems]         = useState([{ ...emptyItem }]);
+  const [items, setItems] = useState([{ ...emptyItem }]);
 
   // Detail / trail drawer
   const [detailPurchase, setDetailPurchase] = useState(null);
-  const [detailOpen,     setDetailOpen]     = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Approve modal
-  const [approveOpen,    setApproveOpen]    = useState(false);
-  const [approveAction,  setApproveAction]  = useState(null);
-  const [approvePurchase,setApprovePurchase]= useState(null);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveAction, setApproveAction] = useState(null);
+  const [approvePurchase, setApprovePurchase] = useState(null);
   const [approveLoading, setApproveLoading] = useState(false);
-  const [approveError,   setApproveError]   = useState(null);
+  const [approveError, setApproveError] = useState(null);
 
   const load = () =>
     api.get('/purchases')
@@ -103,23 +103,23 @@ export default function Purchases() {
   // ── Export data ──
   const exportData = useMemo(() => {
     return filteredPurchases.map(p => ({
-      'Date':          new Date(p.purchaseDate).toLocaleDateString(),
-      'Invoice No':    p.invoiceNumber || '—',
-      'Supplier':      p.supplier?.name || '—',
-      'Items Count':   p.items?.length ?? 0,
-      'Items Detail':  p.items?.map(i => `${i.material?.name ?? '?'} ×${i.quantity}`).join(', ') || '—',
-      'Total (ETB)':   Number(p.totalAmount || 0).toFixed(2),
-      'Status':        p.status,
+      'Date': new Date(p.purchaseDate).toLocaleDateString(),
+      'Invoice No': p.invoiceNumber || '—',
+      'Supplier': p.supplier?.name || '—',
+      'Items Count': p.items?.length ?? 0,
+      'Items Detail': p.items?.map(i => `${i.material?.name ?? '?'} ×${i.quantity}`).join(', ') || '—',
+      'Total (ETB)': Number(p.totalAmount || 0).toFixed(2),
+      'Status': p.status,
     }));
   }, [filteredPurchases]);
 
   const pdfColumns = [
-    { header: 'Date',         accessor: 'Date' },
-    { header: 'Invoice No',   accessor: 'Invoice No' },
-    { header: 'Supplier',     accessor: 'Supplier' },
-    { header: 'Items',        accessor: 'Items Detail' },
-    { header: 'Total (ETB)',  accessor: 'Total (ETB)', align: 'right' },
-    { header: 'Status',       accessor: 'Status', align: 'center' },
+    { header: 'Date', accessor: 'Date' },
+    { header: 'Invoice No', accessor: 'Invoice No' },
+    { header: 'Supplier', accessor: 'Supplier' },
+    { header: 'Items', accessor: 'Items Detail' },
+    { header: 'Total (ETB)', accessor: 'Total (ETB)', align: 'right' },
+    { header: 'Status', accessor: 'Status', align: 'center' },
   ];
 
   // ── Import from Excel / CSV ──
@@ -129,21 +129,21 @@ export default function Purchases() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
-        const wb  = XLSX.read(ev.target.result, { type: 'binary' });
-        const ws  = wb.Sheets[wb.SheetNames[0]];
+        const wb = XLSX.read(ev.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
         let created = 0;
-        let errors  = 0;
+        let errors = 0;
         for (const row of rows) {
           try {
             const supplierName = String(row['Supplier'] || row['supplier'] || '').trim();
-            const invoice      = String(row['Invoice No'] || row['invoiceNumber'] || '').trim();
+            const invoice = String(row['Invoice No'] || row['invoiceNumber'] || '').trim();
             const found = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
             if (!found) { errors++; continue; }
             await api.post('/purchases', {
-              supplier:      found._id,
+              supplier: found._id,
               invoiceNumber: invoice,
-              items:         [], // imported as empty draft
+              items: [], // imported as empty draft
             });
             created++;
           } catch { errors++; }
@@ -219,9 +219,9 @@ export default function Purchases() {
       render: r => new Date(r.purchaseDate).toLocaleDateString(),
     },
     { key: 'invoiceNumber', header: 'Invoice', render: r => r.invoiceNumber || '—' },
-    { key: 'supplier',      header: 'Supplier', render: r => r.supplier?.name || '—' },
-    { key: 'items',         header: 'Items',    render: r => `${r.items.length} item${r.items.length > 1 ? 's' : ''}` },
-    { key: 'totalAmount',   header: 'Total',    render: r => <span className="tabular font-medium">ETB {r.totalAmount.toFixed(2)}</span> },
+    { key: 'supplier', header: 'Supplier', render: r => r.supplier?.name || '—' },
+    { key: 'items', header: 'Items', render: r => `${r.items.length} item${r.items.length > 1 ? 's' : ''}` },
+    { key: 'totalAmount', header: 'Total', render: r => <span className="tabular font-medium">ETB {r.totalAmount.toFixed(2)}</span> },
     {
       key: 'status', header: 'Status',
       render: r => <WorkflowBadge status={r.status} />,
@@ -311,16 +311,14 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'all'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'all'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
+              }`}
           >
             <span>All</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {statusCounts.all}
             </span>
           </button>
@@ -329,17 +327,15 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('draft')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'draft'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'draft'
                 ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
                 : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
-            }`}
+              }`}
           >
             <Clock size={12} className={statusFilter === 'draft' ? 'text-white' : 'text-amber-600'} />
             <span>Draft</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'draft' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'draft' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+              }`}>
               {statusCounts.draft}
             </span>
           </button>
@@ -348,17 +344,15 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('checked')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'checked'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'checked'
                 ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
                 : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
-            }`}
+              }`}
           >
             <Check size={12} className={statusFilter === 'checked' ? 'text-white' : 'text-blue-600'} />
             <span>Checked</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'checked' ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'checked' ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
+              }`}>
               {statusCounts.checked}
             </span>
           </button>
@@ -367,17 +361,15 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('approved')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'approved'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'approved'
                 ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400/40'
                 : 'bg-violet-50 text-violet-800 border border-violet-200/80 hover:bg-violet-100'
-            }`}
+              }`}
           >
             <CheckCircle2 size={12} className={statusFilter === 'approved' ? 'text-white' : 'text-violet-600'} />
             <span>Approved</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'approved' ? 'bg-white/25 text-white' : 'bg-violet-200 text-violet-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'approved' ? 'bg-white/25 text-white' : 'bg-violet-200 text-violet-900'
+              }`}>
               {statusCounts.approved}
             </span>
           </button>
@@ -386,17 +378,15 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('received')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'received'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'received'
                 ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <CheckCircle2 size={12} className={statusFilter === 'received' ? 'text-white' : 'text-emerald-600'} />
             <span>Received</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'received' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'received' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+              }`}>
               {statusCounts.received}
             </span>
           </button>
@@ -405,17 +395,15 @@ export default function Purchases() {
           <button
             type="button"
             onClick={() => setStatusFilter('cancelled')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              statusFilter === 'cancelled'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'cancelled'
                 ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
                 : 'bg-rose-50 text-rose-800 border border-rose-200/80 hover:bg-rose-100'
-            }`}
+              }`}
           >
             <AlertCircle size={12} className={statusFilter === 'cancelled' ? 'text-white' : 'text-rose-600'} />
             <span>Cancelled</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-              statusFilter === 'cancelled' ? 'bg-white/25 text-white' : 'bg-rose-200 text-rose-900'
-            }`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'cancelled' ? 'bg-white/25 text-white' : 'bg-rose-200 text-rose-900'
+              }`}>
               {statusCounts.cancelled}
             </span>
           </button>
@@ -456,10 +444,10 @@ export default function Purchases() {
           statusFilter !== 'all'
             ? `No ${statusFilter} purchases found.`
             : supplierFilter !== 'all'
-            ? 'No purchases found for selected supplier.'
-            : search
-            ? `No purchases matching "${search}".`
-            : 'No purchases recorded yet.'
+              ? 'No purchases found for selected supplier.'
+              : search
+                ? `No purchases matching "${search}".`
+                : 'No purchases recorded yet.'
         }
         title="Purchase Orders"
         icon={<ShoppingCart size={15} />}
@@ -524,7 +512,7 @@ export default function Purchases() {
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button type="submit" style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color:'white' }}>
+            <Button type="submit" style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}>
               Save as Draft
             </Button>
           </div>
@@ -552,7 +540,7 @@ export default function Purchases() {
             <div className="rounded-lg bg-ink-50 p-3 text-xs space-y-1">
               {[
                 { label: 'Recorded by', who: detailPurchase.recordedBy, at: detailPurchase.createdAt },
-                { label: 'Checked by',  who: detailPurchase.checkedBy,  at: detailPurchase.checkedAt },
+                { label: 'Checked by', who: detailPurchase.checkedBy, at: detailPurchase.checkedAt },
                 { label: 'Approved by', who: detailPurchase.approvedBy, at: detailPurchase.approvedAt },
                 { label: 'Received by', who: detailPurchase.receivedBy, at: detailPurchase.receivedAt },
               ].filter(e => e.who).map((e, i) => (

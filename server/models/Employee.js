@@ -28,6 +28,7 @@ const employeeSchema = new mongoose.Schema(
     hireDate:    { type: Date,   default: null },
     status:      { type: String, enum: ['active', 'inactive', 'on_leave'], default: 'active' },
     notes:       { type: String, trim: true, default: '' },
+    photoUrl:    { type: String, trim: true, default: '' },   // 3x4 portrait employee photo
     // Soft delete
     deletedAt:   { type: Date,   default: null },
     deletedBy:   { type: String, default: null },

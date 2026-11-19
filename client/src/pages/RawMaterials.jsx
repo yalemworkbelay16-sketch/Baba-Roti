@@ -497,8 +497,8 @@ const RawMaterials = () => {
       {/* Import Result Banner */}
       {importResult && (
         <div className={`flex items-start justify-between rounded-lg border px-4 py-3 text-sm ${importResult.type === 'error'
-            ? 'border-red-200 bg-red-50 text-red-800'
-            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          ? 'border-red-200 bg-red-50 text-red-800'
+          : 'border-emerald-200 bg-emerald-50 text-emerald-800'
           }`}>
           <p className="font-medium">{importResult.message}</p>
           <button onClick={() => setImportResult(null)} className="ml-4 text-ink-400 hover:text-ink-700">
@@ -515,8 +515,8 @@ const RawMaterials = () => {
             type="button"
             onClick={() => setStatusFilter('all')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'all'
-                ? 'bg-ink-900 text-white shadow-xs'
-                : 'bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+              ? 'bg-ink-900 text-white shadow-xs'
+              : 'bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900'
               }`}
           >
             <span>All</span>
@@ -531,8 +531,8 @@ const RawMaterials = () => {
             type="button"
             onClick={() => setStatusFilter('in_stock')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'in_stock'
-                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+              ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
               }`}
           >
             <CheckCircle2 size={13} className={statusFilter === 'in_stock' ? 'text-white' : 'text-emerald-600'} />
@@ -548,8 +548,8 @@ const RawMaterials = () => {
             type="button"
             onClick={() => setStatusFilter('low_stock')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'low_stock'
-                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
-                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+              ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+              : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
               }`}
           >
             <AlertTriangle size={13} className={statusFilter === 'low_stock' ? 'text-white' : 'text-amber-600'} />
@@ -565,8 +565,8 @@ const RawMaterials = () => {
             type="button"
             onClick={() => setStatusFilter('out_of_stock')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'out_of_stock'
-                ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400/40'
-                : 'bg-red-50 text-red-800 border border-red-200/80 hover:bg-red-100'
+              ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400/40'
+              : 'bg-red-50 text-red-800 border border-red-200/80 hover:bg-red-100'
               }`}
           >
             <AlertCircle size={13} className={statusFilter === 'out_of_stock' ? 'text-white' : 'text-red-600'} />

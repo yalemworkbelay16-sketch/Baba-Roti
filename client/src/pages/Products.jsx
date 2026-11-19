@@ -889,8 +889,8 @@ const Products = () => {
             type="button"
             onClick={() => setRecipeFilter('all')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'all'
-                ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
           >
             <span>All Products</span>
@@ -905,8 +905,8 @@ const Products = () => {
             type="button"
             onClick={() => setRecipeFilter('has_recipe')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'has_recipe'
-                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+              ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
               }`}
           >
             <ChefHat size={13} className={recipeFilter === 'has_recipe' ? 'text-white' : 'text-emerald-600'} />
@@ -922,8 +922,8 @@ const Products = () => {
             type="button"
             onClick={() => setRecipeFilter('no_recipe')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'no_recipe'
-                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
-                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+              ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+              : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
               }`}
           >
             <AlertCircle size={13} className={recipeFilter === 'no_recipe' ? 'text-white' : 'text-amber-600'} />
