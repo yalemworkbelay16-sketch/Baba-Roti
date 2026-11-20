@@ -19,11 +19,11 @@ const DEPARTMENTS = [
 ];
 
 const STATUS_CONFIG = {
-  pending:   { label: 'Pending',   color: 'bg-amber-50 text-amber-700 border-amber-200',   icon: Clock,         dot: 'bg-amber-500'  },
-  approved:  { label: 'Approved',  color: 'bg-blue-50 text-blue-700 border-blue-200',      icon: CheckCircle2,  dot: 'bg-blue-500'   },
-  issued:    { label: 'Issued',    color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: PackageCheck, dot: 'bg-emerald-500' },
-  rejected:  { label: 'Rejected',  color: 'bg-rose-50 text-rose-700 border-rose-200',      icon: XCircle,       dot: 'bg-rose-500'   },
-  cancelled: { label: 'Cancelled', color: 'bg-ink-100 text-ink-500 border-ink-200',        icon: X,             dot: 'bg-ink-400'    },
+  pending: { label: 'Pending', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock, dot: 'bg-amber-500' },
+  approved: { label: 'Approved', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: CheckCircle2, dot: 'bg-blue-500' },
+  issued: { label: 'Issued', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: PackageCheck, dot: 'bg-emerald-500' },
+  rejected: { label: 'Rejected', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: XCircle, dot: 'bg-rose-500' },
+  cancelled: { label: 'Cancelled', color: 'bg-ink-100 text-ink-500 border-ink-200', icon: X, dot: 'bg-ink-400' },
 };
 
 const PRIORITY_CONFIG = {
@@ -78,22 +78,74 @@ let cachedSummary = null;
 export default function StockIssueRequest() {
   const { user, can, canCrud, hasRole } = useAuth();
 
+  // ── Helper: detect user's default department (Bar / Kitchen / other) ──
+  const getUserDepartment = useCallback((u = user) => {
+    if (!u) return 'Kitchen';
+    const dept = String(u?.department || '').trim();
+    const station = String(u?.assignedStation || '').trim().toLowerCase();
+    const role = String(u?.role || '').trim().toLowerCase();
+    const name = String(u?.name || '').trim().toLowerCase();
+    const pos = String(u?.position || '').trim().toLowerCase();
+
+    // 1. Barista / Bar detection (any field mentioning bar or barista)
+    if (
+      dept.toLowerCase().includes('bar') ||
+      dept.toLowerCase().includes('barista') ||
+      station.includes('bar') ||
+      station.includes('barista') ||
+      role.includes('bar') ||
+      role.includes('barista') ||
+      pos.includes('bar') ||
+      pos.includes('barista') ||
+      name.includes('bar') ||
+      name.includes('barista')
+    ) {
+      return 'Bar';
+    }
+
+    // 2. Kitchen / Cook / Chef detection
+    if (
+      dept.toLowerCase().includes('kitchen') ||
+      station.includes('kitchen') ||
+      role.includes('kitchen') ||
+      pos.includes('kitchen') ||
+      pos.includes('chef') ||
+      pos.includes('cook') ||
+      name.includes('kitchen')
+    ) {
+      return 'Kitchen';
+    }
+
+    // 3. Other exact or partial department match from DEPARTMENTS list
+    if (dept) {
+      const found = DEPARTMENTS.find(d => d.toLowerCase() === dept.toLowerCase());
+      if (found) return found;
+      const partial = DEPARTMENTS.find(d => dept.toLowerCase().includes(d.toLowerCase()) || d.toLowerCase().includes(dept.toLowerCase()));
+      if (partial) return partial;
+    }
+
+    return 'Kitchen';
+  }, [user]);
+
   // ── User station & Role permissions ───────────────────────────
-  const userStation = (user?.assignedStation && user?.assignedStation !== 'all')
-    ? user.assignedStation
-    : String(user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : user?.assignedStation || 'all';
+  const userStation = useMemo(() => {
+    const assigned = String(user?.assignedStation || '').trim().toLowerCase();
+    if (assigned && assigned !== 'all') return assigned;
+
+    const defaultDept = getUserDepartment(user);
+    if (defaultDept === 'Bar') return 'bar';
+    if (defaultDept === 'Kitchen') return 'kitchen';
+
+    return user?.assignedStation || 'all';
+  }, [user, getUserDepartment]);
 
   const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(user?.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(user?.role) || (user?.role === 'storekeeper' && !isStationRestricted);
 
   const canApprove = (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'dev') && !isStationRestricted;
-  const canIssue   = isMainStoreOrAdmin;
-  const canEdit    = canCrud ? canCrud('stockMovements', 'edit') : (user?.role === 'admin' || user?.role === 'manager');
-  const canDelete  = canCrud ? canCrud('stockMovements', 'delete') : user?.role === 'admin';
+  const canIssue = isMainStoreOrAdmin;
+  const canEdit = canCrud ? canCrud('stockMovements', 'edit') : (user?.role === 'admin' || user?.role === 'manager');
+  const canDelete = canCrud ? canCrud('stockMovements', 'delete') : user?.role === 'admin';
 
   // ── Station category mapping ──────────────────────────────────
   const [stationMapping, setStationMapping] = useState({
@@ -115,7 +167,7 @@ export default function StockIssueRequest() {
           ...res.data.stationCategoryMapping.rawMaterialMap,
         }));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const getMaterialStation = useCallback((m) => {
@@ -139,39 +191,46 @@ export default function StockIssueRequest() {
   }, [stationMapping]);
 
   // ── Data state (instantly restored from cache if previously visited) ──
-  const [requests,  setRequests]  = useState(() => cachedRequests || []);
+  const [requests, setRequests] = useState(() => cachedRequests || []);
   const [materials, setMaterials] = useState([]);
-  const [summary,   setSummary]   = useState(() => cachedSummary || {});
-  const [loading,   setLoading]   = useState(() => !cachedRequests);
+  const [summary, setSummary] = useState(() => cachedSummary || {});
+  const [loading, setLoading] = useState(() => !cachedRequests);
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Filters ──────────────────────────────────────────────────
-  const [filterStatus, setFilterStatus]  = useState('');
-  const [filterDept,   setFilterDept]    = useState('');
-  const [search,       setSearch]        = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDept, setFilterDept] = useState('');
+  const [search, setSearch] = useState('');
 
   // ── Create/Edit modal ────────────────────────────────────────
-  const [createOpen,  setCreateOpen]  = useState(false);
-  const [editTarget,  setEditTarget]  = useState(null);
-  const [formDept,    setFormDept]    = useState(() => (userStation === 'bar' ? 'Bar' : userStation === 'kitchen' ? 'Kitchen' : 'Kitchen'));
-  const [formType,    setFormType]    = useState('request');       // 'request' | 'direct_issue'
-  const [formPriority,setFormPriority]= useState('normal');
-  const [formNotes,   setFormNotes]   = useState('');
-  const [formItems,   setFormItems]   = useState([{ ...EMPTY_ITEM }]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [formDept, setFormDept] = useState(() => getUserDepartment(user));
+  const [formType, setFormType] = useState('request');       // 'request' | 'direct_issue'
+  const [formPriority, setFormPriority] = useState('normal');
+  const [formNotes, setFormNotes] = useState('');
+  const [formItems, setFormItems] = useState([{ ...EMPTY_ITEM }]);
   const [formLoading, setFormLoading] = useState(false);
-  const [formError,   setFormError]   = useState('');
+  const [formError, setFormError] = useState('');
+
+  // Auto-sync default department when user data is ready
+  useEffect(() => {
+    if (user && !editTarget) {
+      setFormDept(getUserDepartment(user));
+    }
+  }, [user, getUserDepartment, editTarget]);
 
   // ── Detail drawer ────────────────────────────────────────────
-  const [detailOpen,    setDetailOpen]    = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [detailRequest, setDetailRequest] = useState(null);
 
   // ── Action modal (approve/issue/reject) ──────────────────────
-  const [actionOpen,    setActionOpen]    = useState(false);
-  const [actionType,    setActionType]    = useState('');   // 'approve'|'issue'|'reject'|'cancel'
-  const [actionTarget,  setActionTarget]  = useState(null);
-  const [actionNote,    setActionNote]    = useState('');
+  const [actionOpen, setActionOpen] = useState(false);
+  const [actionType, setActionType] = useState('');   // 'approve'|'issue'|'reject'|'cancel'
+  const [actionTarget, setActionTarget] = useState(null);
+  const [actionNote, setActionNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionError,   setActionError]   = useState('');
+  const [actionError, setActionError] = useState('');
 
   // ── Issue qty overrides ──────────────────────────────────────
   const [issueQtys, setIssueQtys] = useState({});
@@ -188,9 +247,9 @@ export default function StockIssueRequest() {
         api.get('/stock-requests/summary'),
       ]);
       const data = Array.isArray(reqRes.data) ? reqRes.data : [];
-      const sum  = sumRes.data || {};
+      const sum = sumRes.data || {};
       cachedRequests = data;
-      cachedSummary  = sum;
+      cachedSummary = sum;
       setRequests(data);
       setSummary(sum);
     } catch (err) {
@@ -265,9 +324,9 @@ export default function StockIssueRequest() {
       if (search) {
         const q = search.toLowerCase();
         const matchVoucher = r.voucherNo?.toLowerCase().includes(q);
-        const matchDept    = r.department?.toLowerCase().includes(q);
-        const matchReqBy   = r.requestedBy?.name?.toLowerCase().includes(q);
-        const matchItem    = r.items?.some(i => i.material?.name?.toLowerCase().includes(q));
+        const matchDept = r.department?.toLowerCase().includes(q);
+        const matchReqBy = r.requestedBy?.name?.toLowerCase().includes(q);
+        const matchItem = r.items?.some(i => i.material?.name?.toLowerCase().includes(q));
         if (!matchVoucher && !matchDept && !matchReqBy && !matchItem) return false;
       }
       return true;
@@ -277,7 +336,8 @@ export default function StockIssueRequest() {
   // ── Form helpers ─────────────────────────────────────────────
   const openCreate = () => {
     setEditTarget(null);
-    setFormDept(userStation === 'bar' ? 'Bar' : userStation === 'kitchen' ? 'Kitchen' : 'Kitchen');
+    const defaultDept = getUserDepartment(user);
+    setFormDept(defaultDept);
     setFormType('request');
     setFormPriority('normal');
     setFormNotes('');
@@ -304,7 +364,7 @@ export default function StockIssueRequest() {
     loadMaterials(); // lazy load
   };
 
-  const addItem    = () => setFormItems(prev => [...prev, { ...EMPTY_ITEM }]);
+  const addItem = () => setFormItems(prev => [...prev, { ...EMPTY_ITEM }]);
   const removeItem = (idx) => setFormItems(prev => prev.filter((_, i) => i !== idx));
   const updateItem = (idx, field, value) => {
     setFormItems(prev => prev.map((item, i) =>
@@ -339,14 +399,14 @@ export default function StockIssueRequest() {
     setFormLoading(true);
     try {
       const payload = {
-        department:  formDept,
+        department: formDept,
         requestType: formType,
-        priority:    formPriority,
-        notes:       formNotes,
-        items:       validItems.map(i => ({
-          material:     i.material,
+        priority: formPriority,
+        notes: formNotes,
+        items: validItems.map(i => ({
+          material: i.material,
           requestedQty: Number(i.requestedQty),
-          note:         i.note,
+          note: i.note,
         })),
       };
       let response;
@@ -395,13 +455,13 @@ export default function StockIssueRequest() {
       const url = `/stock-requests/${actionTarget._id}/${actionType}`;
       let body = { note: actionNote };
 
-      if (actionType === 'reject')  body = { reason: actionNote };
-      if (actionType === 'cancel')  body = { reason: actionNote };
+      if (actionType === 'reject') body = { reason: actionNote };
+      if (actionType === 'cancel') body = { reason: actionNote };
       if (actionType === 'issue') {
         body = {
           note: actionNote,
           items: actionTarget.items.map(i => ({
-            material:  i.material?._id || i.material,
+            material: i.material?._id || i.material,
             issuedQty: Number(issueQtys[i.material?._id || i.material] || i.requestedQty),
           })),
         };
@@ -455,10 +515,10 @@ export default function StockIssueRequest() {
 
   // ── Action config ─────────────────────────────────────────────
   const ACTION_CONFIG = {
-    approve: { title: 'Approve Request',     btn: 'Approve',      btnClass: 'bg-blue-600 hover:bg-blue-700',    label: 'Approval note (optional)' },
-    issue:   { title: 'Issue Stock',         btn: 'Issue Stock',  btnClass: 'bg-emerald-600 hover:bg-emerald-700', label: 'Issue note (optional)' },
-    reject:  { title: 'Reject Request',      btn: 'Reject',       btnClass: 'bg-rose-600 hover:bg-rose-700',    label: 'Reason for rejection *' },
-    cancel:  { title: 'Cancel Request',      btn: 'Cancel Request', btnClass: 'bg-ink-600 hover:bg-ink-700',   label: 'Reason for cancellation (optional)' },
+    approve: { title: 'Approve Request', btn: 'Approve', btnClass: 'bg-blue-600 hover:bg-blue-700', label: 'Approval note (optional)' },
+    issue: { title: 'Issue Stock', btn: 'Issue Stock', btnClass: 'bg-emerald-600 hover:bg-emerald-700', label: 'Issue note (optional)' },
+    reject: { title: 'Reject Request', btn: 'Reject', btnClass: 'bg-rose-600 hover:bg-rose-700', label: 'Reason for rejection *' },
+    cancel: { title: 'Cancel Request', btn: 'Cancel Request', btnClass: 'bg-ink-600 hover:bg-ink-700', label: 'Reason for cancellation (optional)' },
   };
 
   // ── Loading skeleton ──────────────────────────────────────────
@@ -467,7 +527,7 @@ export default function StockIssueRequest() {
       <div className="space-y-6 pb-8 animate-pulse">
         <div className="h-8 w-64 rounded-xl bg-ink-200/60" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl bg-white border border-ink-100" />)}
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 rounded-2xl bg-white border border-ink-100" />)}
         </div>
         <div className="h-96 rounded-2xl bg-white border border-ink-100" />
       </div>
@@ -544,10 +604,10 @@ export default function StockIssueRequest() {
       {/* ── Summary KPI Cards ── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: 'Pending',  value: displaySummary.pending  || 0, icon: Clock,        color: 'from-amber-500 to-orange-500',   bg: 'bg-amber-50',   text: 'text-amber-700' },
-          { label: 'Approved', value: displaySummary.approved || 0, icon: CheckCircle2, color: 'from-blue-500 to-indigo-600',    bg: 'bg-blue-50',    text: 'text-blue-700' },
-          { label: 'Issued',   value: displaySummary.issued   || 0, icon: PackageCheck, color: 'from-emerald-500 to-teal-600',   bg: 'bg-emerald-50', text: 'text-emerald-700' },
-          { label: 'Rejected', value: displaySummary.rejected || 0, icon: XCircle,      color: 'from-rose-500 to-red-600',       bg: 'bg-rose-50',    text: 'text-rose-700' },
+          { label: 'Pending', value: displaySummary.pending || 0, icon: Clock, color: 'from-amber-500 to-orange-500', bg: 'bg-amber-50', text: 'text-amber-700' },
+          { label: 'Approved', value: displaySummary.approved || 0, icon: CheckCircle2, color: 'from-blue-500 to-indigo-600', bg: 'bg-blue-50', text: 'text-blue-700' },
+          { label: 'Issued', value: displaySummary.issued || 0, icon: PackageCheck, color: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+          { label: 'Rejected', value: displaySummary.rejected || 0, icon: XCircle, color: 'from-rose-500 to-red-600', bg: 'bg-rose-50', text: 'text-rose-700' },
         ].map(({ label, value, icon: Icon, color, bg, text }) => (
           <div key={label} className={`rounded-2xl border border-ink-100 bg-white p-4 shadow-soft cursor-pointer hover:shadow-md transition`}
             onClick={() => setFilterStatus(filterStatus === label.toLowerCase() ? '' : label.toLowerCase())}>
@@ -671,11 +731,10 @@ export default function StockIssueRequest() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1 items-start">
-                        <span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border ${
-                          req.requestType === 'direct_issue'
+                        <span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border ${req.requestType === 'direct_issue'
                             ? 'bg-violet-50 text-violet-700 border-violet-200'
                             : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
+                          }`}>
                           {req.requestType === 'direct_issue' ? 'Direct Issue' : 'Request'}
                         </span>
                         <span className="text-[9px] font-semibold text-ink-500 bg-ink-100/70 rounded px-1.5 py-0.5">
@@ -822,14 +881,13 @@ export default function StockIssueRequest() {
               {!editTarget && canIssue && (
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: 'request',      label: 'Stock Request',   desc: 'Requires approval',    icon: ClipboardList, color: 'border-blue-400 bg-blue-50' },
-                    { value: 'direct_issue', label: 'Direct Issue',    desc: 'Instant stock deduction', icon: Zap,          color: 'border-violet-400 bg-violet-50' },
+                    { value: 'request', label: 'Stock Request', desc: 'Requires approval', icon: ClipboardList, color: 'border-blue-400 bg-blue-50' },
+                    { value: 'direct_issue', label: 'Direct Issue', desc: 'Instant stock deduction', icon: Zap, color: 'border-violet-400 bg-violet-50' },
                   ].map(t => (
                     <button key={t.value}
                       onClick={() => setFormType(t.value)}
-                      className={`flex items-start gap-3 rounded-2xl border-2 p-3.5 text-left transition ${
-                        formType === t.value ? t.color : 'border-ink-200 bg-white hover:bg-ink-50'
-                      }`}
+                      className={`flex items-start gap-3 rounded-2xl border-2 p-3.5 text-left transition ${formType === t.value ? t.color : 'border-ink-200 bg-white hover:bg-ink-50'
+                        }`}
                     >
                       <t.icon size={18} className={formType === t.value ? 'text-blue-600' : 'text-ink-400'} />
                       <div>
@@ -845,21 +903,17 @@ export default function StockIssueRequest() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-ink-700 mb-1.5">Department *</label>
-                  {isStationRestricted ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-2.5 text-sm font-bold text-blue-900">
-                      <Building2 size={16} className="text-blue-600" />
-                      <span>{userStation === 'bar' ? 'Bar Station' : 'Kitchen Station'}</span>
-                      <span className="ml-auto text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Station Locked</span>
-                    </div>
-                  ) : (
-                    <select
-                      value={formDept}
-                      onChange={e => setFormDept(e.target.value)}
-                      className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    >
-                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  )}
+                  <select
+                    value={formDept}
+                    onChange={e => setFormDept(e.target.value)}
+                    className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {DEPARTMENTS.map(d => (
+                      <option key={d} value={d}>
+                        {d} {d === getUserDepartment(user) ? '★ (Your Department)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-ink-700 mb-1.5">Priority</label>
@@ -994,12 +1048,11 @@ export default function StockIssueRequest() {
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className={`px-6 py-5 border-b border-ink-100 ${
-              actionType === 'approve' ? 'bg-blue-600'
-              : actionType === 'issue'  ? 'bg-emerald-600'
-              : actionType === 'reject' ? 'bg-rose-600'
-              : 'bg-ink-800'
-            }`}>
+            <div className={`px-6 py-5 border-b border-ink-100 ${actionType === 'approve' ? 'bg-blue-600'
+                : actionType === 'issue' ? 'bg-emerald-600'
+                  : actionType === 'reject' ? 'bg-rose-600'
+                    : 'bg-ink-800'
+              }`}>
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-black text-white">{ACTION_CONFIG[actionType]?.title}</h2>
                 <button onClick={() => setActionOpen(false)}
@@ -1016,9 +1069,9 @@ export default function StockIssueRequest() {
               {/* Items summary */}
               <div className="rounded-xl border border-ink-100 bg-ink-50/40 p-3 space-y-2.5">
                 {actionTarget.items?.map((item, i) => {
-                  const matId       = item.material?._id || item.material;
+                  const matId = item.material?._id || item.material;
                   const currentStock = Number(item.material?.mainStoreStock !== undefined ? item.material.mainStoreStock : item.material?.currentStock ?? 0);
-                  const issueQty    = Number(issueQtys[matId] ?? item.requestedQty);
+                  const issueQty = Number(issueQtys[matId] ?? item.requestedQty);
                   const isOverStock = actionType === 'issue' && issueQty > currentStock;
 
                   return (
@@ -1026,11 +1079,10 @@ export default function StockIssueRequest() {
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <span className="font-bold text-ink-900">{item.material?.name || '—'}</span>
                         {actionType === 'issue' && (
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            currentStock >= issueQty
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentStock >= issueQty
                               ? 'bg-blue-100 text-blue-700'
                               : 'bg-amber-100 text-amber-800'
-                          }`}>
+                            }`}>
                             {currentStock >= issueQty
                               ? `✓ ${currentStock} ${item.material?.unit} in Main Store`
                               : `⚡ Main Store stock: ${currentStock} ${item.material?.unit}`
@@ -1078,7 +1130,7 @@ export default function StockIssueRequest() {
                     <Building2 size={13} className="text-blue-700" /> Main Branch Internal Issue Mode
                   </p>
                   <p className="text-[11px] text-blue-800/80 leading-relaxed">
-                    This records the departmental hand-off for operational tracking. 
+                    This records the departmental hand-off for operational tracking.
                     <strong> Raw material stock will not be deducted here</strong>; it will be consumed when sales are imported/recorded.
                   </p>
                 </div>
@@ -1095,9 +1147,9 @@ export default function StockIssueRequest() {
                   rows={3}
                   className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
                   placeholder={
-                    actionType === 'reject'  ? 'Provide a clear reason for rejection...'
-                    : actionType === 'cancel' ? 'Reason for cancellation...'
-                    : 'Optional note...'
+                    actionType === 'reject' ? 'Provide a clear reason for rejection...'
+                      : actionType === 'cancel' ? 'Reason for cancellation...'
+                        : 'Optional note...'
                   }
                 />
               </div>
@@ -1122,9 +1174,9 @@ export default function StockIssueRequest() {
                 {actionLoading
                   ? <RefreshCw size={13} className="animate-spin" />
                   : actionType === 'approve' ? <CheckCircle2 size={13} />
-                  : actionType === 'issue'   ? <PackageCheck size={13} />
-                  : actionType === 'reject'  ? <XCircle size={13} />
-                  : <X size={13} />
+                    : actionType === 'issue' ? <PackageCheck size={13} />
+                      : actionType === 'reject' ? <XCircle size={13} />
+                        : <X size={13} />
                 }
                 {ACTION_CONFIG[actionType]?.btn}
               </button>
@@ -1167,14 +1219,14 @@ export default function StockIssueRequest() {
               {/* Info grid */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 {[
-                  { label: 'Department',    value: detailRequest.department },
-                  { label: 'Type',          value: detailRequest.requestType === 'direct_issue' ? 'Direct Issue' : 'Request' },
-                  { label: 'Stock Impact',  value: 'Internal Hand-off (Raw material deducted on Sales)' },
-                  { label: 'Requested By',  value: detailRequest.requestedBy?.name },
-                  { label: 'Date',          value: new Date(detailRequest.date || detailRequest.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' }) },
-                  detailRequest.approvedBy  && { label: 'Approved By',  value: detailRequest.approvedBy?.name },
-                  detailRequest.issuedBy    && { label: 'Issued By',    value: detailRequest.issuedBy?.name },
-                  detailRequest.rejectedBy  && { label: 'Rejected By',  value: detailRequest.rejectedBy?.name },
+                  { label: 'Department', value: detailRequest.department },
+                  { label: 'Type', value: detailRequest.requestType === 'direct_issue' ? 'Direct Issue' : 'Request' },
+                  { label: 'Stock Impact', value: 'Internal Hand-off (Raw material deducted on Sales)' },
+                  { label: 'Requested By', value: detailRequest.requestedBy?.name },
+                  { label: 'Date', value: new Date(detailRequest.date || detailRequest.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' }) },
+                  detailRequest.approvedBy && { label: 'Approved By', value: detailRequest.approvedBy?.name },
+                  detailRequest.issuedBy && { label: 'Issued By', value: detailRequest.issuedBy?.name },
+                  detailRequest.rejectedBy && { label: 'Rejected By', value: detailRequest.rejectedBy?.name },
                   detailRequest.rejectReason && { label: 'Reject Reason', value: detailRequest.rejectReason },
                 ].filter(Boolean).map(({ label, value }) => (
                   <div key={label} className="rounded-xl border border-ink-100 bg-ink-50/40 p-2.5">

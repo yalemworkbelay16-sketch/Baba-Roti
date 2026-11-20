@@ -108,7 +108,7 @@ export default function SearchableSelect({
         type="text"
         required={required}
         value={value || ''}
-        onChange={() => {}}
+        onChange={() => { }}
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
@@ -120,11 +120,10 @@ export default function SearchableSelect({
         id={id}
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`flex w-full items-center justify-between gap-1.5 rounded-lg border bg-white px-2.5 py-2 text-left text-sm transition outline-none ${
-          isOpen
+        className={`flex w-full items-center justify-between gap-1.5 rounded-lg border bg-white px-2.5 py-2 text-left text-sm transition outline-none ${isOpen
             ? 'border-blue-500 ring-2 ring-blue-500/10'
             : 'border-ink-200 hover:border-ink-300 focus:border-blue-500'
-        } ${disabled ? 'opacity-60 cursor-not-allowed bg-ink-50' : 'cursor-pointer'}`}
+          } ${disabled ? 'opacity-60 cursor-not-allowed bg-ink-50' : 'cursor-pointer'}`}
       >
         <div className="flex-1 min-w-0 pr-1">
           {selectedItem ? (
@@ -156,9 +155,8 @@ export default function SearchableSelect({
           )}
           <ChevronDown
             size={14}
-            className={`transition-transform duration-150 ${
-              isOpen ? 'rotate-180 text-blue-600' : ''
-            }`}
+            className={`transition-transform duration-150 ${isOpen ? 'rotate-180 text-blue-600' : ''
+              }`}
           />
         </div>
       </button>
@@ -216,11 +214,10 @@ export default function SearchableSelect({
                     key={opt.id}
                     type="button"
                     onClick={() => handleSelect(opt)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
-                      isSelected
+                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${isSelected
                         ? 'bg-blue-50 text-blue-700 font-semibold'
                         : 'hover:bg-ink-50 text-ink-800'
-                    }`}
+                      }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-ink-900 truncate">
@@ -228,11 +225,10 @@ export default function SearchableSelect({
                       </div>
                       {opt.sublabel && (
                         <div
-                          className={`text-[10px] mt-0.5 ${
-                            isOutOfStock
+                          className={`text-[10px] mt-0.5 ${isOutOfStock
                               ? 'text-red-500 font-semibold'
                               : 'text-ink-500'
-                          }`}
+                            }`}
                         >
                           {opt.sublabel}
                         </div>

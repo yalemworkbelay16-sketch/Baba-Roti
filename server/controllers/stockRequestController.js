@@ -17,6 +17,41 @@ function invalidateStockRequestCache() {
   invalidateDashboardCache();
 }
 
+// ── Helper: detect user assigned station (bar / kitchen / all) ───
+function getUserStation(u) {
+  if (!u) return 'all';
+  const assigned = String(u?.assignedStation || '').trim().toLowerCase();
+  if (assigned && assigned !== 'all') return assigned;
+
+  const dept = String(u?.department || '').trim().toLowerCase();
+  const role = String(u?.role || '').trim().toLowerCase();
+  const name = String(u?.name || '').trim().toLowerCase();
+  const pos = String(u?.position || '').trim().toLowerCase();
+
+  if (
+    dept.includes('bar') ||
+    dept.includes('barista') ||
+    role.includes('bar') ||
+    pos.includes('bar') ||
+    name.includes('bar')
+  ) {
+    return 'bar';
+  }
+
+  if (
+    dept.includes('kitchen') ||
+    role.includes('kitchen') ||
+    pos.includes('kitchen') ||
+    pos.includes('chef') ||
+    pos.includes('cook') ||
+    name.includes('kitchen')
+  ) {
+    return 'kitchen';
+  }
+
+  return u?.assignedStation || 'all';
+}
+
 // ── Auto voucher number ───────────────────────────────────────────
 const generateVoucherNo = async () => {
   const count = await StockRequest.countDocuments();
@@ -124,14 +159,7 @@ const getStockRequests = asyncHandler(async (req, res) => {
   const { status, department, from, to, type, limit = 100 } = req.query;
   const filter = { deletedAt: null };
 
-  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
-    ? req.user.assignedStation
-    : String(req.user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(req.user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : req.user?.assignedStation || 'all';
-
+  const userStation = getUserStation(req.user);
   const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
 
   // Station-restricted users (bar/kitchen staff) strictly view their own department's requests
@@ -194,14 +222,7 @@ const createStockRequest = asyncHandler(async (req, res) => {
 
   const { resolved, total, stockWarnings } = await resolveItemCosts(items);
 
-  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
-    ? req.user.assignedStation
-    : String(req.user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(req.user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : req.user?.assignedStation || 'all';
-
+  const userStation = getUserStation(req.user);
   const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
 
@@ -308,13 +329,7 @@ const updateStockRequest = asyncHandler(async (req, res) => {
 // ── POST /api/stock-requests/:id/approve ─────────────────────────
 // Manager or Admin approves the request
 const approveStockRequest = asyncHandler(async (req, res) => {
-  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
-    ? req.user.assignedStation
-    : String(req.user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(req.user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : req.user?.assignedStation || 'all';
+  const userStation = getUserStation(req.user);
 
   if (['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role)) {
     res.status(403);
@@ -358,14 +373,7 @@ const approveStockRequest = asyncHandler(async (req, res) => {
 // ── POST /api/stock-requests/:id/issue ───────────────────────────
 // Storekeeper / Admin physically issues stock and deducts inventory
 const issueStock = asyncHandler(async (req, res) => {
-  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
-    ? req.user.assignedStation
-    : String(req.user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(req.user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : req.user?.assignedStation || 'all';
-
+  const userStation = getUserStation(req.user);
   const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
 
@@ -456,14 +464,7 @@ const issueStock = asyncHandler(async (req, res) => {
 
 // ── POST /api/stock-requests/:id/reject ──────────────────────────
 const rejectStockRequest = asyncHandler(async (req, res) => {
-  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
-    ? req.user.assignedStation
-    : String(req.user?.department || '').toLowerCase().includes('kitchen')
-      ? 'kitchen'
-      : String(req.user?.department || '').toLowerCase().includes('bar')
-        ? 'bar'
-        : req.user?.assignedStation || 'all';
-
+  const userStation = getUserStation(req.user);
   const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
   if (isStationRestricted) {
     res.status(403);
