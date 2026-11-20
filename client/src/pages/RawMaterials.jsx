@@ -52,8 +52,14 @@ const statusBadge = (status) => {
 
 const RawMaterials = () => {
   const { user, hasRole, can, canCrud } = useAuth();
-  const userStation = user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'dev', 'manager');
+  const userStation = (user?.assignedStation && user?.assignedStation !== 'all')
+    ? user.assignedStation
+    : String(user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : user?.assignedStation || 'all';
+  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'dev');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const stationFromUrl = isStationRestricted ? userStation : (searchParams.get('station') || 'all');
@@ -1022,7 +1028,7 @@ const RawMaterials = () => {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-brass-400 shadow-2xs"
             >
-              <option value="all">All Categories ({materials.length})</option>
+              <option value="all">All Categories ({stationSubset.length})</option>
               {existingCategories.map((c) => (
                 <option key={c} value={c}>{c} ({categoryItemCounts[c] || 0})</option>
               ))}

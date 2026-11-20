@@ -28,7 +28,14 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar: photo,
     photoUrl: photo,
     employeeId: employeeId || '',
-    assignedStation: assignedStation || 'all',
+    department: req.body.department || '',
+    assignedStation: assignedStation && assignedStation !== 'all'
+      ? assignedStation
+      : (req.body.department && String(req.body.department).toLowerCase().includes('kitchen'))
+        ? 'kitchen'
+        : (req.body.department && String(req.body.department).toLowerCase().includes('bar'))
+          ? 'bar'
+          : assignedStation || 'all',
   });
 
   // Auto-subscribe to Telegram if chatId provided
@@ -60,6 +67,7 @@ const registerUser = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    department: user.department || '',
     assignedStation: user.assignedStation || 'all',
     phone: user.phone || '',
     telegramChatId: user.telegramChatId || '',
@@ -111,6 +119,7 @@ const loginUser = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    department: user.department || '',
     assignedStation: user.assignedStation || 'all',
     phone: user.phone || '',
     avatar: user.avatar || '',

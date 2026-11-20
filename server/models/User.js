@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     photoUrl: { type: String, trim: true, default: '' },
     employeeId: { type: String, trim: true, default: '' },
+    department: { type: String, trim: true, default: '' },
     assignedStation: {
       type: String,
       enum: ['all', 'main', 'kitchen', 'bar'],

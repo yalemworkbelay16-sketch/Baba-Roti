@@ -17,6 +17,7 @@ import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -318,7 +319,7 @@ const Sidebar = ({
   onToggleCollapse,
   onExpand,
 }) => {
-  const { user, canSeeNav, sidebarTheme, useMaterialIcons } = useAuth();
+  const { user, can, canSeeNav, sidebarTheme, useMaterialIcons } = useAuth();
   const { isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
   const location = useLocation();
@@ -467,30 +468,40 @@ const Sidebar = ({
     canSeeNav('digitalMenu') && { to: '/menu', label: t('nav.digitalMenu'), icon: MenuBookRoundedIcon },
   ].filter(Boolean);
 
-  const userStation = user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !['admin', 'dev', 'manager'].includes(user?.role);
+  const userStation = (user?.assignedStation && user?.assignedStation !== 'all')
+    ? user.assignedStation
+    : String(user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : user?.assignedStation || 'all';
+  const isStationRestricted = userStation !== 'all' && !['admin', 'dev'].includes(user?.role);
 
   const inventoryItems = [
-    canSeeNav('rawMaterials') && {
-      to: isStationRestricted ? `/materials?station=${userStation}` : '/materials',
+    !isStationRestricted && canSeeNav('rawMaterials') && {
+      to: '/materials',
       label: t('nav.rawMaterials'),
       icon: WidgetsRoundedIcon,
-      end: !isStationRestricted,
     },
-    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'main') && {
+    canSeeNav('rawMaterials') && canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && {
       to: '/materials?station=main',
       label: isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store',
       icon: StoreRoundedIcon,
     },
-    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'kitchen') && {
+    canSeeNav('rawMaterials') && canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && {
       to: '/materials?station=kitchen',
       label: isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store',
       icon: RestaurantMenuRoundedIcon,
     },
-    canSeeNav('rawMaterials') && (!isStationRestricted || userStation === 'bar') && {
+    canSeeNav('rawMaterials') && canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && {
       to: '/materials?station=bar',
       label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store',
       icon: CoffeeRoundedIcon,
+    },
+    (canSeeNav('stationMapping') || (can && can('manageStationMapping'))) && {
+      to: '/settings?tab=stations',
+      label: isAmharic ? '⚙️ የስቶክ ጣቢያ ምደባ' : '⚙️ Station Mapping',
+      icon: TuneRoundedIcon,
     },
     canSeeNav('products') && { to: '/products', label: t('nav.products'), icon: RestaurantMenuRoundedIcon },
     canSeeNav('suppliers') && { to: '/suppliers', label: t('nav.suppliers'), icon: LocalShippingRoundedIcon },
@@ -687,7 +698,7 @@ const Sidebar = ({
           )}
 
           {/* 3. Inventory & Items */}
-          {(canSeeNav('rawMaterials') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
+          {(canSeeNav('rawMaterials') || canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('stationMapping') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
             collapsed ? (
               <div
                 onMouseEnter={(e) =>
@@ -730,7 +741,7 @@ const Sidebar = ({
 
                     {/* ── Multi-Station Working Stock Sub-links ── */}
                     <div className="my-1 ml-3.5 space-y-0.5 border-l-2 border-white/15 pl-2">
-                      {(!isStationRestricted || userStation === 'main') && (
+                      {canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && (
                         <SubLink
                           to="/materials?station=main"
                           label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
@@ -740,7 +751,7 @@ const Sidebar = ({
                           badge={stationCounts?.main}
                         />
                       )}
-                      {(!isStationRestricted || userStation === 'kitchen') && (
+                      {canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && (
                         <SubLink
                           to="/materials?station=kitchen"
                           label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
@@ -750,7 +761,7 @@ const Sidebar = ({
                           badge={stationCounts?.kitchen}
                         />
                       )}
-                      {(!isStationRestricted || userStation === 'bar') && (
+                      {canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && (
                         <SubLink
                           to="/materials?station=bar"
                           label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
@@ -761,6 +772,15 @@ const Sidebar = ({
                         />
                       )}
                     </div>
+                    {(canSeeNav('stationMapping') || (can && can('manageStationMapping'))) && (
+                      <SubLink
+                        to="/settings?tab=stations"
+                        label={isAmharic ? '⚙️ የስቶክ ጣቢያ ምደባ' : '⚙️ Station Mapping'}
+                        icon={TuneRoundedIcon}
+                        onClick={onClose}
+                        isItemActive={location.pathname === '/settings' && location.search.includes('tab=stations')}
+                      />
+                    )}
                   </>
                 )}
                 {canSeeNav('products') && (

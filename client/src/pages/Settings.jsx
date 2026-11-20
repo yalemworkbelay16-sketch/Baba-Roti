@@ -59,6 +59,8 @@ const CAPABILITIES = [
   { key: 'approveGoods', label: 'Approve Goods & Vouchers (Stage 2)' },
   { key: 'postLedger', label: 'Post Documents to Ledger (Final Stage)' },
   { key: 'voidTransactions', label: 'Void / Reverse Transactions' },
+  { key: 'transferStationStock', label: 'Dispatch / Transfer Stock from Main Store to Kitchen & Bar' },
+  { key: 'manageStationMapping', label: 'Configure Station Category Mapping (Kitchen vs Bar Destinations)' },
   { key: 'viewReports', label: 'View Financial & Valuation Reports' },
   { key: 'manageAccounts', label: 'Manage Staff Accounts & Passwords' },
 ];
@@ -68,8 +70,12 @@ const NAV_ITEMS = [
   { key: 'captainOrder', label: 'Subsystem — Captain Order' },
   { key: 'cashSales', label: 'Subsystem — Cash Sales' },
   { key: 'pos', label: 'Subsystem — POS Ordering' },
-  { key: 'rawMaterials', label: 'Raw Materials' },
-  { key: 'products', label: 'Products' },
+  { key: 'rawMaterials', label: 'Raw Materials (All Stations)' },
+  { key: 'mainStore', label: '🏢 Main Store (Central Warehouse)' },
+  { key: 'kitchenStore', label: '🍳 Kitchen Store Station' },
+  { key: 'barStore', label: '☕ Bar Store Station' },
+  { key: 'stationMapping', label: '⚙️ Station Category Mapping' },
+  { key: 'products', label: 'Products & Recipes' },
   { key: 'stockMovements', label: 'Stock Movements' },
   { key: 'suppliers', label: 'Suppliers' },
   { key: 'consumption', label: 'Consumption' },
@@ -100,7 +106,7 @@ const SETTINGS_ROLES = [
 ];
 
 export default function Settings() {
-  const { user, updateUser, hasRole, refreshPermissions, licensedModules, isModuleLicensed } = useAuth();
+  const { user, updateUser, hasRole, can, canSeeNav, refreshPermissions, licensedModules, isModuleLicensed } = useAuth();
   const { timeoutMinutes, setTimeoutMinutes } = useSessionTimeout();
   const [sessionTimeoutSuccess, setSessionTimeoutSuccess] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -165,6 +171,8 @@ export default function Settings() {
       approveGoods: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
       postLedger: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       voidTransactions: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+      transferStationStock: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      manageStationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       viewReports: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       manageAccounts: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true }
     },
@@ -174,6 +182,10 @@ export default function Settings() {
       cashSales: { storekeeper: true, cashier: true, waiter: false, supervisor: true, manager: true, admin: true },
       pos: { storekeeper: true, cashier: true, waiter: true, supervisor: true, manager: true, admin: true },
       rawMaterials: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      mainStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      kitchenStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      barStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      stationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       products: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       stockMovements: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       suppliers: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
@@ -850,7 +862,7 @@ export default function Settings() {
           <Layers size={16} /> Role Privileges
         </button>
 
-        {hasRole('admin', 'manager', 'supervisor') && (
+        {(hasRole('admin', 'manager', 'supervisor') || can('manageStationMapping') || canSeeNav('stationMapping')) && (
           <button
             onClick={() => setTab('stations')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'stations'

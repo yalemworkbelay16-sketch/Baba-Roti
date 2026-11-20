@@ -14,7 +14,7 @@ import { normalizeFileUrl } from '../utils/fileUrl';
 import { useAuth } from '../context/AuthContext';
 
 const DEPARTMENTS = [
-  'Waiter', 'Kitchen', 'Food & Beverage', 'Front Office', 'Housekeeping',
+  'Bar', 'Kitchen', 'Waiter', 'Food & Beverage', 'Front Office', 'Housekeeping',
   'Security', 'Maintenance', 'Finance & Accounting', 'Human Resources',
   'Sales & Marketing', 'Laundry', 'Management', 'Other',
 ];

@@ -222,6 +222,14 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   // Station Category Mapping (Kitchen, Bar, Main Store)
   if (req.body.stationCategoryMapping !== undefined) {
+    if (req.body.passwordVerification) {
+      const User = require('../models/User');
+      const authUser = await User.findById(req.user._id).select('+password');
+      if (!authUser || !(await authUser.matchPassword(req.body.passwordVerification))) {
+        res.status(401);
+        throw new Error('Security verification failed: Incorrect password.');
+      }
+    }
     settings.stationCategoryMapping = req.body.stationCategoryMapping;
     settings.markModified('stationCategoryMapping');
   }

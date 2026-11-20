@@ -34,7 +34,17 @@ const updateUser = asyncHandler(async (req, res) => {
 
   user.name           = req.body.name          ?? user.name;
   user.role           = req.body.role          ?? user.role;
-  user.assignedStation = req.body.assignedStation ?? user.assignedStation;
+  user.department     = req.body.department    ?? user.department;
+
+  // Auto-sync station if department is Kitchen or Bar and assignedStation wasn't explicitly chosen
+  let newStation = req.body.assignedStation ?? user.assignedStation;
+  if (!req.body.assignedStation && req.body.department) {
+    const deptLower = String(req.body.department).toLowerCase();
+    if (deptLower.includes('kitchen')) newStation = 'kitchen';
+    else if (deptLower.includes('bar')) newStation = 'bar';
+  }
+  user.assignedStation = newStation;
+
   user.isActive       = req.body.isActive      ?? user.isActive;
   user.phone          = req.body.phone         ?? user.phone;
   user.telegramChatId = req.body.telegramChatId ?? user.telegramChatId;

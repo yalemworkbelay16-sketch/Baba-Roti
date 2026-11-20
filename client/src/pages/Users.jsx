@@ -14,6 +14,7 @@ import { normalizeFileUrl } from '../utils/fileUrl';
 
 const emptyForm = {
   name: '', email: '', password: '', role: 'storekeeper',
+  department: '',
   assignedStation: 'all',
   phone: '', telegramChatId: '', photoUrl: '',
 };
@@ -120,6 +121,7 @@ const Users = () => {
       email: u.email || '',
       password: '',
       role: u.role || 'storekeeper',
+      department: u.department || '',
       assignedStation: u.assignedStation || 'all',
       phone: u.phone || '',
       telegramChatId: u.telegramChatId || '',
@@ -177,6 +179,7 @@ const Users = () => {
         const payload = {
           name: form.name,
           role: form.role,
+          department: form.department || '',
           assignedStation: form.assignedStation || 'all',
           phone: form.phone,
           telegramChatId: form.telegramChatId,
@@ -368,7 +371,14 @@ const Users = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-ink-900 text-xs">{u.name}</p>
-                        <p className="text-[10px] text-ink-400 font-mono">STAFF-{u._id?.slice(-4).toUpperCase()}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-ink-400 font-mono">STAFF-{u._id?.slice(-4).toUpperCase()}</span>
+                          {u.department && (
+                            <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/60 rounded px-1">
+                              {u.department}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -540,25 +550,70 @@ const Users = () => {
             </div>
           </div>
 
-          {/* Assigned Station / Working Location */}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-700">
-              Assigned Station & Security Scope
-            </label>
-            <select
-              value={form.assignedStation || 'all'}
-              onChange={e => f('assignedStation', e.target.value)}
-              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
-            >
-              <option value="all">🏢 All Stations (Full Access — Manager / Storekeeper / Admin)</option>
-              <option value="main">🏢 Main Store (Central Warehouse Staff)</option>
-              <option value="kitchen">🍳 Kitchen Station (Chef / Kitchen Staff)</option>
-              <option value="bar">☕ Bar Station (Barista / Bartender)</option>
-            </select>
-            <p className="text-[10px] text-ink-400 mt-0.5">
-              Station-assigned staff will be restricted to view only their assigned station and stock balance.
-            </p>
+          {/* Department & Station Assignment */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-ink-700">
+                Department / የስራ ክፍል
+              </label>
+              <select
+                value={form.department || ''}
+                onChange={e => {
+                  const dept = e.target.value;
+                  f('department', dept);
+                  if (dept === 'Kitchen') f('assignedStation', 'kitchen');
+                  else if (dept === 'Bar') f('assignedStation', 'bar');
+                  else if (dept === 'Main Store') f('assignedStation', 'main');
+                }}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
+              >
+                <option value="">Select Department…</option>
+                <option value="Kitchen">🍳 Kitchen (ኩሽና)</option>
+                <option value="Bar">☕ Bar (ባር)</option>
+                <option value="Main Store">🏢 Main Store (ዋና መጋዘን)</option>
+                <option value="Dining & Service">🍽️ Dining & Service (አስተናጋጅ / ሰርቪስ)</option>
+                <option value="Cashier & Billing">💵 Cashier & Billing (ካሸር)</option>
+                <option value="Management">👔 Management (አስተዳደር)</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-ink-700">
+                Assigned Station Scope *
+              </label>
+              <select
+                value={form.assignedStation || 'all'}
+                onChange={e => f('assignedStation', e.target.value)}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white font-medium"
+              >
+                <option value="all">🏢 All Stations (Combined Access — Full Store)</option>
+                <option value="kitchen">🍳 Kitchen Station Only (Locked to Kitchen)</option>
+                <option value="bar">☕ Bar Station Only (Locked to Bar)</option>
+                <option value="main">🏢 Main Store Only (Locked to Warehouse)</option>
+              </select>
+            </div>
           </div>
+
+          {/* Security scope alert banner */}
+          {form.assignedStation === 'kitchen' && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
+              <span className="font-bold text-amber-700 whitespace-nowrap">🔒 Kitchen Scope:</span>
+              <span>This employee will strictly <strong>ONLY see Kitchen Store</strong>. Main Store and Bar Store will be completely hidden from their view.</span>
+            </div>
+          )}
+          {form.assignedStation === 'bar' && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900 flex items-start gap-2 shadow-2xs">
+              <span className="font-bold text-emerald-700 whitespace-nowrap">🔒 Bar Scope:</span>
+              <span>This employee will strictly <strong>ONLY see Bar Store</strong>. Main Store and Kitchen Store will be completely hidden from their view.</span>
+            </div>
+          )}
+          {form.assignedStation === 'main' && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-900 flex items-start gap-2 shadow-2xs">
+              <span className="font-bold text-blue-700 whitespace-nowrap">🏢 Main Store Scope:</span>
+              <span>This employee will access Main Store Warehouse items.</span>
+            </div>
+          )}
 
           {/* 3x4 Passport Photo Upload for Staff Account */}
           <div>

@@ -4,13 +4,15 @@ import api from '../api/axios';
 const AuthContext = createContext(null);
 
 const DEFAULT_PERMISSIONS = {
-  recordGoods:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  checkReview:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  approveGoods:     { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  postLedger:       { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  voidTransactions: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  viewReports:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  manageAccounts:   { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  recordGoods:          { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  checkReview:          { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  approveGoods:         { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  postLedger:           { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  voidTransactions:     { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  transferStationStock: { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  viewReports:          { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  manageAccounts:       { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
 };
 
 // CRUD privilege defaults per module
@@ -35,6 +37,10 @@ const DEFAULT_NAV_VISIBILITY = {
   captainOrder:   { storekeeper: true,  cashier: true,  waiter: true,  supervisor: true,  manager: true,  admin: true },
   cashSales:      { storekeeper: true,  cashier: true,  waiter: false, supervisor: true,  manager: true,  admin: true },
   rawMaterials:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  mainStore:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  kitchenStore:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  barStore:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   products:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   stockMovements: { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   suppliers:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },

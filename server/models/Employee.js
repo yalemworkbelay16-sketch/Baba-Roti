@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 const DEPARTMENTS = [
-  'Waiter',
+  'Bar',
   'Kitchen',
+  'Waiter',
   'Food & Beverage',
   'Front Office',
   'Housekeeping',
@@ -22,6 +23,7 @@ const employeeSchema = new mongoose.Schema(
     firstName:   { type: String, required: true, trim: true },
     lastName:    { type: String, required: true, trim: true },
     department:  { type: String, trim: true, default: 'Other' },
+    assignedStation: { type: String, enum: ['all', 'main', 'kitchen', 'bar'], default: 'all' },
     position:    { type: String, trim: true, default: '' },   // e.g. Chef, Waiter
     phone:       { type: String, trim: true, default: '' },
     email:       { type: String, trim: true, lowercase: true, default: '' },

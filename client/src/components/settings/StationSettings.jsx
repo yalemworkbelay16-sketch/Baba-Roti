@@ -13,11 +13,17 @@ import {
   ArrowRight,
   Info,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
   X,
 } from 'lucide-react';
 import api from '../../api/axios';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 
 // Sensible default mapping for Baba Roti Café & Restaurant
 const DEFAULT_RAW_MAP = {
@@ -36,6 +42,14 @@ export default function StationSettings() {
   const [syncing, setSyncing] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Security Password Authorization State
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [authPassword, setAuthPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [pendingAction, setPendingAction] = useState(null); // 'save' | 'sync'
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Categories extracted from inventory
   const [rawMaterials, setRawMaterials] = useState([]);
@@ -178,6 +192,7 @@ export default function StationSettings() {
       ...prev,
       [catName]: station,
     }));
+    setHasUnsavedChanges(true);
   };
 
   // Change mapping for a product category
@@ -186,6 +201,7 @@ export default function StationSettings() {
       ...prev,
       [catName]: station,
     }));
+    setHasUnsavedChanges(true);
   };
 
   // Auto-Map All to standard defaults
@@ -201,43 +217,61 @@ export default function StationSettings() {
       newProd[p.name] = p.parentCategory === 'BEVERAGE' ? 'bar' : 'kitchen';
     });
     setProductMap(newProd);
+    setHasUnsavedChanges(true);
 
-    setSuccessMsg('Recommended station mappings applied! Click "Save Station Mappings" to persist.');
+    setSuccessMsg('Recommended station mappings applied! Please click "Save Station Mappings" to authorize with password and save.');
     setTimeout(() => setSuccessMsg(''), 5000);
   };
 
-  // Save mapping to server
-  const handleSave = async () => {
+  // Trigger Save (opens password verification modal)
+  const requestSave = () => {
+    setPendingAction('save');
+    setAuthPassword('');
+    setAuthError('');
+    setPasswordModalOpen(true);
+  };
+
+  // Trigger Sync (opens password verification modal)
+  const requestSync = () => {
+    setPendingAction('sync');
+    setAuthPassword('');
+    setAuthError('');
+    setPasswordModalOpen(true);
+  };
+
+  // Execute Save after password verification
+  const executeSaveMapping = async (password) => {
     setSaving(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
       await api.put('/settings', {
+        passwordVerification: password,
         stationCategoryMapping: {
           rawMaterialMap: rawMap,
           productMap: productMap,
         },
       });
-      setSuccessMsg('Station category mapping saved successfully! All station views will now use this mapping.');
-      setTimeout(() => setSuccessMsg(''), 5000);
+      setHasUnsavedChanges(false);
+      setSuccessMsg('✓ Verified & Saved! Station category mapping updated successfully. All station views will now use this routing.');
+      setTimeout(() => setSuccessMsg(''), 6000);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || err.message || 'Failed to save station mapping.');
+      throw err;
     } finally {
       setSaving(false);
     }
   };
 
-  // Apply to existing raw materials storeLocation in database
-  const handleSyncToDatabase = async () => {
-    if (!window.confirm('This will update the storeLocation on all active raw materials in the database according to this station mapping. Continue?')) {
-      return;
-    }
+  // Execute Sync after password verification
+  const executeSyncToDatabase = async (password) => {
     setSyncing(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
       // First save current mapping
       await api.put('/settings', {
+        passwordVerification: password,
         stationCategoryMapping: {
           rawMaterialMap: rawMap,
           productMap: productMap,
@@ -248,14 +282,42 @@ export default function StationSettings() {
         rawMaterialMap: rawMap,
       });
 
+      setHasUnsavedChanges(false);
       setSuccessMsg(
-        `Synchronized! ${res.data?.updatedCount || 0} materials updated out of ${res.data?.count || 0} total active items.`
+        `✓ Verified & Synchronized! ${res.data?.updatedCount || 0} materials updated out of ${res.data?.count || 0} total active items.`
       );
       setTimeout(() => setSuccessMsg(''), 6000);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || err.message || 'Failed to synchronize materials.');
+      throw err;
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // Handle password form submission in verification modal
+  const handlePasswordConfirm = async (e) => {
+    e.preventDefault();
+    if (!authPassword) {
+      setAuthError('Please enter your password to authorize.');
+      return;
+    }
+    setAuthError('');
+    try {
+      // 1. Verify password via auth API
+      await api.post('/auth/verify-password', { password: authPassword });
+
+      // 2. Perform the authorized action
+      if (pendingAction === 'sync') {
+        await executeSyncToDatabase(authPassword);
+      } else {
+        await executeSaveMapping(authPassword);
+      }
+
+      setPasswordModalOpen(false);
+      setAuthPassword('');
+    } catch (err) {
+      setAuthError(err.response?.data?.message || 'Incorrect password. Security authorization failed.');
     }
   };
 
@@ -297,11 +359,11 @@ export default function StationSettings() {
             </button>
             <Button
               type="button"
-              onClick={handleSave}
+              onClick={requestSave}
               disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 flex items-center gap-1.5"
             >
-              <Save size={14} /> {saving ? 'Saving…' : 'Save Station Mappings'}
+              <Lock size={13} /> {saving ? 'Saving…' : 'Save Station Mappings'}
             </Button>
           </div>
         </div>
@@ -394,7 +456,7 @@ export default function StationSettings() {
           </div>
           <button
             type="button"
-            onClick={handleSyncToDatabase}
+            onClick={requestSync}
             disabled={syncing}
             className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-2xs cursor-pointer shrink-0"
             title="Update all existing material records in the database with their mapped store location"
@@ -403,6 +465,25 @@ export default function StationSettings() {
             <span>{syncing ? 'Syncing DB…' : 'Sync to All 161 Materials'}</span>
           </button>
         </div>
+
+        {/* Unsaved changes alert banner */}
+        {hasUnsavedChanges && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50/90 px-4 py-2.5 text-xs text-amber-900 shadow-sm animate-pulse">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={16} className="text-amber-600 shrink-0" />
+              <span className="font-semibold">
+                You have modified category assignments. Click <strong>"Save Station Mappings"</strong> to authenticate with password and apply.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={requestSave}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 text-xs shadow-xs transition shrink-0 cursor-pointer"
+            >
+              <Lock size={12} /> Save Mappings (Enter Password)
+            </button>
+          </div>
+        )}
 
         {/* Categories Table */}
         <div className="overflow-hidden rounded-xl border border-ink-200/80 bg-white">
@@ -580,17 +661,101 @@ export default function StationSettings() {
       {/* ── Save Footer ── */}
       <div className="flex items-center justify-between pt-2">
         <span className="text-xs text-ink-500">
-          Changes take effect immediately across Raw Materials, POS, and Stock Requisitions.
+          Changes require administrative password confirmation and take effect immediately.
         </span>
         <Button
           type="button"
-          onClick={handleSave}
+          onClick={requestSave}
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 shadow-sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 shadow-sm flex items-center gap-2"
         >
-          <Save size={15} /> {saving ? 'Saving Mappings…' : 'Save Station Mappings'}
+          <Lock size={15} /> {saving ? 'Saving Mappings…' : 'Save Station Mappings'}
         </Button>
       </div>
+
+      {/* ── Security Password Verification Modal ── */}
+      <Modal
+        open={passwordModalOpen}
+        onClose={() => {
+          if (!saving && !syncing) {
+            setPasswordModalOpen(false);
+            setAuthPassword('');
+            setAuthError('');
+          }
+        }}
+        title="🔒 Security Verification Required"
+        width="max-w-md"
+      >
+        <form onSubmit={handlePasswordConfirm} className="space-y-4">
+          <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 shadow-2xs">
+            <ShieldAlert size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-950">Administrative Authorization</p>
+              <p className="mt-0.5 leading-relaxed text-amber-800">
+                Updating station category assignments affects kitchen and bar balance deductions. Please enter your account password to authorize.
+              </p>
+            </div>
+          </div>
+
+          {authError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800 flex items-center gap-2">
+              <AlertCircle size={15} className="text-red-600 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-ink-700 mb-1.5 flex items-center justify-between">
+              <span>Account Password *</span>
+              <span className="text-[11px] font-normal text-ink-400">Security authorization</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                autoFocus
+                required
+                value={authPassword}
+                onChange={(e) => {
+                  setAuthPassword(e.target.value);
+                  setAuthError('');
+                }}
+                placeholder="Enter your password"
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 pr-10 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700 transition"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-ink-100">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setPasswordModalOpen(false);
+                setAuthPassword('');
+                setAuthError('');
+              }}
+              disabled={saving || syncing}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving || syncing || !authPassword}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-xs flex items-center gap-1.5"
+            >
+              <Lock size={13} />
+              {saving || syncing ? 'Verifying & Saving…' : 'Authorize & Save'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
