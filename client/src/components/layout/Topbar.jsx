@@ -5,7 +5,8 @@ import {
   Layers, Clock, HelpCircle, X, BookOpen, Package,
   ArrowLeftRight, ShoppingCart, BarChart2, Users,
   ChevronRight, Search, Lightbulb, CheckCircle2, PlayCircle,
-  Bell, BellRing, Trash2, Globe,
+  Bell, BellRing, Trash2, Globe, QrCode, Utensils, Award,
+  Sliders, Activity, Settings as SettingsIcon, FileText, Monitor, Check,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -13,111 +14,424 @@ import { useSessionTimeout } from '../../context/SessionTimeoutContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 // ─────────────────────────────────────────
-// HELP MODAL DATA
+// HELP MODAL DATA (UPDATED WITH ALL NEW FEATURES)
 // ─────────────────────────────────────────
 const HELP_SECTIONS = [
   {
     id: 'getting-started',
     icon: PlayCircle,
     color: 'bg-blue-600',
-    title: 'Getting Started',
+    title: 'Getting Started & Login',
+    titleAm: 'መግቢያና የተጠቃሚዎች መግቢያ',
     steps: [
-      { title: 'Log In', desc: "Enter your username and password on the login page. Contact your Admin if you don't have credentials." },
-      { title: 'Dashboard Overview', desc: 'After login, the Dashboard shows total stock value, reorder alerts, today\'s movements, and recent activity.' },
-      { title: 'Navigation', desc: 'Use the left sidebar to navigate between modules. Click the menu icon to collapse or expand it.' },
-      { title: 'Quick Actions', desc: 'Use the buttons at the top of the Dashboard to quickly create a Cash GRV, Credit GRV, or view Inventory Count.' },
+      {
+        title: 'Secure Log In & Online Session',
+        titleAm: 'በደህንነት መግባትና የቀጥታ ቆይታ',
+        desc: "Enter your username/email and password. Upon sign in, your account immediately activates as 🟢 Online with your machine IP address and device signature recorded.",
+        descAm: "የይለፍ ቃልና ስምዎን በማስገባት ይግቡ፤ ሲገቡ ወዲያውኑ እንደ 🟢 Online (በስራ ላይ) ተብሎ ከኮምፒውተርዎ IP አድራሻ ጋር ይመዘገባል።"
+      },
+      {
+        title: 'Smart Landing by Role',
+        titleAm: 'እንደየስራ ድርሻዎ የሚከፈት ገጽ',
+        desc: 'The system automatically routes you to your authorized workstation (e.g., Cashiers open at POS, Baristas & Chefs open at Requisitions, Admins open at Dashboard).',
+        descAm: 'ስርዓቱ እንደተጠቃሚው የስራ ድርሻ በቀጥታ ወደሚገባው ገጽ ይወስድዎታል (ካሳ ወደ POS፣ ባሬስታና ሼፍ ወደ ስቶክ ጥያቄ፣ አስተዳዳሪ ወደ ዳሽቦርድ)።'
+      },
+      {
+        title: 'Dashboard Overview & Metrics',
+        titleAm: 'የዳሽቦርድ አጠቃላይ መረጃ',
+        desc: 'Shows real-time inventory balance valuation, safety reorder alerts, daily movement inflow/outflow, and sales cost aggregation.',
+        descAm: 'የአጠቃላይ ስቶክ የገንዘብ መጠን፣ የአደጋ ማሳሰቢያዎች፣ የዕለቱ የዕቃ ገቢና ወጪ፣ እና የሽያጭ ትርፍና ኪሳራን በጨረፍታ ያሳያል።'
+      },
+      {
+        title: 'Sidebar Navigation',
+        titleAm: 'የግራ ጎን ሜኑ አጠቃቀም',
+        desc: 'Navigate between Main Store, Kitchen Store, Bar Store, Stock Movements, Requisitions, Staff ID Badges, and Activity Logs.',
+        descAm: 'በዋና መጋዘን፣ በኩሽና፣ በባር፣ በእንቅስቃሴ መዝገብ፣ በሰራተኞችና በሪፖርቶች መካከል በቀላሉ ለመዘዋወር ይጠቀሙበት።'
+      },
+    ],
+  },
+  {
+    id: 'station-management',
+    icon: Sliders,
+    color: 'bg-cyan-600',
+    title: 'Station Storage & Routing',
+    titleAm: 'የስቶክ ጣቢያዎች ምደባና ማከማቻ',
+    steps: [
+      {
+        title: 'Central Warehouse Concept',
+        titleAm: 'ዋና መጋዘን ማዕከላዊ አስተዳደር',
+        desc: '100% of all raw materials are registered under and managed centrally by the Main Store. Kitchen and Bar stations receive their items exclusively through approved requisitions.',
+        descAm: '100% ሁሉም ጥሬ ዕቃዎች መጀመሪያ የሚገቡትና የሚተዳደሩት በዋና መጋዘን ነው። ኩሽናና ባር ዕቃዎችን የሚያገኙት በጸደቀ ጥያቄ ብቻ ነው።'
+      },
+      {
+        title: 'Category Station Routing',
+        titleAm: 'ምድቦችን ለኩሽና እና ለባር መመደብ',
+        desc: 'Categories are mapped either to Kitchen Station (Produce, Meat, Pastry, Mendi, Ferash Bazaar) or Bar Station (Coffee, Tea, Beverages, Drinks).',
+        descAm: 'የዕቃ ምድቦች ለኩሽና (ምግብ፣ ፓስትሪ፣ ሜንዲ፣ ፍራሽ ባዛር) ወይም ለባር (ቡና፣ ሻይ፣ መጠጦች) ይመደባሉ።'
+      },
+      {
+        title: 'Admin Password Security Gate',
+        titleAm: 'የይለፍ ቃል ጥበቃ',
+        desc: 'Modifying station category assignments requires entering the Admin/Manager password to prevent accidental or unauthorized routing changes.',
+        descAm: 'የጣቢያ ምደባዎችን ለማስተካከልና ለማስቀመጥ የአስተዳዳሪ የይለፍ ቃል ማስገባት ግዴታ ነው፤ ይህም ያልተፈቀደ ለውጥ እንዳይደረግ ይጠብቃል።'
+      },
+      {
+        title: 'Role-Based Station Scoping',
+        titleAm: 'ለእያንዳንዱ ክፍል የራሱን ስቶክ ብቻ ማሳየት',
+        desc: 'Baristas see only Bar materials and stock balance; Kitchen staff sees only Kitchen materials. Only Main Storekeepers and Admins have permission to view all stations simultaneously.',
+        descAm: 'ባሬስታ የባርን ብቻ፣ ኩሽና ደግሞ የኩሽናን ስቶክ ብቻ ያያሉ። ዋና ስቶር ጠባቂና ስራ አስኪያጅ ብቻ የሁሉንም ክፍሎች ስቶክ በአንድ ላይ ማየት ይችላሉ።'
+      },
+    ],
+  },
+  {
+    id: 'stock-requests',
+    icon: ArrowLeftRight,
+    color: 'bg-amber-600',
+    title: 'Stock Requisitions & Dispatch',
+    titleAm: 'የጥያቄና ወጪ ስቶክ አሰራር',
+    steps: [
+      {
+        title: 'Create Stock Requisition',
+        titleAm: 'አዲስ የስቶክ ጥያቄ ማቅረብ',
+        desc: 'Go to Stock Issue & Request → click "+ New Request". Baristas automatically default to "Bar" department; chefs automatically default to "Kitchen" department.',
+        descAm: 'ወደ ስቶክ ጥያቄ በመሄድ "+ አዲስ ጥያቄ" ይጫኑ፤ ባሬስታ በቀጥታ "Bar"፣ ሼፍ ደግሞ በቀጥታ "Kitchen" ተብሎ ይመረጣል።'
+      },
+      {
+        title: 'Mapped Item Requisition Filter',
+        titleAm: 'የተመደቡ ዕቃዎችን ብቻ መጠየቅ',
+        desc: 'When requesting items, only raw materials mapped to your station (e.g. coffee beans/milk for Bar; flour/meat/vegetables for Kitchen) are displayed.',
+        descAm: 'ዕቃዎችን በሚመርጡበት ጊዜ ለክፍልዎ የተፈቀዱትንና የተመደቡትን ጥሬ ዕቃዎች ብቻ ያሳየዎታል።'
+      },
+      {
+        title: 'Storekeeper Exclusive Dispatch',
+        titleAm: 'የዋና ስቶር ጠባቂ ብቻ የማውጣት ስልጣን',
+        desc: 'Kitchen and Bar employees can only request. Only the Main Storekeeper, Manager, or Admin has authority to Approve and Issue stock from the central warehouse.',
+        descAm: 'የኩሽናና የባር ሰራተኞች መጠየቅ ብቻ ይችላሉ፤ ዕቃውን ከዋና መጋዘን የማጽደቅና ወጪ የማድረግ ስልጣን የዋና ስቶር ጠባቂ ብቻ ነው።'
+      },
+      {
+        title: 'Real-Time Station Transfer',
+        titleAm: 'ቀጥታ የክምችት ማስተላለፍ',
+        desc: 'When the Storekeeper issues the request, items are automatically deducted from Main Store and credited to the Kitchen or Bar station balance.',
+        descAm: 'ስቶር ጠባቂው ዕቃውን ወጪ ሲያደርግ፣ ከዋና መጋዘን ተቀንሶ በቀጥታ ወደ ጠየቀው ኩሽና ወይም ባር ስቶክ ይጨመራል።'
+      },
+    ],
+  },
+  {
+    id: 'pos-cash-sales',
+    icon: Utensils,
+    color: 'bg-emerald-600',
+    title: 'POS Orders & Recipe Deduction',
+    titleAm: 'የሽያጭና የካሳ አሰራር እና የግብዓት ቅነሳ',
+    steps: [
+      {
+        title: 'Create POS Order & Payment',
+        titleAm: 'ትዕዛዝ መውሰድና ክፍያ መቀበል',
+        desc: 'Go to POS or Cash Sales. Choose Dine-in, Takeaway, or Delivery, pick table, select menu items, and settle bill via Cash, Telebirr, or Card.',
+        descAm: 'በካሳ ወይም POS ገጽ ላይ ትዕዛዝ ይውሰዱ፤ ክፍያውን በጥሬ ገንዘብ፣ በቴሌብር ወይም በካርድ ይቀበሉ።'
+      },
+      {
+        title: 'Automated Station Recipe Deduction',
+        titleAm: 'አውቶማቲክ የግብዓት ቅነሳ (Recipe Deduction)',
+        desc: 'Upon checkout, the system automatically deducts recipe ingredients: drinks and coffee deduct from Bar Stock; meals and pastries deduct from Kitchen Stock.',
+        descAm: 'ሽያጭ ሲፈጸም የተዘጋጀበት ግብዓት በሬሲፒው መሰረት በቀጥታ ይቀነሳል፤ መጠጦች ከባር ስቶክ፣ ምግቦች ደግሞ ከኩሽና ስቶክ ይቀነሳሉ።'
+      },
+      {
+        title: 'Manager Order Voiding & Security',
+        titleAm: 'ትዕዛዝ መሰረዝና የስቶክ መመለሻ',
+        desc: 'Voiding an order requires a manager reason. The system automatically reverses all deducted recipe ingredients back into inventory and audits the action in Activity Log.',
+        descAm: 'የተሳሳተ ትዕዛዝ ለመሰረዝ የስራ አስኪያጅ ምክንያት ያስፈልጋል፤ የተቀነሱ ግብዓቶች በሙሉ ወደ ስቶክ ይመለሳሉ እንዲሁም በመዝገብ ላይ ይመዘገባል።'
+      },
+      {
+        title: 'Instant KOT & Receipt Printing',
+        titleAm: 'የማዘዣ (KOT) እና የደረሰኝ ህትመት',
+        desc: 'Direct integration with Windows thermal receipt printers. Automatically prints KOT order slips for the kitchen/bar and final customer receipts.',
+        descAm: 'ወደ ኩሽናና ባር የሚላከውን ማዘዣ (KOT) እና ለደንበኛ የሚሰጠውን ደረሰኝ በቴርማል ፕሪንተር በቅጽበት ያትማል።'
+      },
+    ],
+  },
+  {
+    id: 'digital-menu',
+    icon: QrCode,
+    color: 'bg-purple-600',
+    title: 'Digital QR Menu & Guest Ordering',
+    titleAm: 'የዲጂታል ሜኑና የደንበኞች ትዕዛዝ',
+    steps: [
+      {
+        title: 'Table QR Code Scan',
+        titleAm: 'በሞባይል የጠረጴዛ QR ኮድ ማንበብ',
+        desc: 'Customers scan the QR code at their table to view the live digital menu with photos, descriptions, and prices on their mobile phones.',
+        descAm: 'ደንበኞች በጠረጴዛቸው ላይ ያለውን የQR ኮድ በስልካቸው ስካን በማድረግ ምግቦችንና መጠጦችን በፎቶ ማየት ይችላሉ።'
+      },
+      {
+        title: 'Guest Self-Order',
+        titleAm: 'ደንበኛው ከስልኩ በቀጥታ ማዘዝ',
+        desc: 'Guests select items, enter their name, and place their order directly from their phone browser.',
+        descAm: 'ደንበኞች የፈለጉትን መርጠው በስልካቸው ላይ "ትዕዛዝ ላክ" በማለት በቀጥታ ወደ ሲስተሙ መላክ ይችላሉ።'
+      },
+      {
+        title: 'Waiter Verification Security Gate',
+        titleAm: 'የአስተናጋጅ ማረጋገጫ ጥበቃ',
+        desc: 'To prevent fake or accidental table orders, customer QR orders require the table waiter to physically verify the guest presence and approve before reaching the kitchen.',
+        descAm: 'የውሸት ትዕዛዞችን ለመከላከል፣ ደንበኛው ከስልኩ ሲያዝ አስተናጋጁ በአካል ደንበኛው መኖሩን አይቶ ሳያጸድቅ ወደ ኩሽና አይላክም።'
+      },
+      {
+        title: 'Call Waiter & Request Bill',
+        titleAm: 'አስተናጋጅ መጥሪያ እና ሂሳብ መጠየቂያ',
+        desc: 'Guests can tap "Call Waiter" or "Request Bill" to notify floor staff and trigger Telegram alerts instantly.',
+        descAm: 'ደንበኛው ከስልኩ ላይ "አስተናጋጅ ጥራ" ወይም "ሂሳብ አምጡ" የሚለውን በመጫን አስተናጋጁን መጥራት ይችላል።'
+      },
+    ],
+  },
+  {
+    id: 'activity-log',
+    icon: Activity,
+    color: 'bg-indigo-600',
+    title: 'Activity Log & Machine IP Audit',
+    titleAm: 'የእንቅስቃሴ መዝገብና የመሳሪያ IP ቁጥጥር',
+    steps: [
+      {
+        title: 'Real-Time Online / Offline Status',
+        titleAm: 'የቀጥታ በስራ ላይ መሆን ሁኔታ (Online/Offline)',
+        desc: 'Live pulsing indicators display who is currently logged in and active within 15 minutes (🟢 Online) vs inactive (⚪ Offline with relative last active time).',
+        descAm: 'የትኛው ሰራተኛ አሁን ሲስተሙ ላይ እየሰራ እንደሆነ (🟢 Online) እና መቼ እንደወጣ (⚪ Offline) በግልጽ ያሳያል።'
+      },
+      {
+        title: 'Machine IP & Device Signature',
+        titleAm: 'የመሳሪያው IP አድራሻ እና የኮምፒውተር አይነት',
+        desc: 'Every login, order checkout, stock issue, and settings modification logs the physical machine IP (e.g. 192.168.x.x, 196.188.x.x) and device OS/browser.',
+        descAm: 'ማንኛውም ተግባር (መግባት፣ መውጣት፣ ሽያጭ፣ ስቶክ ወጪ) የተፈጸመበትን ትክክለኛ የኮምፒውተር IP አድራሻና የብሮውዘር አይነት ይመዘግባል።'
+      },
+      {
+        title: 'Audit Trail Search & Filtering',
+        titleAm: 'መዝገብ መፈለጊያና ማጣሪያ',
+        desc: 'Search by staff name, machine IP address, action type (Login, Checkout, Stock Issue, Void), module, or custom date range.',
+        descAm: 'በሰራተኛ ስም፣ በIP አድራሻ፣ በተግባሩ አይነት (ሽያጭ፣ ስቶክ ወጪ፣ መግባት) ወይም በቀን በቀላሉ ፈልገው ማግኘት ይችላሉ።'
+      },
+      {
+        title: 'Management CSV Export',
+        titleAm: 'የመረጃ ኤክስፖርት (CSV)',
+        desc: 'Export the complete audit log to Excel/CSV for management audits, discrepancy checks, and operational security verification.',
+        descAm: 'የአጠቃላይ ሰራተኞችን የስራ እንቅስቃሴ ወደ ኤክሴል/CSV በማውረድ ለኦዲትና ለደህንነት ቁጥጥር መጠቀም ይቻላል።'
+      },
+    ],
+  },
+  {
+    id: 'staff-accounts',
+    icon: Award,
+    color: 'bg-rose-600',
+    title: 'Staff Accounts & Digital ID Badges',
+    titleAm: 'የሰራተኞች አካውንትና ዲጂታል ባጅ',
+    steps: [
+      {
+        title: 'Account Directory & Role Access',
+        titleAm: 'የሰራተኞች አካውንትና የስራ ድርሻ',
+        desc: 'Register staff accounts and assign roles (Admin, Manager, Supervisor, Storekeeper, Cashier, Waiter, Dev).',
+        descAm: 'ለሰራተኞች አካውንት ይክፈቱ እና የስራ ድርሻ (አስተዳዳሪ፣ ስቶር ጠባቂ፣ ካሳ፣ አስተናጋጅ) ይመድቡ።'
+      },
+      {
+        title: 'Station & Department Scoping',
+        titleAm: 'የስራ ክፍልና የጣቢያ ምደባ',
+        desc: 'Set employee department to Kitchen or Bar to automatically restrict their accessible materials and auto-default their requisitions.',
+        descAm: 'ሰራተኛውን ለኩሽና ወይም ለባር በመመደብ የክፍላቸውን ዕቃዎች ብቻ እንዲያዩና እንዲጠይቁ ማድረግ ይችላሉ።'
+      },
+      {
+        title: '3x4 Photo Upload & Digital ID Card',
+        titleAm: 'የሰራተኛ ፎቶና ዲጂታል መታወቂያ ባጅ',
+        desc: 'Upload standard 3x4 employee photos. The system generates high-definition, double-sided printable PVC Digital ID Badges complete with QR code and security stamps.',
+        descAm: 'የሰራተኛውን ፎቶ በመጫን በፕላስቲክ (PVC) ላይ የሚታተም ደረጃውን የጠበቀ ባለሁለት ገጽ ዲጂታል መታወቂያ ባጅ ከQR ኮድ ጋር ያትሙ።'
+      },
+      {
+        title: 'Disable / Enable Account',
+        titleAm: 'አካውንት ማገድ ወይም ማብራት',
+        desc: 'Temporarily deactivate an employee account to prevent login and halt Telegram alerts without deleting their historical audit trails.',
+        descAm: 'አንድ ሰራተኛ ስራ ሲያቆም ወይም ለእረፍት ሲወጣ አካውንቱን በማገድ ሲስተሙን እንዳይጠቀም መቆጣጠር ይቻላል።'
+      },
     ],
   },
   {
     id: 'raw-materials',
     icon: Package,
-    color: 'bg-emerald-600',
-    title: 'Raw Materials',
+    color: 'bg-teal-600',
+    title: 'Raw Materials & Stock Balances',
+    titleAm: 'ጥሬ እቃዎችና የክምችት ቁጥጥር',
     steps: [
-      { title: 'View Materials', desc: 'Go to Raw Materials in the sidebar. All active materials are listed with their current stock, unit, and category.' },
-      { title: 'Add a Material', desc: 'Click "+ Add Material". Fill in the name, unit (kg, L, pcs), category, and reorder level, then save.' },
-      { title: 'Edit / Archive', desc: "Click the action menu on any material row to edit its details or archive it." },
-      { title: 'Reorder Alerts', desc: 'Materials below their reorder level are highlighted in amber/red on the Dashboard and Reports.' },
+      {
+        title: 'Multi-Station Stock Views',
+        titleAm: 'የጣቢያዎች ስቶክ እይታ (Main, Kitchen, Bar)',
+        desc: 'Switch between 🏢 Main Store, 🍳 Kitchen Store, and ☕ Bar Store views to check balances in real-time.',
+        descAm: 'በዋና መጋዘን፣ በኩሽና ስቶር እና በባር ስቶር መካከል በመቀያየር የየክፍሉን ክምችት በግልጽ ይመልከቱ።'
+      },
+      {
+        title: 'Add Raw Material',
+        titleAm: 'አዲስ ጥሬ ዕቃ መመዝገብ',
+        desc: 'Click "+ Add Material". Fill in name, measurement unit (kg, L, Pcs), category, unit cost, and safety reorder level.',
+        descAm: 'አዲስ ጥሬ ዕቃ በስም፣ በስሌት መለኪያ (ኪሎ፣ ሊትር፣ ፍሬ)፣ በምድብና በዋጋ ይመዝግቡ።'
+      },
+      {
+        title: 'Safety Reorder Alerts',
+        titleAm: 'የማለቂያ አደጋ ማሳሰቢያ',
+        desc: 'Materials dropping below their safety minimum are immediately highlighted in amber/red on the dashboard and sent to Telegram.',
+        descAm: 'ዕቃዎች ከተቀመጠላቸው ዝቅተኛ መጠን በታች ሲያልቁ ወዲያውኑ በማሳወቂያና በቴሌግራም መልዕክት ይላካል።'
+      },
     ],
   },
   {
     id: 'stock-movements',
     icon: ArrowLeftRight,
-    color: 'bg-indigo-600',
-    title: 'Stock Movements',
+    color: 'bg-blue-700',
+    title: 'Stock Movements & Receiving',
+    titleAm: 'የዕቃ መቀበያና ማስተካከያ (GRV)',
     steps: [
-      { title: 'Cash GRV', desc: 'Use for goods purchased with cash. Go to Stock Movements → Cash Goods Receiving → fill in supplier, items, quantities, and unit cost.' },
-      { title: 'Credit GRV', desc: 'Use for goods received on credit. Same as Cash GRV but payment is deferred. Linked to a supplier account.' },
-      { title: 'Positive Adjustment', desc: 'Use to correct stock upward (e.g., after a physical count finds extra items). Requires a reason.' },
-      { title: 'Negative Adjustment', desc: 'Use to correct stock downward. Requires reason and manager/admin approval.' },
-      { title: 'Goods Disposal', desc: 'Record expired or damaged goods removed from stock. These reduce stock balance and appear in disposal reports.' },
-      { title: 'Fresh Bazaar', desc: 'For direct market purchases without a formal supplier invoice.' },
-    ],
-  },
-  {
-    id: 'purchases',
-    icon: ShoppingCart,
-    color: 'bg-violet-600',
-    title: 'Purchases & Approvals',
-    steps: [
-      { title: 'Create a Purchase Order', desc: 'Go to Purchases → New Purchase. Select a supplier, add items and quantities, then submit as Draft.' },
-      { title: 'Approval Workflow', desc: 'Draft → Manager checks → Admin approves → Storekeeper receives. Each step requires the appropriate role.' },
-      { title: 'Receive Goods', desc: 'Once approved, the storekeeper marks the PO as Received. Stock is automatically added to inventory.' },
-      { title: 'Cancel a PO', desc: 'Any step before Received can be cancelled. Cancelled POs are archived and visible in history.' },
+      {
+        title: 'Cash GRV (Goods Receiving Voucher)',
+        titleAm: 'የጥሬ ገንዘብ ዕቃ መቀበያ ሰነድ',
+        desc: 'Record materials purchased with cash, including supplier, items, quantities, unit prices, and receipt photo attachments.',
+        descAm: 'በጥሬ ገንዘብ የተገዙ ዕቃዎችን ከአቅራቢ፣ ከዋጋ እና ከደረሰኝ ፎቶ ጋር መመዝገቢያ።'
+      },
+      {
+        title: 'Credit GRV',
+        titleAm: 'የብድር ዕቃ መቀበያ ሰነድ',
+        desc: 'Record goods received on credit terms, automatically updating inventory and tracking payables to the supplier.',
+        descAm: 'በብድር የመጡ ዕቃዎችን መመዝገቢያ፤ ስቶኩን ጨምሮ ለአቅራቢው የሚከፈለውን ዕዳ ይመዘግባል።'
+      },
+      {
+        title: 'Fresh Bazaar',
+        titleAm: 'የዕለቱ የገበያ ግዢ (ፍራሽ ባዛር)',
+        desc: 'Direct market purchases from daily bazaar without formal invoices, immediately crediting inventory.',
+        descAm: 'ከዕለታዊ ገበያ ያለደረሰኝ በቀጥታ የተገዙ አትክልቶችና ፍራፍሬዎችን መመዝገቢያ።'
+      },
+      {
+        title: 'Adjustments & Disposal',
+        titleAm: 'የስቶክ ማስተካከያና የተበላሹ ዕቃዎች ወጪ',
+        desc: 'Use Positive Adjustment for surplus, Negative Adjustment for shortages, and Goods Disposal for expired or damaged stock.',
+        descAm: 'በቆጠራ ወቅት ለተገኘ ትርፍ (+ve)፣ ለጎደለ (-ve) እና ለተበላሹ/ለጊዜያቸው ያለፈባቸው ዕቃዎች ማስወገጃ።'
+      },
     ],
   },
   {
     id: 'reports',
     icon: BarChart2,
     color: 'bg-amber-600',
-    title: 'Reports & Analytics',
+    title: 'Reports, Analytics & P&L',
+    titleAm: 'ሪፖርቶች፣ ትንተናና የትርፍ/ኪሳራ ሂሳብ',
     steps: [
-      { title: 'Stock Balance Sheet', desc: 'Shows current stock quantity and value for all materials. Export to PDF or Excel using the Export button.' },
-      { title: 'Daily Report', desc: 'Summary of all stock movements for a selected day — inflow, outflow, adjustments, and disposals.' },
-      { title: 'GRV Reports', desc: 'View all Cash, Credit, or Fresh Bazaar receiving records filtered by date range or supplier.' },
-      { title: 'Inventory Count', desc: 'Physical count reconciliation. Compare system stock vs physical count and record variances.' },
-      { title: 'Analytics & P&L', desc: 'View stock value trends, category breakdown, top assets, and profit/loss overview from the Analytics page.' },
+      {
+        title: 'Stock Balance Sheet',
+        titleAm: 'የስቶክ ሚዛን ሰነድ (Stock Balance Sheet)',
+        desc: 'Complete overview of all raw materials across Main Store, Kitchen, and Bar with valuation, exportable to PDF and Excel.',
+        descAm: 'የሁሉንም ክፍሎች ስቶክ ክምችትና የገንዘብ ዋጋ በአንድ ላይ በማሳየት ለህትመትና ለኤክሴል ያዘጋጃል።'
+      },
+      {
+        title: 'Daily Movement Report',
+        titleAm: 'የዕለቱ የስቶክ እንቅስቃሴ ሪፖርት',
+        desc: 'Tracks daily inflow, outflow, consumption, and transfers with opening and closing balances.',
+        descAm: 'የዕለቱን አጠቃላይ የዕቃ ገቢ፣ ወጪ፣ ፍጆታ እና የተላለፉ ዕቃዎችን በዝርዝር ያሳያል።'
+      },
+      {
+        title: 'Sales, COGS & Gross Profit',
+        titleAm: 'የሽያጭ፣ የወጪና የትርፍ ትንተና',
+        desc: 'Real-time sales revenue, recipe ingredient cost (COGS), profit margins, and top-selling menu items.',
+        descAm: 'የሽያጭ ገቢን፣ የወጣውን የግብዓት ወጪ (COGS) እና የተገኘውን ትርፍ በመቶኛ ያሰላል።'
+      },
     ],
   },
   {
-    id: 'users',
-    icon: Users,
-    color: 'bg-rose-600',
-    title: 'Users & Access',
+    id: 'settings-hardware',
+    icon: SettingsIcon,
+    color: 'bg-slate-700',
+    title: 'Settings, Security & Hardware',
+    titleAm: 'የስርዓቱ ማስተካከያ፣ ደህንነትና ፕሪንተሮች',
     steps: [
-      { title: 'User Roles', desc: 'Admin: full access. Manager: approve, report, manage materials. Storekeeper: record movements. Viewer: read-only.' },
-      { title: 'Add a Staff Member', desc: 'Go to Staff Accounts → Add User. Set name, email, password, and role.' },
-      { title: 'Change Password', desc: 'Click your name at the top right → Security & Password → enter current and new password.' },
-      { title: 'Session Timeout', desc: 'The system auto-logs you out after inactivity. You can change the timeout in the top-right menu.' },
+      {
+        title: 'Role Privileges & Permissions',
+        titleAm: 'የተጠቃሚዎች ስልጣንና ፈቃድ',
+        desc: 'Fine-tune who can view specific menu modules, edit unit costs, or access management settings.',
+        descAm: 'የትኛው የስራ ክፍል ምን ማየትና መስራት እንደሚችል በግልጽ የሚወሰንበት ገጽ።'
+      },
+      {
+        title: 'Thermal Printer Bridge',
+        titleAm: 'የቴርማል ፕሪንተር ግንኙነት',
+        desc: 'Configure local Windows printer bridge, network ESC/POS thermal printers, and customize receipt header/footer details.',
+        descAm: 'የደረሰኝና የትዕዛዝ ማዘዣ (KOT) ፕሪንተሮችን ከኮምፒውተሩ ጋር ማገናኛና ማስተካከያ።'
+      },
+      {
+        title: 'Telegram Alert Integration',
+        titleAm: 'የቴሌግራም መልዕክት ማገናኛ',
+        desc: 'Connect Telegram bot token and chat IDs for instant mobile alerts on requisitions, low stock, and daily sales summaries.',
+        descAm: 'ለስራ አስኪያጆችና ለባለቤቱ በቴሌግራም ፈጣን የስቶክና የሽያጭ ማሳወቂያ እንዲደርሳቸው ማገናኛ።'
+      },
+      {
+        title: 'Auto-Logout Workstation Security',
+        titleAm: 'የስራ ቦታ ደህንነት (Auto-Logout)',
+        desc: 'Set automatic session lock timers (15m, 30m, 1h, or Off) so unattended terminals securely sign out.',
+        descAm: 'ኮምፒውተሩ ስራ ሳይሰራ ሲቀር ራሱን በራሱ ዘግቶ እንዲቆለፍ በማድረግ ያልተፈቀደ ሰው እንዳይጠቀምበት ይጠብቃል።'
+      },
     ],
   },
 ];
 
 const QUICK_TIPS = [
-  { icon: '💡', tip: 'Always set a reorder level for critical materials so the system can alert you before stock runs out.' },
-  { icon: '🔒', tip: 'Never share your login credentials. Each user should have their own account for a proper audit trail.' },
-  { icon: '📊', tip: 'Export your Stock Balance Sheet at the end of each week and save it for management review.' },
-  { icon: '🔄', tip: "Use the Refresh button on the Dashboard to get the latest stock data if you've been idle for a while." },
-  { icon: '🗑️', tip: 'Accidentally deleted something? Check the Recycle Bin (Admin/Manager only) to restore it.' },
+  {
+    icon: '🔒',
+    tip: 'All system activities, logins, and POS orders record the machine IP address for complete security accountability.',
+    tipAm: 'ሁሉም ተግባራትና ሽያጮች የተፈጸሙበትን የኮምፒውተር IP አድራሻ በመመዝገብ ሙሉ የደህንነት ቁጥጥር ያደርጋሉ።'
+  },
+  {
+    icon: '🏢',
+    tip: '100% of materials begin in Main Store. Stations receive stock through requisitions approved by the Storekeeper.',
+    tipAm: 'ሁሉም ዕቃዎች መጀመሪያ የሚገቡት ዋና መጋዘን ነው፤ ኩሽናና ባር ዕቃ የሚያገኙት በስቶር ጠባቂው ሲጸድቅ ብቻ ነው።'
+  },
+  {
+    icon: '🍳',
+    tip: 'Baristas and Kitchen staff are automatically restricted to only request and view their mapped station items.',
+    tipAm: 'የባርና የኩሽና ሰራተኞች ለክፍላቸው የተመደቡላቸውን ዕቃዎች ብቻ እንዲያዩና እንዲጠይቁ ተደርገው የተገደቡ ናቸው።'
+  },
+  {
+    icon: '🎫',
+    tip: 'Generate and print high-resolution PVC Digital ID Badges for all staff directly from Staff Accounts.',
+    tipAm: 'ለሰራተኞች በፕላስቲክ (PVC) ላይ የሚታተሙ ዲጂታል የመታወቂያ ባጆችን ከሰራተኞች ገጽ ላይ ማመንጨት ይችላሉ።'
+  },
+  {
+    icon: '📱',
+    tip: 'Customer QR orders require waiter verification before sending to the kitchen to prevent accidental orders.',
+    tipAm: 'ደንበኞች በሞባይላቸው ያዘዙት ትዕዛዝ ወደ ኩሽና ከመላኩ በፊት አስተናጋጅ በአካል ማረጋገጥ አለበት።'
+  },
+  {
+    icon: '⚡',
+    tip: 'Check the live Activity Log (/activity-log) to see which team members are currently online and working.',
+    tipAm: 'የትኛው ሰራተኛ አሁን በስራ ላይ እንዳለ በቀጥታ በእንቅስቃሴ መዝገብ (/activity-log) ላይ ማየት ይችላሉ።'
+  },
 ];
 
 // ─────────────────────────────────────────
 // HELP MODAL COMPONENT
 // ─────────────────────────────────────────
 const HelpModal = ({ onClose }) => {
+  const { isAmharic } = useLanguage();
   const [activeSection, setActiveSection] = useState('getting-started');
   const [search, setSearch] = useState('');
 
-  const current = HELP_SECTIONS.find(s => s.id === activeSection);
+  const current = HELP_SECTIONS.find(s => s.id === activeSection) || HELP_SECTIONS[0];
 
   const filtered = search.trim()
     ? HELP_SECTIONS.flatMap(s =>
       s.steps
-        .filter(st =>
-          st.title.toLowerCase().includes(search.toLowerCase()) ||
-          st.desc.toLowerCase().includes(search.toLowerCase())
-        )
-        .map(st => ({ ...st, section: s.title, color: s.color }))
+        .filter(st => {
+          const q = search.toLowerCase();
+          return (
+            st.title.toLowerCase().includes(q) ||
+            (st.titleAm && st.titleAm.toLowerCase().includes(q)) ||
+            st.desc.toLowerCase().includes(q) ||
+            (st.descAm && st.descAm.toLowerCase().includes(q)) ||
+            s.title.toLowerCase().includes(q) ||
+            (s.titleAm && s.titleAm.toLowerCase().includes(q))
+          );
+        })
+        .map(st => ({
+          ...st,
+          section: isAmharic && s.titleAm ? s.titleAm : s.title,
+          color: s.color,
+        }))
     )
     : null;
 
@@ -142,8 +456,12 @@ const HelpModal = ({ onClose }) => {
               <BookOpen size={20} className="text-white" />
             </div>
             <div>
-              <h2 className="text-base font-black text-white">Help &amp; Documentation</h2>
-              <p className="text-xs text-blue-200">Step-by-step guides for every feature</p>
+              <h2 className="text-base font-black text-white">
+                {isAmharic ? 'የእርዳታና አሰራር መመሪያዎች' : 'Help & Documentation'}
+              </h2>
+              <p className="text-xs text-blue-200">
+                {isAmharic ? 'ለእያንዳንዱ አዲስ ገጽና አሰራር ደረጃ በደረጃ የቀረበ ማብራሪያ' : 'Step-by-step documentation & workflows for all features'}
+              </p>
             </div>
           </div>
           <button
@@ -160,7 +478,7 @@ const HelpModal = ({ onClose }) => {
             <Search size={14} className="text-ink-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search help topics..."
+              placeholder={isAmharic ? 'ርዕስ ወይም መመሪያ ይፈልጉ...' : 'Search help topics & features...'}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="flex-1 text-xs outline-none text-ink-800 placeholder-ink-400 bg-transparent"
@@ -176,7 +494,7 @@ const HelpModal = ({ onClose }) => {
         <div className="flex flex-1 overflow-hidden">
           {/* Section nav */}
           {!search && (
-            <div className="w-52 flex-shrink-0 border-r border-ink-100 overflow-y-auto bg-ink-50/40 py-3 px-2">
+            <div className="w-56 flex-shrink-0 border-r border-ink-100 overflow-y-auto bg-ink-50/40 py-3 px-2">
               {HELP_SECTIONS.map(s => (
                 <button
                   key={s.id}
@@ -189,18 +507,20 @@ const HelpModal = ({ onClose }) => {
                   <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg ${s.color}`}>
                     <s.icon size={12} className="text-white" />
                   </span>
-                  {s.title}
+                  <span className="truncate">{isAmharic && s.titleAm ? s.titleAm : s.title}</span>
                   {activeSection === s.id && (
-                    <ChevronRight size={12} className="ml-auto text-blue-400" />
+                    <ChevronRight size={12} className="ml-auto text-blue-400 flex-shrink-0" />
                   )}
                 </button>
               ))}
               <div className="mt-4 px-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400 px-2 mb-2">Quick Tips</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400 px-2 mb-2">
+                  {isAmharic ? 'ጠቃሚ ምክሮች' : 'Quick Tips'}
+                </p>
                 {QUICK_TIPS.map((t, i) => (
                   <div key={i} className="flex items-start gap-2 rounded-lg p-2 text-[11px] text-ink-600 hover:bg-white/70 transition">
                     <span className="flex-shrink-0 text-sm">{t.icon}</span>
-                    <span className="leading-relaxed">{t.tip}</span>
+                    <span className="leading-relaxed">{isAmharic && t.tipAm ? t.tipAm : t.tip}</span>
                   </div>
                 ))}
               </div>
@@ -218,8 +538,8 @@ const HelpModal = ({ onClose }) => {
                 {filtered.length === 0 ? (
                   <div className="text-center py-12 text-ink-400">
                     <Search size={32} className="mx-auto mb-3 opacity-30" />
-                    <p className="text-sm font-medium">No results found</p>
-                    <p className="text-xs mt-1">Try a different keyword</p>
+                    <p className="text-sm font-medium">{isAmharic ? 'ምንም ውጤት አልተገኘም' : 'No results found'}</p>
+                    <p className="text-xs mt-1">{isAmharic ? 'ሌላ ቃል ይሞክሩ' : 'Try a different keyword'}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -229,9 +549,9 @@ const HelpModal = ({ onClose }) => {
                           <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 text-white ${r.color}`}>
                             {r.section}
                           </span>
-                          <p className="text-sm font-bold text-ink-900">{r.title}</p>
+                          <p className="text-sm font-bold text-ink-900">{isAmharic && r.titleAm ? r.titleAm : r.title}</p>
                         </div>
-                        <p className="text-xs text-ink-600 leading-relaxed">{r.desc}</p>
+                        <p className="text-xs text-ink-600 leading-relaxed">{isAmharic && r.descAm ? r.descAm : r.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -245,8 +565,8 @@ const HelpModal = ({ onClose }) => {
                       <current.icon size={18} className="text-white" />
                     </div>
                     <div>
-                      <h3 className="text-base font-black text-ink-900">{current.title}</h3>
-                      <p className="text-xs text-ink-400">{current.steps.length} steps</p>
+                      <h3 className="text-base font-black text-ink-900">{isAmharic && current.titleAm ? current.titleAm : current.title}</h3>
+                      <p className="text-xs text-ink-400">{current.steps.length} {isAmharic ? 'ደረጃዎች' : 'key steps'}</p>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -259,8 +579,8 @@ const HelpModal = ({ onClose }) => {
                           {idx + 1}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-ink-900 mb-0.5">{step.title}</p>
-                          <p className="text-xs text-ink-500 leading-relaxed">{step.desc}</p>
+                          <p className="text-sm font-bold text-ink-900 mb-0.5">{isAmharic && step.titleAm ? step.titleAm : step.title}</p>
+                          <p className="text-xs text-ink-500 leading-relaxed">{isAmharic && step.descAm ? step.descAm : step.desc}</p>
                         </div>
                         <CheckCircle2 size={16} className="flex-shrink-0 text-ink-200 mt-1" />
                       </div>
@@ -269,9 +589,11 @@ const HelpModal = ({ onClose }) => {
                   <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-3">
                     <Lightbulb size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-bold text-amber-900 mb-1">Need more help?</p>
+                      <p className="text-xs font-bold text-amber-900 mb-1">{isAmharic ? 'ተጨማሪ እርዳታ ይፈልጋሉ?' : 'Need more help?'}</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
-                        Contact your system administrator or reach MEGA Technology support for assistance.
+                        {isAmharic
+                          ? 'እባክዎ የስርዓቱን አስተዳዳሪ ወይም የMEGA Technology የቴክኒክ ድጋፍ ቡድንን ያነጋግሩ።'
+                          : 'Contact your system administrator or reach MEGA Technology support for assistance.'}
                       </p>
                     </div>
                   </div>
@@ -283,12 +605,12 @@ const HelpModal = ({ onClose }) => {
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-ink-100 bg-ink-50/40 px-6 py-3">
-          <p className="text-[10px] text-ink-400">Baba Roti  CaféHotel Management · Powered by MEGA Technology</p>
+          <p className="text-[10px] text-ink-400">Baba Roti Cafe · Hotel & Restaurant System · Powered by MEGA Technology</p>
           <button
             onClick={onClose}
             className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition"
           >
-            Close
+            {isAmharic ? 'ዝጋ' : 'Close'}
           </button>
         </div>
       </div>
@@ -565,8 +887,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
               type="button"
               onClick={() => setLanguage('en')}
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${!isAmharic
-                  ? 'bg-blue-600 text-white shadow-xs font-extrabold'
-                  : 'text-ink-500 hover:text-ink-900'
+                ? 'bg-blue-600 text-white shadow-xs font-extrabold'
+                : 'text-ink-500 hover:text-ink-900'
                 }`}
               title="Switch to English"
             >
@@ -577,8 +899,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
               type="button"
               onClick={() => setLanguage('am')}
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${isAmharic
-                  ? 'bg-blue-600 text-white shadow-xs font-extrabold'
-                  : 'text-ink-500 hover:text-ink-900'
+                ? 'bg-blue-600 text-white shadow-xs font-extrabold'
+                : 'text-ink-500 hover:text-ink-900'
                 }`}
               title="ወደ አማርኛ ቀይር"
             >
