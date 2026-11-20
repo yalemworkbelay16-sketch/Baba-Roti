@@ -124,8 +124,24 @@ const getStockRequests = asyncHandler(async (req, res) => {
   const { status, department, from, to, type, limit = 100 } = req.query;
   const filter = { deletedAt: null };
 
+  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
+    ? req.user.assignedStation
+    : String(req.user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(req.user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : req.user?.assignedStation || 'all';
+
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+
+  // Station-restricted users (bar/kitchen staff) strictly view their own department's requests
+  if (isStationRestricted) {
+    filter.department = new RegExp(`^${userStation}$`, 'i');
+  } else if (department) {
+    filter.department = department;
+  }
+
   if (status) filter.status = status;
-  if (department) filter.department = department;
   if (type) filter.requestType = type;
   if (from || to) {
     filter.date = {};
@@ -178,8 +194,27 @@ const createStockRequest = asyncHandler(async (req, res) => {
 
   const { resolved, total, stockWarnings } = await resolveItemCosts(items);
 
-  const isDirectIssue = requestType === 'direct_issue' &&
-    ['admin', 'manager', 'storekeeper'].includes(req.user.role);
+  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
+    ? req.user.assignedStation
+    : String(req.user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(req.user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : req.user?.assignedStation || 'all';
+
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
+
+  if (requestType === 'direct_issue' && !isMainStoreOrAdmin) {
+    res.status(403);
+    throw new Error('Access denied: Direct Stock Issue is strictly reserved for the Main Warehouse Storekeeper or Admin. Station staff must submit a Stock Request.');
+  }
+
+  // Force department assignment for station-restricted users
+  const targetDepartment = isStationRestricted ? (userStation === 'bar' ? 'Bar' : 'Kitchen') : department;
+
+  // Station staff (kitchen/bar) can strictly ONLY submit requests, never direct issue!
+  const isDirectIssue = requestType === 'direct_issue' && isMainStoreOrAdmin;
 
   // In main-branch mode, direct issues record departmental hand-offs without
   // deducting RawMaterial balances (actual consumption occurs upon Sales Import/POS).
@@ -205,7 +240,7 @@ const createStockRequest = asyncHandler(async (req, res) => {
     voucherNo,
     requestType: isDirectIssue ? 'direct_issue' : 'request',
     affectsStock: true,
-    department,
+    department: targetDepartment,
     requestedBy: req.user._id,
     requestedAt: date ? new Date(date) : new Date(),
     items: resolved,
@@ -273,6 +308,19 @@ const updateStockRequest = asyncHandler(async (req, res) => {
 // ── POST /api/stock-requests/:id/approve ─────────────────────────
 // Manager or Admin approves the request
 const approveStockRequest = asyncHandler(async (req, res) => {
+  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
+    ? req.user.assignedStation
+    : String(req.user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(req.user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : req.user?.assignedStation || 'all';
+
+  if (['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role)) {
+    res.status(403);
+    throw new Error('Access denied: Station staff cannot approve stock requests.');
+  }
+
   const { note = '' } = req.body;
   const request = await StockRequest.findById(req.params.id);
   if (!request || request.deletedAt) {
@@ -310,6 +358,22 @@ const approveStockRequest = asyncHandler(async (req, res) => {
 // ── POST /api/stock-requests/:id/issue ───────────────────────────
 // Storekeeper / Admin physically issues stock and deducts inventory
 const issueStock = asyncHandler(async (req, res) => {
+  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
+    ? req.user.assignedStation
+    : String(req.user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(req.user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : req.user?.assignedStation || 'all';
+
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
+
+  if (!isMainStoreOrAdmin) {
+    res.status(403);
+    throw new Error('Access denied: Stock issue is strictly reserved for the Main Warehouse Storekeeper or Admin.');
+  }
+
   const { note = '', items: issuedItems } = req.body;
   const request = await StockRequest.findById(req.params.id);
   if (!request || request.deletedAt) {
@@ -392,6 +456,20 @@ const issueStock = asyncHandler(async (req, res) => {
 
 // ── POST /api/stock-requests/:id/reject ──────────────────────────
 const rejectStockRequest = asyncHandler(async (req, res) => {
+  const userStation = (req.user?.assignedStation && req.user?.assignedStation !== 'all')
+    ? req.user.assignedStation
+    : String(req.user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(req.user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : req.user?.assignedStation || 'all';
+
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  if (isStationRestricted) {
+    res.status(403);
+    throw new Error('Access denied: Station staff cannot reject stock requests.');
+  }
+
   const { reason = '' } = req.body;
   const request = await StockRequest.findById(req.params.id);
   if (!request || request.deletedAt) {

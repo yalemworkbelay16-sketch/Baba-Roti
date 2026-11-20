@@ -78,6 +78,66 @@ let cachedSummary = null;
 export default function StockIssueRequest() {
   const { user, can, canCrud, hasRole } = useAuth();
 
+  // ── User station & Role permissions ───────────────────────────
+  const userStation = (user?.assignedStation && user?.assignedStation !== 'all')
+    ? user.assignedStation
+    : String(user?.department || '').toLowerCase().includes('kitchen')
+      ? 'kitchen'
+      : String(user?.department || '').toLowerCase().includes('bar')
+        ? 'bar'
+        : user?.assignedStation || 'all';
+
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(user?.role);
+  const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(user?.role) || (user?.role === 'storekeeper' && !isStationRestricted);
+
+  const canApprove = (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'dev') && !isStationRestricted;
+  const canIssue   = isMainStoreOrAdmin;
+  const canEdit    = canCrud ? canCrud('stockMovements', 'edit') : (user?.role === 'admin' || user?.role === 'manager');
+  const canDelete  = canCrud ? canCrud('stockMovements', 'delete') : user?.role === 'admin';
+
+  // ── Station category mapping ──────────────────────────────────
+  const [stationMapping, setStationMapping] = useState({
+    'Bar': 'bar',
+    'ferash Bazare': 'kitchen',
+    'Kitchen': 'kitchen',
+    'Mendi': 'kitchen',
+    'Pastery': 'kitchen',
+    'CleanerMaterial': 'mainStore',
+    'Material': 'mainStore',
+  });
+  const [showAllMaterialsOverride, setShowAllMaterialsOverride] = useState(false);
+
+  useEffect(() => {
+    api.get('/settings').then((res) => {
+      if (res.data?.stationCategoryMapping?.rawMaterialMap) {
+        setStationMapping((prev) => ({
+          ...prev,
+          ...res.data.stationCategoryMapping.rawMaterialMap,
+        }));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const getMaterialStation = useCallback((m) => {
+    const cat = String(m?.category || '').trim();
+    if (stationMapping[cat]) return stationMapping[cat];
+    const loc = String(m?.storeLocation || '').toLowerCase();
+    if (loc.includes('kitchen')) return 'kitchen';
+    if (loc.includes('bar')) return 'bar';
+    const lower = cat.toLowerCase();
+    if (lower === 'bar' || /beverage|drink|coffee|tea|juice|soda|beer|wine|water/i.test(lower)) return 'bar';
+    if (
+      lower === 'kitchen' ||
+      lower === 'ferash bazare' ||
+      lower === 'mendi' ||
+      lower === 'pastery' ||
+      /produce|meat|poultry|dairy|bakery|grains|spices|food|fresh|fruit|veg/i.test(lower)
+    ) {
+      return 'kitchen';
+    }
+    return 'mainStore';
+  }, [stationMapping]);
+
   // ── Data state (instantly restored from cache if previously visited) ──
   const [requests,  setRequests]  = useState(() => cachedRequests || []);
   const [materials, setMaterials] = useState([]);
@@ -93,7 +153,7 @@ export default function StockIssueRequest() {
   // ── Create/Edit modal ────────────────────────────────────────
   const [createOpen,  setCreateOpen]  = useState(false);
   const [editTarget,  setEditTarget]  = useState(null);
-  const [formDept,    setFormDept]    = useState('Kitchen');
+  const [formDept,    setFormDept]    = useState(() => (userStation === 'bar' ? 'Bar' : userStation === 'kitchen' ? 'Kitchen' : 'Kitchen'));
   const [formType,    setFormType]    = useState('request');       // 'request' | 'direct_issue'
   const [formPriority,setFormPriority]= useState('normal');
   const [formNotes,   setFormNotes]   = useState('');
@@ -158,11 +218,50 @@ export default function StockIssueRequest() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Scoped available materials for creation/requisitions ─────
+  const availableMaterials = useMemo(() => {
+    if (showAllMaterialsOverride && !isStationRestricted) return materials;
+
+    // Station restricted users ONLY see items mapped to their station
+    if (isStationRestricted) {
+      return materials.filter(m => getMaterialStation(m) === userStation);
+    }
+
+    // Main storekeeper / admin defaults to filtering by the currently selected target department
+    const deptLower = String(formDept || '').toLowerCase();
+    if (deptLower === 'bar') {
+      return materials.filter(m => getMaterialStation(m) === 'bar');
+    }
+    if (deptLower === 'kitchen') {
+      return materials.filter(m => getMaterialStation(m) === 'kitchen');
+    }
+    return materials;
+  }, [materials, formDept, userStation, getMaterialStation, showAllMaterialsOverride, isStationRestricted]);
+
+  // ── Scoped summary stats for station users ────────────────────
+  const displaySummary = useMemo(() => {
+    if (!isStationRestricted) return summary;
+    const targetDept = userStation === 'bar' ? 'bar' : 'kitchen';
+    const deptRequests = requests.filter(r => String(r.department || '').toLowerCase() === targetDept);
+    return {
+      pending: deptRequests.filter(r => r.status === 'pending').length,
+      approved: deptRequests.filter(r => r.status === 'approved').length,
+      issued: deptRequests.filter(r => r.status === 'issued').length,
+      rejected: deptRequests.filter(r => r.status === 'rejected').length,
+      monthCost: deptRequests.filter(r => r.status === 'issued').reduce((sum, r) => sum + (r.totalCost || 0), 0),
+    };
+  }, [isStationRestricted, userStation, requests, summary]);
+
   // ── Filtered list ────────────────────────────────────────────
   const filtered = useMemo(() => {
     return requests.filter(r => {
+      if (isStationRestricted) {
+        const targetStation = userStation === 'bar' ? 'bar' : 'kitchen';
+        if (String(r.department || '').toLowerCase() !== targetStation) return false;
+      } else if (filterDept && r.department !== filterDept) {
+        return false;
+      }
       if (filterStatus && r.status !== filterStatus) return false;
-      if (filterDept   && r.department !== filterDept) return false;
       if (search) {
         const q = search.toLowerCase();
         const matchVoucher = r.voucherNo?.toLowerCase().includes(q);
@@ -173,17 +272,18 @@ export default function StockIssueRequest() {
       }
       return true;
     });
-  }, [requests, filterStatus, filterDept, search]);
+  }, [requests, filterStatus, filterDept, search, isStationRestricted, userStation]);
 
   // ── Form helpers ─────────────────────────────────────────────
   const openCreate = () => {
     setEditTarget(null);
-    setFormDept('Kitchen');
+    setFormDept(userStation === 'bar' ? 'Bar' : userStation === 'kitchen' ? 'Kitchen' : 'Kitchen');
     setFormType('request');
     setFormPriority('normal');
     setFormNotes('');
     setFormItems([{ ...EMPTY_ITEM }]);
     setFormError('');
+    setShowAllMaterialsOverride(false);
     setCreateOpen(true);
     loadMaterials(); // lazy load
   };
@@ -342,10 +442,6 @@ export default function StockIssueRequest() {
   };
 
   // ── Helpers ───────────────────────────────────────────────────
-  const canApprove = user?.role === 'admin' || user?.role === 'manager';
-  const canIssue   = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'storekeeper';
-  const canEdit    = canCrud ? canCrud('stockMovements', 'edit') : (user?.role === 'admin' || user?.role === 'manager');
-  const canDelete  = canCrud ? canCrud('stockMovements', 'delete') : user?.role === 'admin';
 
   const getMaterialStock = (matId) => {
     const mat = materials.find(m => (m._id || m) === matId);
@@ -427,14 +523,19 @@ export default function StockIssueRequest() {
           </div>
           <div className="text-xs">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-blue-950">Main Branch Internal Requisition Mode</span>
+              <span className="font-bold text-blue-950">
+                {isStationRestricted
+                  ? `${userStation === 'bar' ? 'Bar Station' : 'Kitchen Station'} Stock Requisitions`
+                  : 'Main Store Warehouse Requisition & Issue Center'}
+              </span>
               <span className="rounded-full bg-blue-100 border border-blue-300 px-2.5 py-0.5 text-[10px] font-bold text-blue-800">
-                Non-Deducting Internal Hand-off
+                {isStationRestricted ? 'Station Requisition Mode' : 'Warehouse Keeper Mode'}
               </span>
             </div>
             <p className="mt-1 text-blue-900/80 leading-relaxed">
-              Stock requests and direct issues track internal hand-offs to Kitchen, Bar, and departments for operational accountability. 
-              <strong> Raw material balances remain intact</strong> and are accurately deducted when menu items are sold through <strong>Sales Import &amp; POS Consumption</strong>.
+              {isStationRestricted
+                ? `Submit stock requisitions to the Main Store Warehouse. Material selection is scoped to items mapped to your ${userStation === 'bar' ? 'Bar' : 'Kitchen'} station. Stock issue is handled by the Main Storekeeper.`
+                : 'Stock requests and direct issues track internal hand-offs from Main Warehouse to Kitchen and Bar. Stock is physically issued by the Main Storekeeper.'}
             </p>
           </div>
         </div>
@@ -443,10 +544,10 @@ export default function StockIssueRequest() {
       {/* ── Summary KPI Cards ── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: 'Pending',  value: summary.pending  || 0, icon: Clock,        color: 'from-amber-500 to-orange-500',   bg: 'bg-amber-50',   text: 'text-amber-700' },
-          { label: 'Approved', value: summary.approved || 0, icon: CheckCircle2, color: 'from-blue-500 to-indigo-600',    bg: 'bg-blue-50',    text: 'text-blue-700' },
-          { label: 'Issued',   value: summary.issued   || 0, icon: PackageCheck, color: 'from-emerald-500 to-teal-600',   bg: 'bg-emerald-50', text: 'text-emerald-700' },
-          { label: 'Rejected', value: summary.rejected || 0, icon: XCircle,      color: 'from-rose-500 to-red-600',       bg: 'bg-rose-50',    text: 'text-rose-700' },
+          { label: 'Pending',  value: displaySummary.pending  || 0, icon: Clock,        color: 'from-amber-500 to-orange-500',   bg: 'bg-amber-50',   text: 'text-amber-700' },
+          { label: 'Approved', value: displaySummary.approved || 0, icon: CheckCircle2, color: 'from-blue-500 to-indigo-600',    bg: 'bg-blue-50',    text: 'text-blue-700' },
+          { label: 'Issued',   value: displaySummary.issued   || 0, icon: PackageCheck, color: 'from-emerald-500 to-teal-600',   bg: 'bg-emerald-50', text: 'text-emerald-700' },
+          { label: 'Rejected', value: displaySummary.rejected || 0, icon: XCircle,      color: 'from-rose-500 to-red-600',       bg: 'bg-rose-50',    text: 'text-rose-700' },
         ].map(({ label, value, icon: Icon, color, bg, text }) => (
           <div key={label} className={`rounded-2xl border border-ink-100 bg-white p-4 shadow-soft cursor-pointer hover:shadow-md transition`}
             onClick={() => setFilterStatus(filterStatus === label.toLowerCase() ? '' : label.toLowerCase())}>
@@ -465,13 +566,15 @@ export default function StockIssueRequest() {
       </div>
 
       {/* ── This month cost ── */}
-      {summary.monthCost > 0 && (
+      {displaySummary.monthCost > 0 && (
         <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
             <TrendingDown size={16} />
-            Total stock issued this month
+            {isStationRestricted
+              ? `Total stock issued to ${userStation === 'bar' ? 'Bar' : 'Kitchen'} this month`
+              : 'Total stock issued this month'}
           </div>
-          <span className="text-base font-black text-indigo-900">{formatETB(summary.monthCost)}</span>
+          <span className="text-base font-black text-indigo-900">{formatETB(displaySummary.monthCost)}</span>
         </div>
       )}
 
@@ -501,14 +604,21 @@ export default function StockIssueRequest() {
             ))}
           </select>
 
-          <select
-            value={filterDept}
-            onChange={e => setFilterDept(e.target.value)}
-            className="rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-700 outline-none"
-          >
-            <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          {!isStationRestricted ? (
+            <select
+              value={filterDept}
+              onChange={e => setFilterDept(e.target.value)}
+              className="rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-700 outline-none"
+            >
+              <option value="">All Departments</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+              <Building2 size={13} />
+              {userStation === 'bar' ? 'Bar Station Requests' : 'Kitchen Station Requests'}
+            </span>
+          )}
 
           {(filterStatus || filterDept || search) && (
             <button
@@ -685,12 +795,20 @@ export default function StockIssueRequest() {
               style={{ background: 'linear-gradient(135deg, #1a3cdb 0%, #4f46e5 100%)' }}>
               <div>
                 <h2 className="text-base font-black text-white">
-                  {editTarget ? 'Edit Request' : formType === 'direct_issue' ? 'Direct Stock Issue' : 'New Stock Request'}
+                  {editTarget
+                    ? 'Edit Request'
+                    : formType === 'direct_issue'
+                      ? 'Direct Stock Issue'
+                      : isStationRestricted
+                        ? `${userStation === 'bar' ? 'Bar Station' : 'Kitchen Station'} Stock Requisition`
+                        : 'New Stock Request'}
                 </h2>
                 <p className="text-xs text-blue-200 mt-0.5">
                   {formType === 'direct_issue'
-                    ? 'Immediately deducts stock without approval workflow'
-                    : 'Submit a request for admin/manager approval'}
+                    ? 'Immediately transfers stock from Main Warehouse to station'
+                    : isStationRestricted
+                      ? `Select materials mapped to ${userStation === 'bar' ? 'Bar' : 'Kitchen'} station and submit to Main Warehouse Storekeeper`
+                      : 'Submit a request for admin/manager approval'}
                 </p>
               </div>
               <button onClick={() => setCreateOpen(false)}
@@ -700,8 +818,8 @@ export default function StockIssueRequest() {
             </div>
 
             <div className="overflow-y-auto p-6 space-y-5">
-              {/* Type selector */}
-              {!editTarget && (
+              {/* Type selector - Only visible to Main Storekeeper or Admin */}
+              {!editTarget && canIssue && (
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { value: 'request',      label: 'Stock Request',   desc: 'Requires approval',    icon: ClipboardList, color: 'border-blue-400 bg-blue-50' },
@@ -727,13 +845,21 @@ export default function StockIssueRequest() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-ink-700 mb-1.5">Department *</label>
-                  <select
-                    value={formDept}
-                    onChange={e => setFormDept(e.target.value)}
-                    className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  {isStationRestricted ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-2.5 text-sm font-bold text-blue-900">
+                      <Building2 size={16} className="text-blue-600" />
+                      <span>{userStation === 'bar' ? 'Bar Station' : 'Kitchen Station'}</span>
+                      <span className="ml-auto text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Station Locked</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={formDept}
+                      onChange={e => setFormDept(e.target.value)}
+                      className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    >
+                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-ink-700 mb-1.5">Priority</label>
@@ -751,7 +877,21 @@ export default function StockIssueRequest() {
               {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-ink-700">Items *</label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs font-bold text-ink-700">Items *</label>
+                    <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                      {availableMaterials.length} mapped item{availableMaterials.length !== 1 ? 's' : ''} for {isStationRestricted ? (userStation === 'bar' ? 'Bar' : 'Kitchen') : formDept}
+                    </span>
+                    {!isStationRestricted && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllMaterialsOverride(!showAllMaterialsOverride)}
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline ml-1"
+                      >
+                        {showAllMaterialsOverride ? 'Filter by Station' : `Show all warehouse items (${materials.length})`}
+                      </button>
+                    )}
+                  </div>
                   <button onClick={addItem}
                     className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition">
                     <Plus size={11} /> Add Item
@@ -767,8 +907,8 @@ export default function StockIssueRequest() {
                           <div className="col-span-2">
                             <SearchableSelect
                               required
-                              placeholder="Select material…"
-                              options={materials}
+                              placeholder={`Select ${isStationRestricted ? (userStation === 'bar' ? 'Bar' : 'Kitchen') : formDept} material…`}
+                              options={availableMaterials}
                               value={item.material}
                               onChange={val => updateItem(idx, 'material', val)}
                             />

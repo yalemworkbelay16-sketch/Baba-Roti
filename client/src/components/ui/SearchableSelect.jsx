@@ -26,10 +26,11 @@ export default function SearchableSelect({
       if (typeof opt === 'object' && opt !== null) {
         const val = opt.value ?? opt._id ?? '';
         const name = opt.label ?? opt.name ?? '';
+        const stockQty = opt.mainStoreStock !== undefined ? opt.mainStoreStock : opt.currentStock;
         const stockInfo =
           opt.sublabel ??
-          (opt.currentStock !== undefined
-            ? `${opt.currentStock} ${opt.unit || ''} in stock`
+          (stockQty !== undefined
+            ? `${stockQty} ${opt.unit || ''} in stock`
             : '');
         return {
           id: val,
