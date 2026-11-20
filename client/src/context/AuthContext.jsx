@@ -272,6 +272,62 @@ export const AuthProvider = ({ children }) => {
     return Boolean(entry[user.role]);
   };
 
+  /**
+   * Determine the user's primary authorized landing page.
+   * If they can see the dashboard, it returns '/'.
+   * Otherwise, it finds the first accessible route based on station/role permissions.
+   */
+  const getDefaultLandingUrl = (currentUser = user) => {
+    if (!currentUser) return '/login';
+    if (currentUser.role === 'dev') return '/';
+
+    const userStation = (currentUser?.assignedStation && currentUser?.assignedStation !== 'all')
+      ? currentUser.assignedStation
+      : String(currentUser?.department || '').toLowerCase().includes('kitchen')
+        ? 'kitchen'
+        : String(currentUser?.department || '').toLowerCase().includes('bar')
+          ? 'bar'
+          : currentUser?.assignedStation || 'all';
+
+    // Station restricted staff go directly to their station store
+    if (userStation === 'kitchen') return '/materials?station=kitchen';
+    if (userStation === 'bar') return '/materials?station=bar';
+
+    // If dashboard is permitted for this role, land on dashboard
+    if (canSeeNav('dashboard')) return '/';
+
+    // Waiter landing
+    if (currentUser.role === 'waiter') return '/pos';
+
+    // Inventory & Raw Materials
+    if (canSeeNav('rawMaterials')) {
+      if (userStation === 'main') return '/materials?station=main';
+      return '/materials';
+    }
+
+    // Subsystems
+    if (canSeeNav('pos')) return '/pos';
+    if (canSeeNav('captainOrder')) return '/captain-order';
+    if (canSeeNav('cashSales')) return '/cash-sales';
+
+    // Operations & Transactions
+    if (canSeeNav('stockMovements')) return '/transactions';
+    if (canSeeNav('products')) return '/products';
+    if (canSeeNav('stockRequests')) return '/stock-requests';
+    if (canSeeNav('consumption')) return '/consumption';
+    if (canSeeNav('suppliers')) return '/suppliers';
+
+    // Finance & Reports
+    if (canSeeNav('expenses')) return '/expenses';
+    if (canSeeNav('analytics')) return '/analytics';
+    if (canSeeNav('reports')) return '/reports';
+
+    // Configurations
+    if (canSeeNav('settings')) return '/settings';
+
+    return '/profile';
+  };
+
   const refreshPermissions = async (newSettings) => {
     if (newSettings) {
       // Handle full settings object OR the developer-license API response
@@ -316,6 +372,7 @@ export const AuthProvider = ({ children }) => {
         can,
         canCrud,
         canSeeNav,
+        getDefaultLandingUrl,
         isModuleLicensed,
         licensedModules,
         sidebarTheme,

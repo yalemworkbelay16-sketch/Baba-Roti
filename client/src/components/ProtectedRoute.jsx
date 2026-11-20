@@ -10,7 +10,7 @@ import ModuleLocked from './ui/ModuleLocked';
  *  - module: restrict based on developer module licensing (e.g. 'subsystem')
  */
 const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => {
-  const { user, loading, can, isModuleLicensed, hasRole } = useAuth();
+  const { user, loading, can, isModuleLicensed, hasRole, getDefaultLandingUrl } = useAuth();
   const [safetyTimeoutPassed, setSafetyTimeoutPassed] = React.useState(false);
 
   React.useEffect(() => {
@@ -40,7 +40,7 @@ const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => 
     return <ModuleLocked />;
   }
 
-  const fallbackUrl = user?.role === 'waiter' ? '/pos' : '/';
+  const fallbackUrl = getDefaultLandingUrl ? getDefaultLandingUrl() : (user?.role === 'waiter' ? '/pos' : '/');
 
   if (capability && !can(capability)) {
     return <Navigate to={fallbackUrl} replace />;

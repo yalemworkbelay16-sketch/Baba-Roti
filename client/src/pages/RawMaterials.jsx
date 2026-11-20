@@ -129,7 +129,7 @@ const RawMaterials = () => {
           ...res.data.stationCategoryMapping.rawMaterialMap,
         }));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const getMaterialStation = (m) => {
@@ -875,8 +875,8 @@ const RawMaterials = () => {
               type="button"
               onClick={() => handleStationChange('all')}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'all'
-                  ? 'bg-ink-900 text-white shadow-xs'
-                  : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
+                ? 'bg-ink-900 text-white shadow-xs'
+                : 'bg-ink-50 text-ink-700 border border-ink-200/80 hover:bg-ink-100'
                 }`}
             >
               All Stations ({stationCounts.all})
@@ -888,8 +888,8 @@ const RawMaterials = () => {
               type="button"
               onClick={() => handleStationChange('main')}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'main'
-                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
-                  : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
+                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+                : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
                 }`}
             >
               <Warehouse size={13} /> 🏢 Main Store ({stationCounts.main})
@@ -901,8 +901,8 @@ const RawMaterials = () => {
               type="button"
               onClick={() => handleStationChange('kitchen')}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'kitchen'
-                  ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/40'
+                : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
                 }`}
             >
               <UtensilsCrossed size={13} /> 🍳 Kitchen Station ({stationCounts.kitchen})
@@ -914,8 +914,8 @@ const RawMaterials = () => {
               type="button"
               onClick={() => handleStationChange('bar')}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${stationFilter === 'bar'
-                  ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
                 }`}
             >
               <Coffee size={13} /> ☕ Bar Station ({stationCounts.bar})
@@ -1342,11 +1342,10 @@ const RawMaterials = () => {
                 <button
                   type="button"
                   onClick={() => setTransferForm(f => ({ ...f, toStation: 'kitchen' }))}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${
-                    transferForm.toStation === 'kitchen'
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${transferForm.toStation === 'kitchen'
                       ? 'border-amber-400 bg-amber-50 text-amber-900 ring-2 ring-amber-300'
                       : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
-                  }`}
+                    }`}
                 >
                   <UtensilsCrossed size={14} className="text-amber-600" />
                   <span>🍳 Kitchen Station</span>
@@ -1354,11 +1353,10 @@ const RawMaterials = () => {
                 <button
                   type="button"
                   onClick={() => setTransferForm(f => ({ ...f, toStation: 'bar' }))}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${
-                    transferForm.toStation === 'bar'
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${transferForm.toStation === 'bar'
                       ? 'border-emerald-400 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-300'
                       : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
-                  }`}
+                    }`}
                 >
                   <Coffee size={14} className="text-emerald-600" />
                   <span>☕ Bar Station</span>

@@ -112,8 +112,8 @@ const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel, isI
       </div>
       {badge !== undefined && badge !== null && (
         <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${active
-            ? (theme.isLight ? 'bg-blue-600 text-white' : 'bg-white/30 text-white')
-            : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/70')
+          ? (theme.isLight ? 'bg-blue-600 text-white' : 'bg-white/30 text-white')
+          : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/70')
           }`}>
           {badge}
         </span>
@@ -319,18 +319,18 @@ const Sidebar = ({
   onToggleCollapse,
   onExpand,
 }) => {
-  const { user, can, canSeeNav, sidebarTheme, useMaterialIcons } = useAuth();
+  const { user, can, canSeeNav, sidebarTheme, useMaterialIcons, getDefaultLandingUrl } = useAuth();
   const { isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Header click handler: redirect to dashboard & keep / expand sidebar (international standard)
+  // Header click handler: redirect to dashboard if allowed, or user landing page
   const handleHeaderClick = (e) => {
     if (collapsed && onExpand) {
       onExpand();
     }
-    navigate('/');
+    navigate(canSeeNav('dashboard') ? '/' : (getDefaultLandingUrl ? getDefaultLandingUrl() : '/materials'));
   };
 
   // Active route helpers
@@ -560,7 +560,7 @@ const Sidebar = ({
         {/* ── TOP HEADER SECTION (COMPACT & REDIRECTS TO DASHBOARD) ── */}
         <div
           onClick={handleHeaderClick}
-          title="Baba Roti - Go to Dashboard"
+          title={canSeeNav('dashboard') ? "Baba Roti - Go to Dashboard" : "Baba Roti Café"}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {

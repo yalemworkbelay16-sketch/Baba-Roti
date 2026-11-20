@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
-const tg  = require('../utils/telegramNotifier');
+const tg = require('../utils/telegramNotifier');
 
 const getUsers = asyncHandler(async (req, res) => {
   const users = await User.find({}).select('-password').sort({ createdAt: -1 });
@@ -28,13 +28,13 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 
   const wasActive = user.isActive;
-  const oldRole   = user.role;
+  const oldRole = user.role;
   const isDeactivating = req.body.isActive === false && wasActive === true;
   const isReactivating = req.body.isActive === true && wasActive === false;
 
-  user.name           = req.body.name          ?? user.name;
-  user.role           = req.body.role          ?? user.role;
-  user.department     = req.body.department    ?? user.department;
+  user.name = req.body.name ?? user.name;
+  user.role = req.body.role ?? user.role;
+  user.department = req.body.department ?? user.department;
 
   // Auto-sync station if department is Kitchen or Bar and assignedStation wasn't explicitly chosen
   let newStation = req.body.assignedStation ?? user.assignedStation;
@@ -45,15 +45,15 @@ const updateUser = asyncHandler(async (req, res) => {
   }
   user.assignedStation = newStation;
 
-  user.isActive       = req.body.isActive      ?? user.isActive;
-  user.phone          = req.body.phone         ?? user.phone;
+  user.isActive = req.body.isActive ?? user.isActive;
+  user.phone = req.body.phone ?? user.phone;
   user.telegramChatId = req.body.telegramChatId ?? user.telegramChatId;
-  user.employeeId     = req.body.employeeId    ?? user.employeeId;
+  user.employeeId = req.body.employeeId ?? user.employeeId;
   if (req.body.photoUrl !== undefined) {
     user.photoUrl = req.body.photoUrl;
-    user.avatar   = req.body.photoUrl;
+    user.avatar = req.body.photoUrl;
   } else if (req.body.avatar !== undefined) {
-    user.avatar   = req.body.avatar;
+    user.avatar = req.body.avatar;
     user.photoUrl = req.body.avatar;
   }
   if (req.body.password) user.password = req.body.password;
@@ -158,13 +158,13 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 
   res.json({
-    _id:            updated._id,
-    name:           updated.name,
-    email:          updated.email,
-    role:           updated.role,
+    _id: updated._id,
+    name: updated.name,
+    email: updated.email,
+    role: updated.role,
     assignedStation: updated.assignedStation || 'all',
-    isActive:       updated.isActive,
-    phone:          updated.phone || '',
+    isActive: updated.isActive,
+    phone: updated.phone || '',
     telegramChatId: updated.telegramChatId || '',
   });
 });

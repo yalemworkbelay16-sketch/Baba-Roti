@@ -116,7 +116,7 @@ export default function Login() {
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, getDefaultLandingUrl } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const passwordRef = useRef(null);
@@ -184,11 +184,10 @@ export default function Login() {
     setLoading(true);
     try {
       const loggedUser = await login(email, password, otpToken);
-      if (loggedUser?.role === 'waiter') {
-        navigate('/pos', { replace: true });
-      } else {
-        navigate(location.state?.from || '/', { replace: true });
-      }
+      const target = (location.state?.from && location.state.from !== '/')
+        ? location.state.from
+        : (getDefaultLandingUrl ? getDefaultLandingUrl(loggedUser) : (loggedUser?.role === 'waiter' ? '/pos' : '/'));
+      navigate(target, { replace: true });
     } catch (err) {
       setServerError(
         err.response?.data?.message ||

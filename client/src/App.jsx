@@ -1,5 +1,6 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -27,6 +28,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { SessionTimeoutProvider } from './context/SessionTimeoutContext';
 import SessionTimeoutModal from './components/common/SessionTimeoutModal';
 
+function HomeRoute() {
+  const { user, canSeeNav, getDefaultLandingUrl } = useAuth();
+  if (user && !canSeeNav('dashboard')) {
+    return <Navigate to={getDefaultLandingUrl()} replace />;
+  }
+  return <Dashboard />;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -43,7 +52,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<HomeRoute />} />
+            <Route path="/dashboard" element={<HomeRoute />} />
             <Route path="/pos" element={<ProtectedRoute module="subsystem"><POS /></ProtectedRoute>} />
             <Route path="/captain-order" element={<ProtectedRoute module="subsystem"><CaptainOrder /></ProtectedRoute>} />
             <Route path="/cash-sales" element={<ProtectedRoute module="subsystem" roles={['admin', 'manager', 'supervisor', 'cashier', 'storekeeper', 'dev']}><CashSales /></ProtectedRoute>} />

@@ -148,7 +148,7 @@ let cachedDashboardData = getStoredDashboardData();
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canSeeNav, getDefaultLandingUrl } = useAuth();
   const { t, isAmharic } = useLanguage();
   const [data, setData] = useState(cachedDashboardData);
   const [loading, setLoading] = useState(!cachedDashboardData);
@@ -173,12 +173,20 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (user && !canSeeNav('dashboard')) {
+      navigate(getDefaultLandingUrl(), { replace: true });
+      return;
+    }
     if (user?.role === 'waiter') {
       navigate('/pos', { replace: true });
       return;
     }
     fetchSummary();
-  }, [user, navigate]);
+  }, [user, navigate, canSeeNav, getDefaultLandingUrl]);
+
+  if (user && !canSeeNav('dashboard')) {
+    return null;
+  }
 
   const trendData = useMemo(() => {
     if (!data?.trend) return [];

@@ -540,8 +540,8 @@ export default function StationSettings() {
                           type="button"
                           onClick={() => setCategoryStation(c.name, isKitchen ? 'none' : 'kitchen')}
                           className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${isKitchen
-                              ? 'bg-amber-600 text-white shadow-xs'
-                              : 'text-ink-600 hover:text-ink-900 hover:bg-white'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                             }`}
                           title={isKitchen ? 'Assigned to Kitchen (Click to unassign)' : 'Assign to Kitchen Station'}
                         >
@@ -551,8 +551,8 @@ export default function StationSettings() {
                           type="button"
                           onClick={() => setCategoryStation(c.name, isBar ? 'none' : 'bar')}
                           className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${isBar
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'text-ink-600 hover:text-ink-900 hover:bg-white'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                             }`}
                           title={isBar ? 'Assigned to Bar (Click to unassign)' : 'Assign to Bar Station'}
                         >
@@ -631,8 +631,8 @@ export default function StationSettings() {
                             type="button"
                             onClick={() => setProductCategoryStation(p.name, 'kitchen')}
                             className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${currentStation === 'kitchen'
-                                ? 'bg-amber-600 text-white shadow-xs'
-                                : 'text-ink-600 hover:text-ink-900 hover:bg-white'
+                              ? 'bg-amber-600 text-white shadow-xs'
+                              : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                               }`}
                           >
                             <UtensilsCrossed size={11} /> Food (Kitchen)
@@ -641,8 +641,8 @@ export default function StationSettings() {
                             type="button"
                             onClick={() => setProductCategoryStation(p.name, 'bar')}
                             className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${currentStation === 'bar'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'text-ink-600 hover:text-ink-900 hover:bg-white'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-ink-600 hover:text-ink-900 hover:bg-white'
                               }`}
                           >
                             <Coffee size={11} /> Drink (Bar)
