@@ -25,7 +25,11 @@ export default function SearchableSelect({
     return options.map((opt) => {
       if (typeof opt === 'object' && opt !== null) {
         const val = opt.value ?? opt._id ?? '';
-        const name = opt.label ?? opt.name ?? '';
+        const rawName = opt.label ?? opt.name ?? '';
+        const trimmed = String(rawName || '').trim();
+        const name = (trimmed && trimmed !== '-' && trimmed !== '.')
+          ? trimmed
+          : (opt.sku ? `Material (${opt.sku})` : (opt.category ? `${opt.category} Item` : 'Unnamed Material'));
         const stockQty = opt.mainStoreStock !== undefined ? opt.mainStoreStock : opt.currentStock;
         const stockInfo =
           opt.sublabel ??
@@ -33,7 +37,7 @@ export default function SearchableSelect({
             ? `${stockQty} ${opt.unit || ''} in stock`
             : '');
         return {
-          id: val,
+          id: val || Math.random().toString(),
           value: val,
           label: name,
           sublabel: stockInfo,

@@ -6,7 +6,7 @@ import {
   ArrowLeftRight, ShoppingCart, BarChart2, Users,
   ChevronRight, Search, Lightbulb, CheckCircle2, PlayCircle,
   Bell, BellRing, Trash2, Globe, QrCode, Utensils, Award,
-  Sliders, Activity, Settings as SettingsIcon, FileText, Monitor, Check,
+  Sliders, Activity, Settings as SettingsIcon, FileText, Monitor, Check, Download, Printer,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -404,12 +404,427 @@ const QUICK_TIPS = [
 ];
 
 // ─────────────────────────────────────────
+// DOCUMENTATION GENERATORS (PDF & OFFLINE MARKDOWN)
+// ─────────────────────────────────────────
+function generateGuidePrintHtml() {
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const sectionsHtml = HELP_SECTIONS.map((sec, idx) => {
+    const stepsHtml = sec.steps.map((st, sIdx) => `
+      <div class="step-card">
+        <div class="step-num">${sIdx + 1}</div>
+        <div class="step-body">
+          <div class="step-title-en">${st.title}</div>
+          <div class="step-title-am">${st.titleAm || ''}</div>
+          <p class="step-desc-en">${st.desc}</p>
+          <p class="step-desc-am">${st.descAm || ''}</p>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="manual-section" id="section-${sec.id}">
+        <div class="sec-header">
+          <span class="sec-index">${idx + 1}</span>
+          <div class="sec-titles">
+            <h2 class="sec-en">${sec.title}</h2>
+            <h3 class="sec-am">${sec.titleAm || ''}</h3>
+          </div>
+        </div>
+        <div class="sec-steps">
+          ${stepsHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const tipsHtml = QUICK_TIPS.map((tip) => `
+    <div class="tip-box">
+      <span class="tip-icon">${tip.icon}</span>
+      <div class="tip-content">
+        <div class="tip-en">${tip.tip}</div>
+        <div class="tip-am">${tip.tipAm}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const tocHtml = HELP_SECTIONS.map((sec, idx) => `
+    <div class="toc-line">
+      <span class="toc-num">${idx + 1}.</span>
+      <span class="toc-title">${sec.title}</span>
+      <span class="toc-am">(${sec.titleAm})</span>
+    </div>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Baba Roti Cafe & Restaurant - User Manual & Guide</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 15mm 15mm 15mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Ethiopic", "Nyala", "Abyssinica SIL", sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .print-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+    .print-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .print-btn:hover { background: #1d4ed8; }
+    .close-btn {
+      background: #475569;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .manual-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .main-title {
+      font-size: 22pt;
+      font-weight: 900;
+      color: #1e3a8a;
+      letter-spacing: -0.5px;
+    }
+    .sub-title {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 3px;
+    }
+    .tagline {
+      font-size: 9.5pt;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .meta-box {
+      text-align: right;
+      font-size: 9pt;
+      color: #64748b;
+    }
+    .toc-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      page-break-inside: avoid;
+    }
+    .toc-header {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px 16px;
+    }
+    .toc-line {
+      font-size: 9pt;
+      color: #334155;
+    }
+    .toc-num {
+      font-weight: 800;
+      color: #2563eb;
+      margin-right: 4px;
+    }
+    .toc-am {
+      color: #64748b;
+      font-size: 8.5pt;
+    }
+    .manual-section {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      page-break-inside: avoid;
+    }
+    .sec-header {
+      background: #f1f5f9;
+      padding: 10px 14px;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sec-index {
+      background: #2563eb;
+      color: white;
+      font-weight: 900;
+      font-size: 11pt;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sec-en {
+      font-size: 12pt;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .sec-am {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #475569;
+    }
+    .sec-steps {
+      padding: 12px 14px;
+    }
+    .step-card {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+    .step-card:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #dbeafe;
+      color: #1e40af;
+      font-weight: 800;
+      font-size: 9pt;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-title-en {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .step-title-am {
+      font-size: 9.5pt;
+      font-weight: 600;
+      color: #2563eb;
+      margin-bottom: 3px;
+    }
+    .step-desc-en {
+      font-size: 9pt;
+      color: #334155;
+      line-height: 1.45;
+      margin-bottom: 2px;
+    }
+    .step-desc-am {
+      font-size: 9pt;
+      color: #475569;
+      line-height: 1.45;
+    }
+    .tips-card {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      page-break-inside: avoid;
+    }
+    .tips-header {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #92400e;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tip-box {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .tip-box:last-child { margin-bottom: 0; }
+    .tip-icon { font-size: 12pt; flex-shrink: 0; }
+    .tip-en { font-size: 9pt; font-weight: 600; color: #78350f; }
+    .tip-am { font-size: 8.5pt; color: #92400e; }
+    .manual-footer {
+      border-top: 2px solid #e2e8f0;
+      padding-top: 12px;
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+    @media print {
+      body { padding: 0; }
+      .print-bar { display: none !important; }
+      .manual-section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-bar">
+    <div>
+      <div style="font-weight: 800; font-size: 14px;">Baba Roti Cafe & Restaurant - User Guide (11 Modules)</div>
+      <div style="font-size: 11px; color: #94a3b8;">Click "Save as PDF / Print" to export. Ensure destination is set to "Save as PDF".</div>
+    </div>
+    <div>
+      <button class="print-btn" onclick="window.print()">🖨️ Save as PDF / Print</button>
+      <button class="close-btn" onclick="window.close()">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="manual-header">
+    <div>
+      <h1 class="main-title">Baba Roti Cafe & Restaurant</h1>
+      <h2 class="sub-title">Complete User Manual & System Guide / የተጠቃሚዎች መመሪያ መጽሐፍ</h2>
+      <p class="tagline">Official Operating Documentation & System Features · Powered by MEGA Technology</p>
+    </div>
+    <div class="meta-box">
+      <div><strong>Date:</strong> ${currentDate}</div>
+      <div><strong>System Version:</strong> 2.4.0 Live</div>
+      <div><strong>Security:</strong> IP Audit Enabled</div>
+    </div>
+  </div>
+
+  <div class="toc-card">
+    <div class="toc-header">Table of Contents / ማውጫ (11 Operating Modules)</div>
+    <div class="toc-grid">
+      ${tocHtml}
+    </div>
+  </div>
+
+  ${sectionsHtml}
+
+  <div class="tips-card">
+    <div class="tips-header">Key System Rules & Best Practices / ወሳኝ የአሰራር ደንቦች</div>
+    ${tipsHtml}
+  </div>
+
+  <div class="manual-footer">
+    <div>Baba Roti Cafe & Restaurant Management System · All Rights Reserved</div>
+    <div>Technical Development & Engineering: MEGA Technology</div>
+  </div>
+</body>
+</html>`;
+}
+
+function generateGuideMarkdown() {
+  const currentDate = new Date().toISOString().split('T')[0];
+  let md = `# Baba Roti Cafe & Restaurant - Complete System User Manual & Operating Guide\n`;
+  md += `**የባባ ሮቲ ካፌና ሬስቶራንት የተሟላ የአሰራርና የተጠቃሚዎች መመሪያ መጽሐፍ**\n`;
+  md += `*System Version: 2.4.0 Live | Date: ${currentDate} | Powered by MEGA Technology*\n\n---\n\n`;
+  md += `## 📑 Table of Contents / ማውጫ\n`;
+
+  HELP_SECTIONS.forEach((sec, idx) => {
+    md += `${idx + 1}. [${sec.title} / ${sec.titleAm}](#section-${sec.id})\n`;
+  });
+  md += `12. [Key Rules & Quick Tips / ወሳኝ ደንቦች](#quick-tips)\n\n---\n\n`;
+
+  HELP_SECTIONS.forEach((sec, idx) => {
+    md += `## <a id="section-${sec.id}"></a>${idx + 1}. ${sec.title}\n`;
+    md += `### ${sec.titleAm}\n\n`;
+    sec.steps.forEach((st, sIdx) => {
+      md += `#### Step ${sIdx + 1}: ${st.title} (${st.titleAm})\n`;
+      md += `- **English:** ${st.desc}\n`;
+      md += `- **አማርኛ:** ${st.descAm}\n\n`;
+    });
+    md += `---\n\n`;
+  });
+
+  md += `## <a id="quick-tips"></a>12. Key Rules & Best Practices / ወሳኝ ደንቦች\n\n`;
+  QUICK_TIPS.forEach((tip, idx) => {
+    md += `${idx + 1}. **${tip.icon} English:** ${tip.tip}\n   - **አማርኛ:** ${tip.tipAm}\n\n`;
+  });
+
+  md += `\n---\n*Baba Roti Stock & POS System · Technical Support & Development: MEGA Technology*\n`;
+  return md;
+}
+
+// ─────────────────────────────────────────
 // HELP MODAL COMPONENT
 // ─────────────────────────────────────────
 const HelpModal = ({ onClose }) => {
   const { isAmharic } = useLanguage();
   const [activeSection, setActiveSection] = useState('getting-started');
   const [search, setSearch] = useState('');
+
+  const handleDownloadPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert(isAmharic ? 'እባክዎ ፖፕ-አፕ (Popups) ይፍቀዱ መመሪያውን ለማውረድ።' : 'Please allow popups in your browser to download or print the PDF manual.');
+      return;
+    }
+    printWindow.document.write(generateGuidePrintHtml());
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 400);
+  };
+
+  const handleDownloadMarkdown = () => {
+    const md = generateGuideMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'BABA_ROTI_COMPLETE_USER_MANUAL_AND_GUIDE.md';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const current = HELP_SECTIONS.find(s => s.id === activeSection) || HELP_SECTIONS[0];
 
@@ -464,12 +879,22 @@ const HelpModal = ({ onClose }) => {
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition"
-          >
-            <X size={15} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadPDF}
+              title={isAmharic ? 'መመሪያውን እንደ PDF አውርድ' : 'Download Guide as PDF'}
+              className="flex items-center gap-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 text-xs font-bold transition shadow-sm"
+            >
+              <Download size={14} />
+              <span>{isAmharic ? 'PDF አውርድ' : 'Download PDF'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -606,12 +1031,30 @@ const HelpModal = ({ onClose }) => {
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-ink-100 bg-ink-50/40 px-6 py-3">
           <p className="text-[10px] text-ink-400">Baba Roti Cafe · Hotel & Restaurant System · Powered by MEGA Technology</p>
-          <button
-            onClick={onClose}
-            className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition"
-          >
-            {isAmharic ? 'ዝጋ' : 'Close'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadMarkdown}
+              className="flex items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100 transition"
+              title={isAmharic ? 'የማርክዳውን ፋይል አውርድ' : 'Download Offline Markdown Manual'}
+            >
+              <FileText size={13} />
+              <span>{isAmharic ? 'ኦፍላይን (.md)' : 'Offline (.md)'}</span>
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm"
+              title={isAmharic ? 'መመሪያውን እንደ PDF አውርድ / አትም' : 'Download / Print Complete PDF Manual'}
+            >
+              <Download size={13} />
+              <span>{isAmharic ? 'መመሪያውን አውርድ (PDF)' : 'Download Guide (PDF)'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-ink-200 bg-white px-3.5 py-1.5 text-xs font-bold text-ink-600 hover:bg-ink-100 transition"
+            >
+              {isAmharic ? 'ዝጋ' : 'Close'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
