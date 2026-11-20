@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const CaptainOrder = require("../models/CaptainOrder");
 const Product = require("../models/Product");
 const Setting = require("../models/Setting");
+const { logActivity } = require("../utils/activityLogger");
 
 // Active SSE client connections for instant sub-second order push
 const sseSubscribers = new Set();
@@ -162,6 +163,24 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
 
   broadcastOrderEvent("pos_order_updated", order);
 
+  try {
+    const itemSummary = processedItems.map(i => `${i.productName} (x${i.quantity})`).join(', ');
+    logActivity(req, {
+      action: 'CAPTAIN_ORDER',
+      module: 'POS',
+      description: `Created Table Order #${orderNo} for Table ${safeTableNo} (${safeCustomerName}) — Total: ETB ${grandTotal.toFixed(2)} — Items: ${itemSummary}`,
+      status: 'success',
+      details: {
+        orderNo,
+        tableNo: safeTableNo,
+        grandTotal,
+        subtotal,
+        customerName: safeCustomerName,
+        itemsCount: processedItems.length,
+      },
+    });
+  } catch (_) {}
+
   res.status(201).json({ success: true, order, message: `Captain Order #${orderNo} created!` });
 });
 
@@ -311,6 +330,17 @@ const voidCaptainOrder = asyncHandler(async (req, res) => {
   order.voidedBy = req.user._id;
   order.voidedAt = new Date();
   await order.save();
+
+  try {
+    logActivity(req, {
+      action: 'VOID_ORDER',
+      module: 'POS',
+      description: `Voided Table Order #${order.orderNo} (Table: ${order.tableNo}) — Reason: ${reason}`,
+      status: 'warning',
+      details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
+    });
+  } catch (_) {}
+
   res.json({ success: true, order, message: `Captain Order #${order.orderNo} voided.` });
 });
 
@@ -696,6 +726,17 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
     order.waiterName = req.user.name || "Waiter";
   }
   await order.save();
+
+  try {
+    logActivity(req, {
+      action: 'REJECT_ORDER',
+      module: 'POS',
+      description: `Declined digital QR order #${order.orderNo} for Table ${order.tableNo} — Reason: ${reason}`,
+      status: 'warning',
+      details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
+    });
+  } catch (_) {}
+
   // Telegram alert
   const tg = require("../utils/telegramNotifier");
   if (tg) {
@@ -744,6 +785,17 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
     rejectedAt: new Date(),
   };
   await order.save();
+
+  try {
+    logActivity(req, {
+      action: 'REJECT_ORDER',
+      module: 'POS',
+      description: `Declined digital QR order #${order.orderNo} for Table ${order.tableNo} — Reason: ${reason}`,
+      status: 'warning',
+      details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
+    });
+  } catch (_) {}
+
   // Telegram alert
   const tg = require("../utils/telegramNotifier");
   if (tg) {

@@ -9,6 +9,7 @@ const { hasPermission } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { determineProductStation } = require('../utils/stationHelper');
+const { logActivity } = require('../utils/activityLogger');
 
 // ── helpers ───────────────────────────────────────────────────────────
 const verifyUserPassword = async (userId, password) => {
@@ -173,6 +174,26 @@ const createTransaction = asyncHandler(async (req, res) => {
   invalidateDashboardCache();
   tg.notifyTransaction(populated, req.user);
   notify.push({ type: 'transaction', title: 'New Stock Transaction', message: `${req.user.name} recorded a ${populated.voucherType?.replace('_', ' ')} — ${populated.items?.length || 1} item(s)`, icon: populated.type === 'in' ? '📥' : '📤', link: '/transactions', severity: 'info', userId: req.user._id });
+
+  try {
+    const vLabel = populated.voucherType?.toUpperCase().replace('_', ' ') || 'TRANSACTION';
+    const itemNames = (populated.items || []).map(i => `${i.material?.name || 'Material'} (x${i.quantity})`).join(', ');
+    logActivity(req, {
+      action: 'STOCK_TRANSACTION',
+      module: 'Transactions',
+      description: `Recorded ${vLabel} #${populated.voucherNo} (${populated.type === 'in' ? 'Incoming' : 'Outgoing'}) — Total: ETB ${(populated.totalAmount || 0).toFixed(2)} — Items: ${itemNames}`,
+      status: 'success',
+      details: {
+        voucherType: populated.voucherType,
+        voucherNo: populated.voucherNo,
+        type: populated.type,
+        totalAmount: populated.totalAmount,
+        supplier: populated.supplier?.name,
+        itemCount: populated.items?.length,
+      },
+    });
+  } catch (_) {}
+
   res.status(201).json(populated);
 });
 // ── PUT /api/transactions/:id ─────────────────────────────────────────
@@ -323,6 +344,16 @@ const deleteTransaction = asyncHandler(async (req, res) => {
   transaction.deletedBy = req.user?.name || 'System';
   transaction.deletedFrom = 'transactions';
   await transaction.save();
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_TRANSACTION',
+      module: 'Transactions',
+      description: `Moved Stock Transaction #${transaction.voucherNo} (${transaction.voucherType}) to recycle bin`,
+      status: 'warning',
+      details: { voucherNo: transaction.voucherNo, voucherType: transaction.voucherType },
+    });
+  } catch (_) {}
 
   tg.notifyTransactionDeleted(transaction, req.user);
   notify.push({ type: 'transaction', title: 'Transaction Deleted', message: `${req.user.name} deleted voucher ${transaction.voucherNo || transaction._id?.toString().slice(-6)}`, icon: '🗑️', link: '/transactions', severity: 'warning', userId: req.user._id });

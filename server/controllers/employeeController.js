@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const { DEPARTMENTS } = require('../models/Employee');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
+const { logActivity } = require('../utils/activityLogger');
 // ── Auto employee ID ──────────────────────────────────────────────────
 const generateEmployeeId = async () => {
   const count = await Employee.countDocuments();
@@ -51,9 +52,20 @@ const createEmployee = asyncHandler(async (req, res) => {
     photoUrl: photoUrl || '',
   });
 
-  res.status(201).json(emp);
   tg.notifyEmployeeCreated(emp, req.user);
   notify.push({ type: 'employee', title: 'New Employee Added', message: `${req.user?.name || 'Staff'} added ${emp.firstName} ${emp.lastName} to ${emp.department}`, icon: '👷', link: '/employees', severity: 'info', userId: req.user?._id });
+
+  try {
+    logActivity(req, {
+      action: 'CREATE_EMPLOYEE',
+      module: 'Employees',
+      description: `Registered employee "${emp.firstName} ${emp.lastName}" (${emp.employeeId}) — ${emp.position || 'Staff'} in ${emp.department}`,
+      status: 'success',
+      details: { id: emp._id, employeeId: emp.employeeId, fullName: `${emp.firstName} ${emp.lastName}`, department: emp.department },
+    });
+  } catch (_) { }
+
+  res.status(201).json(emp);
 });
 
 // ── PUT /api/employees/:id ────────────────────────────────────────────
@@ -71,6 +83,17 @@ const updateEmployee = asyncHandler(async (req, res) => {
   await emp.save();
   tg.notifyEmployeeUpdated(emp, req.user);
   notify.push({ type: 'employee', title: 'Employee Updated', message: `${req.user?.name || 'Staff'} updated ${emp.firstName} ${emp.lastName}`, icon: '✏️', link: '/employees', severity: 'info', userId: req.user?._id });
+
+  try {
+    logActivity(req, {
+      action: 'UPDATE_EMPLOYEE',
+      module: 'Employees',
+      description: `Updated employee profile for "${emp.firstName} ${emp.lastName}" (${emp.employeeId})`,
+      status: 'success',
+      details: { id: emp._id, employeeId: emp.employeeId, fullName: `${emp.firstName} ${emp.lastName}` },
+    });
+  } catch (_) { }
+
   res.json(emp);
 });
 
@@ -84,6 +107,17 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   await emp.save();
   tg.notifyEmployeeDeleted(emp, req.user);
   notify.push({ type: 'employee', title: 'Employee Removed', message: `${req.user.name} removed ${emp.firstName} ${emp.lastName} from ${emp.department}`, icon: '🗑️', link: '/employees', severity: 'warning', userId: req.user._id });
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_EMPLOYEE',
+      module: 'Employees',
+      description: `Removed employee "${emp.firstName} ${emp.lastName}" (${emp.employeeId})`,
+      status: 'warning',
+      details: { id: emp._id, employeeId: emp.employeeId, fullName: `${emp.firstName} ${emp.lastName}` },
+    });
+  } catch (_) { }
+
   res.json({ message: 'Employee removed.' });
 });
 

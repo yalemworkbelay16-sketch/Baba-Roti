@@ -20,7 +20,6 @@ const emptyForm = {
   assignedStation: 'all',
   phone: '', telegramChatId: '', photoUrl: '',
 };
-
 const roleColor = {
   admin: 'brass',
   manager: 'green',
@@ -30,7 +29,6 @@ const roleColor = {
   waiter: 'purple',
   dev: 'amber',
 };
-
 const roleLabels = {
   admin: 'Admin',
   manager: 'Manager',

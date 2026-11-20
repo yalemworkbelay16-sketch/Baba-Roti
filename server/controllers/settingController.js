@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Setting = require('../models/Setting');
 const { clearSettingsCache, DEFAULT_ROLE_PERMISSIONS } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
 
 const DEFAULT_NAV_VISIBILITY = {
   dashboard: { storekeeper: true, manager: true, admin: true },
@@ -282,6 +283,20 @@ const updateSettings = asyncHandler(async (req, res) => {
   const updated = await settings.save();
   clearSettingsCache();
   tg.notifySettingsChanged(req.body, req.user);
+
+  try {
+    const isStationMap = req.body.stationCategoryMapping !== undefined;
+    logActivity(req, {
+      action: isStationMap ? 'STATION_MAPPING' : 'UPDATE_SETTINGS',
+      module: 'Settings',
+      description: isStationMap
+        ? `Updated Station Category Mapping for Kitchen vs Bar (${rawMaterialsUpdated} materials synchronized)`
+        : `Updated system settings & configurations`,
+      status: 'success',
+      details: { rawMaterialsUpdated },
+    });
+  } catch (_) {}
+
   res.json({ ...updated.toJSON(), rawMaterialsUpdated });
 });
 
@@ -512,6 +527,16 @@ const applyStationCategoryMapping = asyncHandler(async (req, res) => {
       updatedCount++;
     }
   }
+
+  try {
+    logActivity(req, {
+      action: 'STATION_MAPPING',
+      module: 'Settings',
+      description: `Synchronized station categories for ${updatedCount} raw material locations`,
+      status: 'success',
+      details: { updatedCount, totalMaterials: materials.length },
+    });
+  } catch (_) {}
 
   res.json({ success: true, count: materials.length, updatedCount });
 });

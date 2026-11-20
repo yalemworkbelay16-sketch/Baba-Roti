@@ -6,6 +6,7 @@ const StockTransaction = require('../models/StockTransaction');
 const SalesRecord = require('../models/SalesRecord');
 const Setting = require('../models/Setting');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
 
 /**
  * Determine station for printing and preparation
@@ -351,6 +352,30 @@ const createOrder = asyncHandler(async (req, res) => {
     } catch (_) { /* ignore notification errors */ }
   }
 
+  // Audit activity log
+  try {
+    const itemSummary = processedItems.map(i => `${i.productName} (x${i.quantity})`).join(', ');
+    logActivity(req, {
+      action: 'POS_ORDER',
+      module: 'POS',
+      description: `Placed and checked out Order #${orderNo} (${orderType}${safeTableNo ? `, Table: ${safeTableNo}` : ''}) — Total: ETB ${grandTotal.toFixed(2)} (${safePaymentMethod}) — Items: ${itemSummary}`,
+      status: 'success',
+      details: {
+        orderNo,
+        orderType,
+        tableNo: safeTableNo,
+        grandTotal,
+        subtotal,
+        paymentMethod: safePaymentMethod,
+        itemCount: processedItems.length,
+        items: processedItems.map(i => ({ name: i.productName, qty: i.quantity, price: i.unitPrice, total: i.totalPrice })),
+        customerName: safeCustomerName,
+      },
+    });
+  } catch (logErr) {
+    console.warn('[POS ActivityLog Error]:', logErr.message);
+  }
+
   res.status(201).json({
     success: true,
     order,
@@ -498,6 +523,23 @@ const voidOrder = asyncHandler(async (req, res) => {
 
   await order.save();
 
+  // Audit activity log
+  try {
+    logActivity(req, {
+      action: 'VOID_ORDER',
+      module: 'POS',
+      description: `Voided POS Order #${order.orderNo} (Amount: ETB ${(order.grandTotal || 0).toFixed(2)}) — Reason: ${reason}`,
+      status: 'warning',
+      details: {
+        orderNo: order.orderNo,
+        grandTotal: order.grandTotal,
+        reason,
+      },
+    });
+  } catch (logErr) {
+    console.warn('[POS ActivityLog Error]:', logErr.message);
+  }
+
   res.json({
     success: true,
     order,
@@ -519,6 +561,20 @@ const reprintOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+
+  try {
+    logActivity(req, {
+      action: 'REPRINT_ORDER',
+      module: 'POS',
+      description: `Reprinted ${ticketType.toUpperCase()} for Order #${order.orderNo}`,
+      status: 'success',
+      details: {
+        orderNo: order.orderNo,
+        ticketType,
+        printCount: order.printCount,
+      },
+    });
+  } catch (_) {}
 
   res.json({
     success: true,

@@ -3,6 +3,7 @@ const Expense = require('../models/Expense');
 const { EXPENSE_CATEGORIES, PAYMENT_METHODS } = require('../models/Expense');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
+const { logActivity } = require('../utils/activityLogger');
 
 // ── GET /api/expenses ───────────────────────────────────────────────
 // Get all expenses with search & filters
@@ -239,6 +240,16 @@ const createExpense = asyncHandler(async (req, res) => {
     userId: req.user._id,
   });
 
+  try {
+    logActivity(req, {
+      action: 'CREATE_EXPENSE',
+      module: 'Expenses',
+      description: `Recorded overhead expense "${populated.title}" — ETB ${numAmount.toFixed(2)} (${populated.paymentMethod || 'Cash'}) — Category: ${populated.category}`,
+      status: 'success',
+      details: { id: populated._id, title: populated.title, amount: numAmount, category: populated.category, paymentMethod: populated.paymentMethod },
+    });
+  } catch (_) {}
+
   res.status(201).json(populated);
 });
 
@@ -323,6 +334,16 @@ const deleteExpense = asyncHandler(async (req, res) => {
 
   // Telegram Alert
   tg.notifyExpenseDeleted(expense, req.user);
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_EXPENSE',
+      module: 'Expenses',
+      description: `Moved overhead expense "${expense.title}" (ETB ${expense.amount}) to recycle bin`,
+      status: 'warning',
+      details: { id: expense._id, title: expense.title, amount: expense.amount },
+    });
+  } catch (_) {}
 
   res.json({ message: 'Expense record moved to Recycle Bin', id: expense._id });
 });

@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
 
 const getMaterials = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
@@ -71,6 +72,17 @@ const createMaterial = asyncHandler(async (req, res) => {
   const material = await RawMaterial.create(payload);
   tg.notifyMaterialCreated(material, req.user);
   invalidateDashboardCache();
+
+  try {
+    logActivity(req, {
+      action: 'CREATE_MATERIAL',
+      module: 'RawMaterials',
+      description: `Created new raw material "${material.name}" (${material.category || 'General'}) — Cost: ETB ${Number(material.unitCost || 0).toFixed(2)}/${material.unit}`,
+      status: 'success',
+      details: { id: material._id, name: material.name, unit: material.unit, unitCost: material.unitCost, category: material.category },
+    });
+  } catch (_) {}
+
   res.status(201).json(material);
 });
 
@@ -122,6 +134,18 @@ const updateMaterial = asyncHandler(async (req, res) => {
 
   tg.notifyMaterialUpdated(material, req.user, changes);
   invalidateDashboardCache();
+
+  try {
+    const changeSummary = changes.length > 0 ? changes.map(c => `${c.label}: ${c.from} → ${c.to}`).join(', ') : 'Updated attributes';
+    logActivity(req, {
+      action: 'UPDATE_MATERIAL',
+      module: 'RawMaterials',
+      description: `Updated raw material "${material.name}": ${changeSummary}`,
+      status: 'success',
+      details: { id: material._id, name: material.name, changes },
+    });
+  } catch (_) {}
+
   res.json(material);
 });
 
@@ -135,6 +159,17 @@ const deleteMaterial = asyncHandler(async (req, res) => {
   await material.save();
   tg.notifyMaterialDeleted(material, req.user);
   invalidateDashboardCache();
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_MATERIAL',
+      module: 'RawMaterials',
+      description: `Moved raw material "${material.name}" to recycle bin`,
+      status: 'warning',
+      details: { id: material._id, name: material.name },
+    });
+  } catch (_) {}
+
   res.json({ message: 'Raw material moved to recycle bin.' });
 });
 

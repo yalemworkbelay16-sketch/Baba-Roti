@@ -8,6 +8,7 @@ const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const { uploadBufferToGridFS, saveLocalCache } = require('../utils/gridfs');
 const { generateAndSaveProductImage } = require('../utils/aiImageService');
+const { logActivity } = require('../utils/activityLogger');
 
 // ── Pricing helper — applies settings-based adjustments to recipe cost ──
 // Returns full cost breakdown:
@@ -207,6 +208,17 @@ const createProduct = asyncHandler(async (req, res) => {
   const populated = await product.populate('ingredients.material', 'name unit unitCost');
   tg.notifyProductCreated(populated, req.user);
   invalidateDashboardCache();
+
+  try {
+    logActivity(req, {
+      action: 'CREATE_PRODUCT',
+      module: 'Products',
+      description: `Created menu product "${populated.name}" (${populated.category || 'General'}) — Price: ETB ${Number(populated.sellingPrice || 0).toFixed(2)}`,
+      status: 'success',
+      details: { id: populated._id, name: populated.name, code: populated.code, sellingPrice: populated.sellingPrice },
+    });
+  } catch (_) {}
+
   res.status(201).json(populated);
 });
 
@@ -274,6 +286,18 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   tg.notifyProductUpdated(populated, req.user, changes);
   invalidateDashboardCache();
+
+  try {
+    const changeSummary = changes.length > 0 ? changes.map(c => `${c.label}: ${c.from} → ${c.to}`).join(', ') : 'Updated attributes';
+    logActivity(req, {
+      action: 'UPDATE_PRODUCT',
+      module: 'Products',
+      description: `Updated menu product "${populated.name}": ${changeSummary}`,
+      status: 'success',
+      details: { id: populated._id, name: populated.name, changes },
+    });
+  } catch (_) {}
+
   res.json(populated);
 });
 
@@ -288,6 +312,17 @@ const deleteProduct = asyncHandler(async (req, res) => {
   await product.save();
   tg.notifyProductDeleted(product, req.user);
   invalidateDashboardCache();
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_PRODUCT',
+      module: 'Products',
+      description: `Moved menu product "${product.name}" to recycle bin`,
+      status: 'warning',
+      details: { id: product._id, name: product.name },
+    });
+  } catch (_) {}
+
   res.json({ message: 'Product moved to recycle bin.' });
 });
 
