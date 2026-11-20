@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Plus, Users as UsersIcon, Phone, Send, Pencil, X, Trash2, BellOff,
   Search, ShieldCheck, Camera, Upload, Check, Award, RefreshCw,
+  Activity, Monitor, Laptop,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +41,18 @@ const roleLabels = {
   dev: 'System Developer',
 };
 
+const formatRelativeTime = (isoDate) => {
+  if (!isoDate) return 'Never';
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  if (diffMs < 60000) return 'Just now';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+
 const Users = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
@@ -74,17 +88,23 @@ const Users = () => {
     })
     .catch(() => setUsers([]));
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [roleFilter, statusFilter, search]);
 
   const roleCounts = useMemo(() => {
-    const counts = { all: users.length, active: 0, inactive: 0 };
+    const counts = { all: users.length, active: 0, inactive: 0, online: 0, offline: 0 };
     users.forEach(u => {
       counts[u.role] = (counts[u.role] || 0) + 1;
       if (u.isActive) counts.active++;
       else counts.inactive++;
+      if (u.isOnline) counts.online++;
+      else counts.offline++;
     });
     return counts;
   }, [users]);
@@ -94,13 +114,16 @@ const Users = () => {
       if (roleFilter !== 'all' && u.role !== roleFilter) return false;
       if (statusFilter === 'active' && !u.isActive) return false;
       if (statusFilter === 'inactive' && u.isActive) return false;
+      if (statusFilter === 'online' && !u.isOnline) return false;
+      if (statusFilter === 'offline' && u.isOnline) return false;
       if (search) {
         const q = search.toLowerCase();
         const matchName = u.name?.toLowerCase().includes(q);
         const matchEmail = u.email?.toLowerCase().includes(q);
         const matchPhone = u.phone?.toLowerCase().includes(q);
+        const matchIp = u.lastLoginIp?.toLowerCase().includes(q);
         const matchRole = roleLabels[u.role]?.toLowerCase().includes(q);
-        if (!matchName && !matchEmail && !matchPhone && !matchRole) return false;
+        if (!matchName && !matchEmail && !matchPhone && !matchIp && !matchRole) return false;
       }
       return true;
     });
@@ -248,6 +271,22 @@ const Users = () => {
           <p className="text-xs text-ink-400 mt-0.5">{users.length} registered account{users.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <NavLink
+            to="/activity-log"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition"
+            title="Open User Activity & Machine IP Audit Log"
+          >
+            <Activity size={14} className="text-blue-600" />
+            <span>Activity Log</span>
+          </NavLink>
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 shadow-2xs transition"
+            title="Refresh staff list & online status"
+          >
+            <RefreshCw size={13} />
+          </button>
           <div className="relative w-full sm:w-60">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
             <input
@@ -315,7 +354,9 @@ const Users = () => {
             className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700 outline-none focus:border-blue-500 shadow-2xs"
           >
             <option value="all">All ({users.length})</option>
-            <option value="active">Active ({roleCounts.active || 0})</option>
+            <option value="online">🟢 Online Now ({roleCounts.online || 0})</option>
+            <option value="offline">⚪ Offline ({roleCounts.offline || 0})</option>
+            <option value="active">Active Only ({roleCounts.active || 0})</option>
             <option value="inactive">Disabled ({roleCounts.inactive || 0})</option>
           </select>
           {(roleFilter !== 'all' || statusFilter !== 'all' || search) && (
@@ -337,7 +378,7 @@ const Users = () => {
           <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead style={{ background: 'linear-gradient(90deg,#1e3a8a 0%,#1d4ed8 50%,#2563eb 100%)' }}>
               <tr>
-                {['Name', 'Email', 'Phone', 'Telegram', 'Role', 'Station', 'Status', 'Actions'].map(h => (
+                {['Staff Member', 'Role & Station', 'Live Status', 'Machine IP & Device', 'Contact', 'Account', 'Actions'].map(h => (
                   <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100"
                     style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>{h}</th>
                 ))}
@@ -346,7 +387,7 @@ const Users = () => {
             <tbody>
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
                     {roleFilter !== 'all' || statusFilter !== 'all' || search
                       ? 'No staff accounts match your filters.'
                       : 'No accounts yet.'}
@@ -355,18 +396,29 @@ const Users = () => {
               )}
               {paginated.map(u => (
                 <tr key={u._id} className="hover:bg-blue-50/20 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  {/* Staff Member */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-full overflow-hidden border border-slate-200 bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold shrink-0 shadow-2xs">
-                        {u.photoUrl || u.avatar ? (
-                          <img
-                            src={normalizeFileUrl(u.photoUrl || u.avatar)}
-                            alt={u.name}
-                            className="h-full w-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
+                      <div className="relative">
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-slate-200 bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold shrink-0 shadow-2xs">
+                          {u.photoUrl || u.avatar ? (
+                            <img
+                              src={normalizeFileUrl(u.photoUrl || u.avatar)}
+                              alt={u.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <span>{u.name?.slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        {u.isOnline ? (
+                          <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3" title="Online now">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span>
+                          </span>
                         ) : (
-                          <span>{u.name?.slice(0, 2).toUpperCase()}</span>
+                          <span className="absolute -bottom-0.5 -right-0.5 inline-flex rounded-full h-2.5 w-2.5 bg-slate-400 border-2 border-white" title="Offline"></span>
                         )}
                       </div>
                       <div>
@@ -382,49 +434,96 @@ const Users = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-ink-500 whitespace-nowrap">{u.email}</td>
-                  <td className="px-4 py-3 text-xs text-ink-500 whitespace-nowrap">
-                    {u.phone ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Phone size={11} className="text-ink-400" /> {u.phone}
-                      </span>
-                    ) : '—'}
-                  </td>
+
+                  {/* Role & Station */}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {!u.isActive ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500" title="Notifications stopped because account is disabled">
-                        <BellOff size={9} /> Stopped (Disabled)
-                      </span>
-                    ) : u.telegramChatId ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
-                        <Send size={9} /> Subscribed
-                      </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge color={roleColor[u.role] || 'ink'}>{roleLabels[u.role] || u.role}</Badge>
+                      {u.assignedStation === 'kitchen' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                          🍳 Kitchen Station
+                        </span>
+                      ) : u.assignedStation === 'bar' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          ☕ Bar Station
+                        </span>
+                      ) : u.assignedStation === 'main' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                          🏢 Main Store
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                          All Stations
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Live Online / Offline Status */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {u.isOnline ? (
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Online
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-medium pl-1">Active session</span>
+                      </div>
                     ) : (
-                      <span className="text-xs text-ink-300">—</span>
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                          Offline
+                        </span>
+                        <span className="text-[10px] text-slate-400 pl-1">
+                          {u.lastActiveAt ? `Active ${formatRelativeTime(u.lastActiveAt)}` : 'Never logged in'}
+                        </span>
+                      </div>
                     )}
                   </td>
+
+                  {/* Machine IP & Device */}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <Badge color={roleColor[u.role] || 'ink'}>{roleLabels[u.role] || u.role}</Badge>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {u.assignedStation === 'kitchen' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                        🍳 Kitchen Station
-                      </span>
-                    ) : u.assignedStation === 'bar' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        ☕ Bar Station
-                      </span>
-                    ) : u.assignedStation === 'main' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-800">
-                        🏢 Main Store
-                      </span>
+                    {u.lastLoginIp ? (
+                      <div className="flex flex-col items-start">
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-slate-800 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+                          <Monitor size={10} className="text-slate-500" />
+                          {u.lastLoginIp}
+                        </span>
+                        {u.lastLoginDevice && (
+                          <span className="text-[10px] text-slate-500 font-medium truncate max-w-[170px] mt-0.5" title={u.lastLoginDevice}>
+                            {u.lastLoginDevice}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                        All Stations
-                      </span>
+                      <span className="text-xs text-slate-300 font-mono">—</span>
                     )}
                   </td>
+
+                  {/* Contact Info */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-ink-600">{u.email}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {u.phone ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-ink-400">
+                            <Phone size={10} /> {u.phone}
+                          </span>
+                        ) : null}
+                        {u.telegramChatId ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-200/60 rounded px-1">
+                            <Send size={8} /> TG Subscribed
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Account Status */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <Badge color={u.isActive ? 'green' : 'red'}>{u.isActive ? 'Active' : 'Disabled'}</Badge>
                   </td>
@@ -681,8 +780,8 @@ const Users = () => {
               <div
                 onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
                 className={`w-full rounded-xl border-2 border-dashed px-3 py-2 text-center cursor-pointer transition flex items-center justify-center gap-2.5 ${uploadingPhoto
-                    ? 'border-blue-400 bg-blue-50/60 cursor-wait'
-                    : 'border-ink-200 hover:border-blue-400 hover:bg-blue-50/20 bg-ink-50/30'
+                  ? 'border-blue-400 bg-blue-50/60 cursor-wait'
+                  : 'border-ink-200 hover:border-blue-400 hover:bg-blue-50/20 bg-ink-50/30'
                   }`}
                 style={{ minHeight: '60px' }}
               >

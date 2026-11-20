@@ -139,6 +139,7 @@ app.use('/api/telegram', require('./routes/telegramRoutes'));
 app.use('/api/consumption', require('./routes/consumptionRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/stock-requests', require('./routes/stockRequestRoutes'));
+app.use('/api/activity-log', require('./routes/activityLogRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/pos', require('./routes/posRoutes'));

@@ -49,6 +49,7 @@ const DEFAULT_NAV_VISIBILITY = {
   expenses:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   analytics:      { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: true,  admin: true },
   staffAccounts:  { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  activityLog:    { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
 };
 
 const DEFAULT_LICENSED_MODULES = {
@@ -163,6 +164,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchPermissions]);
 
+  // Heartbeat to keep user marked as online while active
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      api.post('/auth/heartbeat').catch(() => {});
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const login = async (email, password, otpToken) => {
     const { data } = await api.post('/auth/login', { email, password }, {
       headers: { 'x-otp-token': otpToken || '' },
@@ -175,6 +185,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Notify server of logout asynchronously to immediately set offline
+    api.post('/auth/logout').catch(() => {});
+
     localStorage.removeItem('hotelStockAuth');
     // Clear ALL cached settings so the next login always reads fresh server data
     clearSettingsCache();

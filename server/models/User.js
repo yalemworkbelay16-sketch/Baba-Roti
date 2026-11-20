@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema(
       default: 'all',
     },
     isActive: { type: Boolean, default: true },
+    // Real-time online/offline and machine tracking
+    isOnline: { type: Boolean, default: false },
+    lastActiveAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
+    lastLoginIp: { type: String, default: '' },
+    lastLoginDevice: { type: String, default: '' },
     // OTP fields for 2-step login
     otpHash:   { type: String, default: null },
     otpExpiry: { type: Date,   default: null },

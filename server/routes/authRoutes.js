@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   registerUser,
   loginUser,
+  logoutUser,
+  heartbeat,
   getMe,
   verifyPassword,
   updateProfile,
@@ -13,6 +15,8 @@ const {
 const { protect, authorize, authorizePermission } = require('../middleware/authMiddleware');
 
 router.post('/login', loginUser);
+router.post('/logout', protect, logoutUser);
+router.post('/heartbeat', protect, heartbeat);
 router.post('/request-otp', requestOtp);   // Step 1: send OTP
 router.post('/verify-otp',  verifyOtp);    // Step 2: verify OTP → get otpToken
 router.post('/register', protect, authorizePermission('manageAccounts'), registerUser);

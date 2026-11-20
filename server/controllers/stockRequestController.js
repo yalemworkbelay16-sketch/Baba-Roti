@@ -5,6 +5,7 @@ const { DEPARTMENTS } = require('../models/StockRequest');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
+const { logActivity } = require('../utils/activityLogger');
 
 // ── In-memory fast cache for stock request summary (TTL 30s) ──────
 let summaryCache = null;
@@ -291,6 +292,15 @@ const createStockRequest = asyncHandler(async (req, res) => {
   tg.notifyStockRequestCreated && tg.notifyStockRequestCreated(populated, req.user);
   notify.push({ type: 'stock_request', title: isDirectIssue ? 'Direct Stock Issue' : 'New Stock Request', message: `${req.user.name} submitted a ${isDirectIssue ? 'direct issue' : 'request'} for ${department} — ${populated.items?.length} item(s)`, icon: isDirectIssue ? '📤' : '📋', link: '/stock-requests', severity: isDirectIssue ? 'success' : 'info', userId: req.user._id });
 
+  logActivity(req, {
+    action: isDirectIssue ? 'DIRECT_ISSUE' : 'STOCK_REQUEST',
+    module: 'StockRequests',
+    description: isDirectIssue
+      ? `${req.user.name} direct-issued voucher ${populated.voucherNo} for ${department} (${populated.items?.length} item${populated.items?.length !== 1 ? 's' : ''})`
+      : `${req.user.name} submitted stock request ${populated.voucherNo} for ${department} (${populated.items?.length} item${populated.items?.length !== 1 ? 's' : ''})`,
+    details: { voucherNo: populated.voucherNo, department, itemsCount: populated.items?.length, totalCost: total },
+  });
+
   res.status(201).json({ ...populated, stockWarnings: stockWarnings || [] });
 });
 
@@ -367,6 +377,14 @@ const approveStockRequest = asyncHandler(async (req, res) => {
   invalidateDashboardCache();
   tg.notifyStockRequestApproved && tg.notifyStockRequestApproved(populated, req.user);
   notify.push({ type: 'stock_request', title: 'Stock Request Approved', message: `${req.user.name} approved request ${populated.voucherNo} for ${populated.department}`, icon: '✅', link: '/stock-requests', severity: 'success', userId: req.user._id });
+
+  logActivity(req, {
+    action: 'APPROVE_REQUEST',
+    module: 'StockRequests',
+    description: `${req.user.name} approved stock request ${populated.voucherNo} for ${populated.department}`,
+    details: { voucherNo: populated.voucherNo, department: populated.department },
+  });
+
   res.json({ message: 'Request approved. Ready for stock issue.', request: populated });
 });
 
@@ -455,6 +473,14 @@ const issueStock = asyncHandler(async (req, res) => {
   invalidateDashboardCache();
   tg.notifyStockIssued && tg.notifyStockIssued(populated, req.user);
   notify.push({ type: 'stock_request', title: 'Stock Issued', message: `${req.user.name} issued stock for ${populated.department} — ETB ${Number(populated.totalCost || 0).toLocaleString()} (Transferred from Main Store to ${populated.department})`, icon: '📦', link: '/stock-requests', severity: 'success', userId: req.user._id });
+
+  logActivity(req, {
+    action: 'ISSUE_STOCK',
+    module: 'StockRequests',
+    description: `${req.user.name} issued stock for request ${populated.voucherNo} to ${populated.department} (ETB ${Number(populated.totalCost || 0).toLocaleString()})`,
+    details: { voucherNo: populated.voucherNo, department: populated.department, totalCost: populated.totalCost },
+  });
+
   res.json({
     message: `Stock issued successfully. Transferred from Main Store to ${populated.department}.`,
     request: populated,
@@ -493,9 +519,18 @@ const rejectStockRequest = asyncHandler(async (req, res) => {
   });
 
   await request.save();
-  res.json({ message: 'Request rejected.', request });
   tg.notifyStockRequestRejected && tg.notifyStockRequestRejected(request, req.user);
   notify.push({ type: 'stock_request', title: 'Stock Request Rejected', message: `${req.user.name} rejected request ${request.voucherNo} for ${request.department}${reason ? ': ' + reason : ''}`, icon: '❌', link: '/stock-requests', severity: 'error', userId: req.user._id });
+
+  logActivity(req, {
+    action: 'REJECT_REQUEST',
+    module: 'StockRequests',
+    description: `${req.user.name} rejected stock request ${request.voucherNo} for ${request.department}${reason ? ': ' + reason : ''}`,
+    status: 'warning',
+    details: { voucherNo: request.voucherNo, reason },
+  });
+
+  res.json({ message: 'Request rejected.', request });
 });
 
 // ── POST /api/stock-requests/:id/cancel ──────────────────────────

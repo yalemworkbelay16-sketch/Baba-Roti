@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
+const { getClientIp, parseDevice } = require('../utils/deviceDetector');
 
 // @desc  Register a new user (admin only, in practice)
 const registerUser = asyncHandler(async (req, res) => {
@@ -62,6 +64,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
   tg.notifyUserCreated(user, req.user);
 
+  logActivity(req, {
+    action: 'REGISTER_USER',
+    module: 'Users',
+    description: `User account created for ${user.name} (${user.role}) in department ${user.department || 'General'}`,
+    details: { newUserId: user._id, role: user.role, email: user.email },
+  });
+
   res.status(201).json({
     _id: user._id,
     name: user.name,
@@ -103,6 +112,13 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
 
   if (!user || !(await user.matchPassword(password))) {
+    const clientIp = getClientIp(req);
+    logActivity(req, {
+      action: 'LOGIN_FAILED',
+      module: 'Auth',
+      description: `Failed login attempt for email "${email}" from IP ${clientIp}`,
+      status: 'failed',
+    });
     res.status(401);
     throw new Error('Invalid email or password');
   }
@@ -111,6 +127,24 @@ const loginUser = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('This account has been deactivated. Contact your administrator.');
   }
+
+  // Record Machine IP, Device, and set Online
+  const clientIp = getClientIp(req);
+  const deviceInfo = parseDevice(req.headers['user-agent']);
+
+  user.isOnline = true;
+  user.lastLoginAt = new Date();
+  user.lastActiveAt = new Date();
+  user.lastLoginIp = clientIp;
+  user.lastLoginDevice = deviceInfo;
+  await user.save();
+
+  logActivity(req, {
+    action: 'LOGIN',
+    module: 'Auth',
+    description: `User ${user.name} (${user.role}) logged in from IP ${clientIp} (${deviceInfo})`,
+    userOverride: user,
+  });
 
   tg.notifyLogin(user);
 
@@ -123,8 +157,44 @@ const loginUser = asyncHandler(async (req, res) => {
     assignedStation: user.assignedStation || 'all',
     phone: user.phone || '',
     avatar: user.avatar || '',
+    isOnline: true,
+    lastActiveAt: user.lastActiveAt,
+    lastLoginIp: clientIp,
+    lastLoginDevice: deviceInfo,
     token: generateToken(user._id),
   });
+});
+
+// @desc  Logout user and set offline
+// POST /api/auth/logout
+const logoutUser = asyncHandler(async (req, res) => {
+  if (req.user) {
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: { isOnline: false, lastActiveAt: new Date() },
+    });
+    logActivity(req, {
+      action: 'LOGOUT',
+      module: 'Auth',
+      description: `User ${req.user.name} logged out`,
+    });
+  }
+  res.json({ message: 'Logged out successfully' });
+});
+
+// @desc  Heartbeat to keep online status active
+// POST /api/auth/heartbeat
+const heartbeat = asyncHandler(async (req, res) => {
+  if (req.user) {
+    const clientIp = getClientIp(req);
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: {
+        isOnline: true,
+        lastActiveAt: new Date(),
+        lastLoginIp: clientIp,
+      },
+    });
+  }
+  res.json({ status: 'ok', isOnline: true });
 });
 
 // @desc  Get current user profile
@@ -144,7 +214,22 @@ const verifyPassword = asyncHandler(async (req, res) => {
   if (!user) { res.status(404); throw new Error('User not found'); }
 
   const match = await user.matchPassword(password);
-  if (!match) { res.status(401); throw new Error('Incorrect password'); }
+  if (!match) {
+    logActivity(req, {
+      action: 'VERIFY_PASSWORD_FAILED',
+      module: 'Auth',
+      description: `Failed authorization password attempt by ${user.name}`,
+      status: 'failed',
+    });
+    res.status(401);
+    throw new Error('Incorrect password');
+  }
+
+  logActivity(req, {
+    action: 'VERIFY_PASSWORD',
+    module: 'Auth',
+    description: `User ${user.name} verified authorization password`,
+  });
 
   res.json({ valid: true, userId: user._id, name: user.name, role: user.role });
 });
@@ -386,5 +471,16 @@ const verifyOtp = asyncHandler(async (req, res) => {
   res.json({ message: 'OTP verified.', otpToken });
 });
 
-module.exports = { registerUser, loginUser, getMe, verifyPassword, updateProfile, updatePassword, requestOtp, verifyOtp };
+module.exports = {
+  registerUser,
+  loginUser,
+  logoutUser,
+  heartbeat,
+  getMe,
+  verifyPassword,
+  updateProfile,
+  updatePassword,
+  requestOtp,
+  verifyOtp,
+};
 

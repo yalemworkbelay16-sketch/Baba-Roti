@@ -343,7 +343,9 @@ const Sidebar = ({
   const onFinance =
     location.pathname.startsWith('/expenses') || location.pathname.startsWith('/analytics');
   const onStaff =
-    location.pathname.startsWith('/users') || location.pathname.startsWith('/employees');
+    location.pathname.startsWith('/users') ||
+    location.pathname.startsWith('/employees') ||
+    location.pathname.startsWith('/activity-log');
   const onSubsystem = ['/pos', '/captain-order', '/cash-sales'].some((p) =>
     location.pathname.startsWith(p)
   );
@@ -516,7 +518,12 @@ const Sidebar = ({
   const staffItems = [
     { to: '/users', label: t('nav.staffAccounts'), icon: PeopleAltRoundedIcon },
     { to: '/employees', label: t('nav.employees'), icon: ManageAccountsRoundedIcon },
-  ];
+    (canSeeNav('activityLog') || ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role)) && {
+      to: '/activity-log',
+      label: isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log',
+      icon: HistoryRoundedIcon,
+    },
+  ].filter(Boolean);
 
   return (
     <>
@@ -997,6 +1004,14 @@ const Sidebar = ({
               >
                 <SubLink to="/users" label={t('nav.staffAccounts')} icon={PeopleAltRoundedIcon} onClick={onClose} />
                 <SubLink to="/employees" label={t('nav.employees')} icon={ManageAccountsRoundedIcon} onClick={onClose} />
+                {(canSeeNav('activityLog') || ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role)) && (
+                  <SubLink
+                    to="/activity-log"
+                    label={isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log'}
+                    icon={HistoryRoundedIcon}
+                    onClick={onClose}
+                  />
+                )}
               </CollapsibleNav>
             )
           )}

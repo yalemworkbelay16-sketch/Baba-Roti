@@ -20,6 +20,7 @@ import RecycleBin from './pages/RecycleBin';
 import Consumption from './pages/Consumption';
 import Employees from './pages/Employees';
 import Expenses from './pages/Expenses';
+import ActivityLog from './pages/ActivityLog';
 import POS from './pages/POS';
 import CaptainOrder from './pages/CaptainOrder';
 import CashSales from './pages/CashSales';
@@ -117,6 +118,14 @@ function App() {
               element={
                 <ProtectedRoute capability="manageAccounts">
                   <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity-log"
+              element={
+                <ProtectedRoute roles={['admin', 'manager', 'supervisor', 'dev']}>
+                  <ActivityLog />
                 </ProtectedRoute>
               }
             />

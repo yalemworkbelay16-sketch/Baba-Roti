@@ -1,10 +1,20 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
+
+const ONLINE_TIMEOUT_MS = 15 * 60 * 1000;
 
 const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select('-password').sort({ createdAt: -1 });
-  res.json(users);
+  const users = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
+  const now = Date.now();
+
+  const mapped = users.map(u => ({
+    ...u,
+    isOnline: Boolean(u.isOnline && u.lastActiveAt && (now - new Date(u.lastActiveAt).getTime() < ONLINE_TIMEOUT_MS)),
+  }));
+
+  res.json(mapped);
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -157,6 +167,17 @@ const updateUser = asyncHandler(async (req, res) => {
     tg.notifyUserRoleChanged(updated, oldRole, req.body.role, req.user);
   }
 
+  logActivity(req, {
+    action: isDeactivating ? 'DEACTIVATE_USER' : isReactivating ? 'REACTIVATE_USER' : 'UPDATE_USER',
+    module: 'Users',
+    description: isDeactivating
+      ? `${req.user.name} deactivated user account ${updated.name}`
+      : isReactivating
+        ? `${req.user.name} reactivated user account ${updated.name}`
+        : `${req.user.name} updated profile/role for user ${updated.name} (${updated.role})`,
+    details: { targetUserId: updated._id, name: updated.name, role: updated.role },
+  });
+
   res.json({
     _id: updated._id,
     name: updated.name,
@@ -215,6 +236,14 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 
   tg.notifyUserDeleted(user, req.user);
+
+  logActivity(req, {
+    action: 'DELETE_USER',
+    module: 'Users',
+    description: `${req.user.name} deleted user account for ${user.name} (${user.email})`,
+    details: { deletedUserId: user._id, name: user.name, role: user.role, email: user.email },
+  });
+
   await user.deleteOne();
   res.json({ message: 'User removed and Telegram notifications stopped.' });
 });

@@ -59,6 +59,17 @@ const protect = asyncHandler(async (req, res, next) => {
         res.status(401);
         throw new Error('Not authorized, account inactive or not found');
       }
+
+      // Throttle user heartbeat activity update (at most once every 60 seconds)
+      const now = Date.now();
+      const lastActive = req.user.lastActiveAt ? new Date(req.user.lastActiveAt).getTime() : 0;
+      if (now - lastActive > 60 * 1000) {
+        User.updateOne(
+          { _id: req.user._id },
+          { $set: { isOnline: true, lastActiveAt: new Date() } }
+        ).catch(() => {});
+      }
+
       return next();
     } catch (error) {
       res.status(401);
