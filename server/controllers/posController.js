@@ -7,6 +7,11 @@ const SalesRecord = require('../models/SalesRecord');
 const Setting = require('../models/Setting');
 const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
+const {
+  determineMaterialStation,
+  getStationField,
+  getStationLabel,
+} = require('../utils/stationHelper');
 
 /**
  * Determine station for printing and preparation
@@ -138,6 +143,10 @@ const createOrder = asyncHandler(async (req, res) => {
         const ingTotalCost = Math.round(usedQty * ingUnitCost * 100) / 100;
         lineCogs += ingTotalCost;
 
+        // Resolve target station based on the material's category mapping
+        // If mapped to bar -> bar; if mapped to kitchen -> kitchen; if not mapped -> mainStore
+        const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+
         lineIngredients.push({
           materialId: mat._id,
           materialName: mat.name,
@@ -145,13 +154,13 @@ const createOrder = asyncHandler(async (req, res) => {
           quantityUsed: usedQty,
           unitCost: ingUnitCost,
           totalCost: ingTotalCost,
+          deductedFromStation: targetStation,
         });
 
-        const stationKey = (station === 'barista' || station === 'bar') ? 'bar' : 'kitchen';
-        const deductionKey = `${matId}_${stationKey}`;
+        const deductionKey = `${matId}_${targetStation}`;
 
         if (!materialDeductions[deductionKey]) {
-          materialDeductions[deductionKey] = { material: mat, targetStation: stationKey, totalQty: 0 };
+          materialDeductions[deductionKey] = { material: mat, targetStation, totalQty: 0 };
         }
         materialDeductions[deductionKey].totalQty += usedQty;
       }
@@ -201,24 +210,30 @@ const createOrder = asyncHandler(async (req, res) => {
     if (!allowNegativeStock) {
       for (const dKey of Object.keys(materialDeductions)) {
         const { material, targetStation, totalQty } = materialDeductions[dKey];
-        const stationBal = targetStation === 'bar' ? Number(material.barStock || 0) : Number(material.kitchenStock || 0);
-        const stationName = targetStation === 'bar' ? 'Bar Station' : 'Kitchen Station';
+        const stationBal = targetStation === 'bar'
+          ? Number(material.barStock || 0)
+          : targetStation === 'kitchen'
+            ? Number(material.kitchenStock || 0)
+            : Number(material.mainStoreStock !== undefined ? material.mainStoreStock : (material.currentStock || 0));
+        const stationName = getStationLabel(targetStation);
         if (stationBal - totalQty < 0) {
           res.status(400);
           throw new Error(
-            `Insufficient ${stationName} stock for "${material.name}". Available in ${stationName}: ${stationBal} ${material.unit}, Required: ${totalQty.toFixed(2)} ${material.unit}. Please issue stock from Main Store.`
+            `Insufficient ${stationName} stock for "${material.name}". Available in ${stationName}: ${stationBal} ${material.unit}, Required: ${totalQty.toFixed(2)} ${material.unit}.${targetStation !== 'mainStore' ? ' Please issue stock from Main Store.' : ''}`
           );
         }
       }
     }
 
-    // 2. Perform atomic stock deductions from respective Station (Kitchen or Bar)
+    // 2. Perform atomic stock deductions from respective Station (Kitchen, Bar, or Main Store)
     const transactionItems = [];
     for (const dKey of Object.keys(materialDeductions)) {
       const { material, targetStation, totalQty } = materialDeductions[dKey];
       const incUpdate = targetStation === 'bar'
         ? { barStock: -totalQty, currentStock: -totalQty }
-        : { kitchenStock: -totalQty, currentStock: -totalQty };
+        : targetStation === 'kitchen'
+          ? { kitchenStock: -totalQty, currentStock: -totalQty }
+          : { mainStoreStock: -totalQty, currentStock: -totalQty };
 
       await RawMaterial.findByIdAndUpdate(material._id, {
         $inc: incUpdate,
@@ -230,6 +245,7 @@ const createOrder = asyncHandler(async (req, res) => {
         quantity: totalQty,
         unitCost: material.unitCost || 0,
         totalCost: Math.round(totalQty * (material.unitCost || 0) * 100) / 100,
+        station: targetStation,
       });
     }
 
@@ -490,9 +506,12 @@ const voidOrder = asyncHandler(async (req, res) => {
       if (item.ingredientsUsed && item.ingredientsUsed.length > 0) {
         for (const ing of item.ingredientsUsed) {
           if (ing.materialId && ing.quantityUsed > 0) {
-            const incReverse = isBar
+            const stn = ing.deductedFromStation || (isBar ? 'bar' : 'kitchen');
+            const incReverse = stn === 'bar'
               ? { barStock: ing.quantityUsed, currentStock: ing.quantityUsed }
-              : { kitchenStock: ing.quantityUsed, currentStock: ing.quantityUsed };
+              : stn === 'kitchen'
+                ? { kitchenStock: ing.quantityUsed, currentStock: ing.quantityUsed }
+                : { mainStoreStock: ing.quantityUsed, currentStock: ing.quantityUsed };
             await RawMaterial.findByIdAndUpdate(ing.materialId, {
               $inc: incReverse,
             });

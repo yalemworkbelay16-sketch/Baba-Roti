@@ -6,7 +6,8 @@ const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
-const { determineProductStation } = require('../utils/stationHelper');
+const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
+const Setting = require('../models/Setting');
 
 // ── Auto voucher number ───────────────────────────────────────────
 const generateVoucherNo = async () => {
@@ -16,21 +17,28 @@ const generateVoucherNo = async () => {
 
 // ── Helper: deduct raw materials based on product recipes ─────────
 async function applyConsumptionStock(items, reverse = false) {
+  let settings = null;
+  try {
+    settings = await Setting.findOne().lean();
+  } catch (_) {}
+
   for (const item of items) {
     const product = await Product.findById(item.product)
-      .populate('ingredients.material', 'name unit currentStock mainStoreStock kitchenStock barStock unitCost');
+      .populate('ingredients.material', 'name unit category storeLocation currentStock mainStoreStock kitchenStock barStock unitCost');
     if (!product) continue;
-
-    const station = determineProductStation(product); // 'kitchen' or 'bar'
 
     for (const ing of product.ingredients) {
       const mat = await RawMaterial.findById(ing.material._id || ing.material);
       if (!mat) continue;
       const qty = ing.quantity * item.quantity;
-      if (station === 'bar') {
+      const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+
+      if (targetStation === 'bar') {
         mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));
-      } else {
+      } else if (targetStation === 'kitchen') {
         mat.kitchenStock = Math.max(0, Number(mat.kitchenStock || 0) + (reverse ? qty : -qty));
+      } else {
+        mat.mainStoreStock = Math.max(0, Number(mat.mainStoreStock || 0) + (reverse ? qty : -qty));
       }
       mat.currentStock = Math.max(0, (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
       await mat.save();

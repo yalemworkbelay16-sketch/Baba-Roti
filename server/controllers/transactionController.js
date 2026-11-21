@@ -8,7 +8,8 @@ const { invalidateDashboardCache } = require('./dashboardController');
 const { hasPermission } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
-const { determineProductStation } = require('../utils/stationHelper');
+const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
+const Setting = require('../models/Setting');
 const { logActivity } = require('../utils/activityLogger');
 
 // ── helpers ───────────────────────────────────────────────────────────
@@ -605,10 +606,11 @@ const importSales = asyncHandler(async (req, res) => {
   const SalesRecord = require('../models/SalesRecord');
   const tg = require('../utils/telegramNotifier');
 
-  // Pre-load all active products and raw materials in ONE parallel batch
-  const [allProducts, allRawMaterials] = await Promise.all([
+  // Pre-load all active products, raw materials, and settings in ONE parallel batch
+  const [allProducts, allRawMaterials, settings] = await Promise.all([
     Product.find({ isActive: true }).populate({ path: 'ingredients.material', model: 'RawMaterial' }).lean(),
     RawMaterial.find({}).lean(),
+    Setting.findOne().lean(),
   ]);
 
   // Build high-speed in-memory lookup maps (O(1) lookups instead of sequential DB queries)
@@ -767,8 +769,8 @@ const importSales = asyncHandler(async (req, res) => {
           const ingCost = (Number(mat.unitCost) || 0) * deductQty;
           cogs += ingCost;
           materialDeductions[matId] = (materialDeductions[matId] || 0) + deductQty;
-          const prodStation = determineProductStation(product); // 'kitchen' or 'bar'
-          const sKey = `${matId}_${prodStation}`;
+          const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+          const sKey = `${matId}_${targetStation}`;
           stationDeductions[sKey] = (stationDeductions[sKey] || 0) + deductQty;
           lineIngredients.push({
             materialId: mat._id,
@@ -777,6 +779,7 @@ const importSales = asyncHandler(async (req, res) => {
             quantityUsed: deductQty,
             unitCost: mat.unitCost || 0,
             totalCost: ingCost,
+            deductedFromStation: targetStation,
           });
         }
       }
@@ -825,7 +828,7 @@ const importSales = asyncHandler(async (req, res) => {
       const matId = material._id.toString();
       const ingCost = (Number(material.unitCost) || 0) * qty;
       materialDeductions[matId] = (materialDeductions[matId] || 0) + qty;
-      const matStation = (material.category && /beverage|drink|coffee|tea|bar|juice|soda/i.test(material.category)) || /coffee|tea|juice|soda|beer|wine|latte/i.test(material.name) ? 'bar' : 'kitchen';
+      const matStation = determineMaterialStation(material, settings?.stationCategoryMapping);
       const sKey = `${matId}_${matStation}`;
       stationDeductions[sKey] = (stationDeductions[sKey] || 0) + qty;
       lineIngredients.push({
@@ -835,6 +838,7 @@ const importSales = asyncHandler(async (req, res) => {
         quantityUsed: qty,
         unitCost: material.unitCost || 0,
         totalCost: ingCost,
+        deductedFromStation: matStation,
       });
 
       let lineRev = rev;
@@ -959,7 +963,7 @@ const importSales = asyncHandler(async (req, res) => {
   const dedMap = Object.keys(stationDeductions).length > 0 ? stationDeductions : materialDeductions;
   for (const [key, qty] of Object.entries(dedMap)) {
     if (qty <= 0) continue;
-    const [matId, station] = key.includes('_') ? key.split('_') : [key, 'kitchen'];
+    const [matId, station] = key.includes('_') ? key.split('_') : [key, 'mainStore'];
     const mat = rawMaterialById.get(matId);
     if (mat) {
       resolvedItems.push({
@@ -967,10 +971,13 @@ const importSales = asyncHandler(async (req, res) => {
         quantity: qty,
         unitCost: mat.unitCost || 0,
         totalCost: (mat.unitCost || 0) * qty,
+        station: station,
       });
       const incUpdate = station === 'bar'
         ? { barStock: -qty, currentStock: -qty }
-        : { kitchenStock: -qty, currentStock: -qty };
+        : station === 'kitchen'
+          ? { kitchenStock: -qty, currentStock: -qty }
+          : { mainStoreStock: -qty, currentStock: -qty };
       bulkStockUpdates.push({
         updateOne: {
           filter: { _id: mat._id },

@@ -49,13 +49,17 @@ function determineMaterialStation(material, stationCategoryMapping = null) {
   // 1. Check custom raw material mapping in Settings
   const rawMap = stationCategoryMapping?.rawMaterialMap;
   if (rawMap && rawMap[cat]) {
-    return rawMap[cat];
+    const mapped = String(rawMap[cat]).toLowerCase();
+    if (mapped === 'bar' || mapped === 'barista') return 'bar';
+    if (mapped === 'kitchen') return 'kitchen';
+    return 'mainStore';
   }
 
   // 2. Explicit storeLocation if already assigned
   const loc = String(material.storeLocation || '').toLowerCase();
-  if (loc.includes('kitchen')) return 'kitchen';
   if (loc.includes('bar')) return 'bar';
+  if (loc.includes('kitchen')) return 'kitchen';
+  if (loc.includes('main')) return 'mainStore';
 
   // 3. Known Baba Roti categories default mapping
   const lowerCat = cat.toLowerCase();
@@ -72,6 +76,7 @@ function determineMaterialStation(material, stationCategoryMapping = null) {
     return 'kitchen';
   }
 
+  // 4. Default: If not mapped with Kitchen and Bar, deduct from Main Store!
   return 'mainStore';
 }
 
@@ -84,7 +89,7 @@ function getStationField(station) {
 function getStationLabel(station) {
   if (station === 'bar' || station === 'barista') return 'Bar Station';
   if (station === 'kitchen') return 'Kitchen Station';
-  return 'Main Store Warehouse';
+  return 'Main Store';
 }
 
 module.exports = {

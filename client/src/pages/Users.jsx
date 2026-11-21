@@ -73,7 +73,6 @@ const Users = () => {
   const [badgeModalOpen, setBadgeModalOpen] = useState(false);
   const [badgeStaff, setBadgeStaff] = useState(null);
   const [isNewlyCreated, setIsNewlyCreated] = useState(false);
-
   const load = () => api.get('/users')
     .then((res) => {
       let list = Array.isArray(res.data) ? res.data : [];

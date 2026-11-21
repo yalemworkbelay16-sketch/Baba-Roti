@@ -19,6 +19,7 @@ const saleLineSchema = new mongoose.Schema(
         quantityUsed: { type: Number },
         unitCost:     { type: Number },
         totalCost:    { type: Number },
+        deductedFromStation: { type: String, default: 'mainStore' },
       }
     ],
   },

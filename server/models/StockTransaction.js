@@ -43,6 +43,7 @@ const lineItemSchema = new mongoose.Schema(
     quantity: { type: Number, required: true, min: 0.001 },
     unitCost: { type: Number, default: 0 },
     totalCost: { type: Number, default: 0 },
+    station:   { type: String, default: 'mainStore' },
   },
   { _id: false }
 );
