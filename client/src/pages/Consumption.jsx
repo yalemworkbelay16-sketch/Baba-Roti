@@ -3,7 +3,7 @@ import {
   Plus, Search, Trash2, Eye, X, CheckCircle, Ban,
   UtensilsCrossed, Users, Briefcase, BookOpen, Gift, FileText,
   RefreshCw, Pencil, Printer, Check, ShieldCheck, Lock,
-  Settings2, AlertCircle, UserCheck,
+  Settings2, AlertCircle, UserCheck, Clock,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -1065,8 +1065,7 @@ export default function Consumption() {
                   </div>
                 </div>
               ) : (
-                <div className={`p-3 rounded-xl border text-xs font-semibold mb-2.5 transition-all ${
-                  isDailyQuotaReached
+                <div className={`p-3 rounded-xl border text-xs font-semibold mb-2.5 transition-all ${isDailyQuotaReached
                     ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs'
                     : allowedProductIds && allowedProductIds.size > 0
                       ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
@@ -1074,9 +1073,8 @@ export default function Consumption() {
                   }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0">
-                      <UtensilsCrossed size={16} className={`shrink-0 mt-0.5 ${
-                        isDailyQuotaReached ? 'text-rose-600' : (allowedProductIds && allowedProductIds.size > 0 ? 'text-amber-600' : 'text-emerald-600')
-                      }`} />
+                      <UtensilsCrossed size={16} className={`shrink-0 mt-0.5 ${isDailyQuotaReached ? 'text-rose-600' : (allowedProductIds && allowedProductIds.size > 0 ? 'text-amber-600' : 'text-emerald-600')
+                        }`} />
                       <div className="min-w-0">
                         {allowedProductIds && allowedProductIds.size > 0 ? (
                           <div>
@@ -1095,11 +1093,10 @@ export default function Consumption() {
                         )}
                         {/* Daily Limit Tracker Badge */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
-                            isDailyQuotaReached
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${isDailyQuotaReached
                               ? 'bg-rose-200 text-rose-950'
                               : 'bg-emerald-100 text-emerald-900'
-                          }`}>
+                            }`}>
                             <Clock size={11} />
                             Daily Quota: {todayEmployeeConsumption.totalPortions} / {dailyMealLimit} portion(s) ordered today
                             {isDailyQuotaReached ? ' (Limit Reached - Resets Tomorrow)' : ` (${Math.max(0, dailyMealLimit - todayEmployeeConsumption.totalPortions)} remaining today)`}
@@ -1447,11 +1444,10 @@ export default function Consumption() {
                     key={cnt}
                     type="button"
                     onClick={() => setQuotaDailyMealLimit(cnt)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      quotaDailyMealLimit === cnt
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${quotaDailyMealLimit === cnt
                         ? 'bg-indigo-600 text-white shadow-2xs'
                         : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
+                      }`}
                   >
                     {cnt} / day
                   </button>
@@ -1521,8 +1517,8 @@ export default function Consumption() {
                   type="button"
                   onClick={() => setQuotaCategoryFilter(cat === 'all' ? '' : cat)}
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer ${(quotaCategoryFilter === '' && cat === 'all') || quotaCategoryFilter === cat
-                      ? 'bg-indigo-600 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                 >
                   {cat === 'all' ? 'All Categories' : cat}
@@ -1545,14 +1541,14 @@ export default function Consumption() {
                     key={p._id}
                     onClick={() => handleToggleProductForQuota(p._id)}
                     className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition select-none ${isSelected
-                        ? 'bg-indigo-50/90 border border-indigo-200 font-semibold'
-                        : 'hover:bg-white hover:shadow-2xs'
+                      ? 'bg-indigo-50/90 border border-indigo-200 font-semibold'
+                      : 'hover:bg-white hover:shadow-2xs'
                       }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`h-4 w-4 rounded flex items-center justify-center border transition ${isSelected
-                          ? 'bg-indigo-600 border-indigo-600 text-white'
-                          : 'border-slate-300 bg-white'
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'border-slate-300 bg-white'
                         }`}>
                         {isSelected && <Check size={11} className="stroke-[3]" />}
                       </div>

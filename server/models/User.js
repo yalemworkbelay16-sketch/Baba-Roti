@@ -24,10 +24,10 @@ const userSchema = new mongoose.Schema(
     },
     // Allowed staff meal / consumption items and daily limits
     allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
-    dailyMealLimit:  { type: Number, default: 1, min: 1 },
+    dailyMealLimit: { type: Number, default: 1, min: 1 },
     mealLimits: [
       {
-        product:   { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+        product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
         maxPerDay: { type: Number, default: 1, min: 1 },
       },
     ],
@@ -39,8 +39,8 @@ const userSchema = new mongoose.Schema(
     lastLoginIp: { type: String, default: '' },
     lastLoginDevice: { type: String, default: '' },
     // OTP fields for 2-step login
-    otpHash:   { type: String, default: null },
-    otpExpiry: { type: Date,   default: null },
+    otpHash: { type: String, default: null },
+    otpExpiry: { type: Date, default: null },
   },
   { timestamps: true }
 );
