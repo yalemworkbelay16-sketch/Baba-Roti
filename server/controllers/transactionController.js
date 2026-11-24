@@ -544,8 +544,28 @@ const advanceTransaction = asyncHandler(async (req, res) => {
             // Round to 4 decimal places to avoid floating-point noise
             mat.unitCost = Math.round(mat.unitCost * 10000) / 10000;
           }
-          // Goods received from suppliers enter Main Store Warehouse
-          mat.mainStoreStock = (mat.mainStoreStock || 0) + inQty;
+          // Determine destination station:
+          // 1. Fresh Bazaar receiving enters Kitchen directly!
+          // 2. If item/txn specifies station 'kitchen' or material storeLocation is Kitchen Station -> kitchenStock
+          // 3. If item/txn specifies station 'bar' or material storeLocation is Bar Station -> barStock
+          // 4. Default: enters Main Store Warehouse
+          const itemStation = item.station || txn.destinationStation || '';
+          const matLoc = String(mat.storeLocation || '').toLowerCase();
+          const isKitchenDest =
+            txn.voucherType === 'fresh_bazaar' ||
+            itemStation === 'kitchen' ||
+            (matLoc.includes('kitchen') && !matLoc.includes('main'));
+          const isBarDest =
+            itemStation === 'bar' ||
+            (matLoc.includes('bar') && !matLoc.includes('main'));
+
+          if (isKitchenDest) {
+            mat.kitchenStock = (mat.kitchenStock || 0) + inQty;
+          } else if (isBarDest) {
+            mat.barStock = (mat.barStock || 0) + inQty;
+          } else {
+            mat.mainStoreStock = (mat.mainStoreStock || 0) + inQty;
+          }
           mat.currentStock = (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0);
         } else {
           mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);

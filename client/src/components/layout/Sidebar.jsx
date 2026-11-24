@@ -120,7 +120,6 @@ const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel, isI
     </NavLink>
   );
 };
-
 /* ── Section Label (OPERATIONS, ADMIN) with subtle divider ── */
 const SectionLabel = ({ children, collapsed }) => {
   const { sidebarTheme } = useAuth();
@@ -780,8 +779,8 @@ const Sidebar = ({
                             setRawMaterialsSubOpen((prev) => !prev);
                           }}
                           className={`flex h-6 w-6 items-center justify-center rounded-md transition-all duration-150 cursor-pointer ${theme.isLight
-                              ? 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'
-                              : 'text-white/50 hover:bg-white/15 hover:text-white'
+                            ? 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'
+                            : 'text-white/50 hover:bg-white/15 hover:text-white'
                             }`}
                           title={rawMaterialsSubOpen ? (isAmharic ? 'ዝጋ' : 'Collapse stores') : (isAmharic ? 'ክፈት' : 'Expand stores')}
                         >
@@ -800,8 +799,8 @@ const Sidebar = ({
                     {rawMaterialsSubOpen && (
                       <div
                         className={`my-1 ml-2 mr-0.5 rounded-xl p-1.5 space-y-0.5 border transition-all ${theme.isLight
-                            ? 'border-blue-200/90 bg-blue-50/60 shadow-2xs'
-                            : 'border-white/15 bg-black/25 shadow-inner backdrop-blur-xs'
+                          ? 'border-blue-200/90 bg-blue-50/60 shadow-2xs'
+                          : 'border-white/15 bg-black/25 shadow-inner backdrop-blur-xs'
                           }`}
                       >
                         <div className="px-2 py-0.5 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider border-b pb-1 mb-1">

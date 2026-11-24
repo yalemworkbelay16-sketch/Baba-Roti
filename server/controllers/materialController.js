@@ -56,17 +56,37 @@ const createMaterial = asyncHandler(async (req, res) => {
   }
 
   const payload = { ...req.body };
-  const main = payload.mainStoreStock !== undefined ? Number(payload.mainStoreStock) : undefined;
-  const kitchen = payload.kitchenStock !== undefined ? Number(payload.kitchenStock) : 0;
-  const bar = payload.barStock !== undefined ? Number(payload.barStock) : 0;
+  let main = payload.mainStoreStock !== undefined ? Number(payload.mainStoreStock) : undefined;
+  let kitchen = payload.kitchenStock !== undefined ? Number(payload.kitchenStock) : 0;
+  let bar = payload.barStock !== undefined ? Number(payload.barStock) : 0;
+  const loc = String(payload.storeLocation || '').toLowerCase();
 
+  // If registering directly into Kitchen or Bar via storeLocation:
   if (main === undefined && payload.currentStock !== undefined) {
-    payload.mainStoreStock = Number(payload.currentStock) || 0;
+    const total = Number(payload.currentStock) || 0;
+    if (loc.includes('kitchen') && !loc.includes('main')) {
+      kitchen = total;
+      main = 0;
+      bar = 0;
+    } else if (loc.includes('bar') && !loc.includes('main')) {
+      bar = total;
+      main = 0;
+      kitchen = 0;
+    } else {
+      main = total;
+      kitchen = 0;
+      bar = 0;
+    }
   } else if (main !== undefined) {
     payload.mainStoreStock = main;
     payload.kitchenStock = kitchen;
     payload.barStock = bar;
     payload.currentStock = main + kitchen + bar;
+  } else {
+    payload.mainStoreStock = 0;
+    payload.kitchenStock = kitchen;
+    payload.barStock = bar;
+    payload.currentStock = kitchen + bar;
   }
 
   const material = await RawMaterial.create(payload);

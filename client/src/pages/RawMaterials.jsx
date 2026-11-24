@@ -302,7 +302,15 @@ const RawMaterials = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    const initialLocation = stationFilter === 'kitchen'
+      ? 'Kitchen Station'
+      : stationFilter === 'bar'
+        ? 'Bar Station'
+        : 'Main Store';
+    setForm({
+      ...emptyForm,
+      storeLocation: initialLocation,
+    });
     setUnitCustom(false);
     setCategoryCustom(false);
     setModalOpen(true);
@@ -1359,10 +1367,117 @@ const RawMaterials = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
           </div>
+          {/* Store Location & Destination Department */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink-600">Store location</label>
-            <input value={form.storeLocation} onChange={(e) => setForm({ ...form, storeLocation: e.target.value })}
-              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
+            <label className="mb-1.5 block text-xs font-bold text-ink-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Warehouse size={13} className="text-ink-600" />
+                Store Location &amp; Receiving Station *
+              </span>
+              <span className="text-[11px] font-semibold text-ink-400">
+                Destination Station
+              </span>
+            </label>
+
+            {/* Quick 3 Station Buttons */}
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const m = Number(form.mainStoreStock || 0);
+                  const k = Number(form.kitchenStock || 0);
+                  const b = Number(form.barStock || 0);
+                  const total = m + k + b;
+                  setForm({
+                    ...form,
+                    storeLocation: 'Main Store',
+                    mainStoreStock: total > 0 ? (m > 0 ? m : total) : 0,
+                    kitchenStock: m > 0 ? k : 0,
+                    barStock: m > 0 ? b : 0,
+                  });
+                }}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation === 'Main Store' || (!form.storeLocation?.includes('Kitchen') && !form.storeLocation?.includes('Bar'))
+                    ? 'border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20 shadow-2xs'
+                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  }`}
+              >
+                <span className="flex items-center gap-1">🏢 Main Store</span>
+                <span className="text-[9.5px] font-normal text-ink-500 mt-0.5">Central Warehouse</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const m = Number(form.mainStoreStock || 0);
+                  const k = Number(form.kitchenStock || 0);
+                  const b = Number(form.barStock || 0);
+                  const total = m + k + b;
+                  setForm({
+                    ...form,
+                    storeLocation: 'Kitchen Station',
+                    kitchenStock: total > 0 ? (k > 0 ? k : total) : 0,
+                    mainStoreStock: k > 0 ? m : 0,
+                    barStock: k > 0 ? b : 0,
+                  });
+                }}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation?.includes('Kitchen')
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-500/20 shadow-2xs'
+                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  }`}
+              >
+                <span className="flex items-center gap-1">🍳 Kitchen Station</span>
+                <span className="text-[9.5px] font-normal text-amber-700 mt-0.5">Fresh Bazar / Production</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const m = Number(form.mainStoreStock || 0);
+                  const k = Number(form.kitchenStock || 0);
+                  const b = Number(form.barStock || 0);
+                  const total = m + k + b;
+                  setForm({
+                    ...form,
+                    storeLocation: 'Bar Station',
+                    barStock: total > 0 ? (b > 0 ? b : total) : 0,
+                    mainStoreStock: b > 0 ? m : 0,
+                    kitchenStock: b > 0 ? k : 0,
+                  });
+                }}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation?.includes('Bar')
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20 shadow-2xs'
+                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  }`}
+              >
+                <span className="flex items-center gap-1">☕ Bar Station</span>
+                <span className="text-[9.5px] font-normal text-emerald-700 mt-0.5">Bar Production / Direct</span>
+              </button>
+            </div>
+
+            {/* Editable location text input for sub-locations (cold room, fridge, bakery, etc.) */}
+            <input
+              value={form.storeLocation}
+              onChange={(e) => setForm({ ...form, storeLocation: e.target.value })}
+              placeholder="Store location (e.g. Kitchen Station, Bar Station, Main Store, Cold Room…)"
+              className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+
+            {/* Context guidance note */}
+            <p className="mt-1 text-[11px] text-ink-500">
+              {form.storeLocation?.includes('Kitchen') ? (
+                <span className="text-amber-800 font-medium">
+                  ✓ <strong>Kitchen Station:</strong> Directly registers Fresh Bazar produce &amp; kitchen production into Kitchen inventory.
+                </span>
+              ) : form.storeLocation?.includes('Bar') ? (
+                <span className="text-emerald-800 font-medium">
+                  ✓ <strong>Bar Station:</strong> Directly registers Bar production &amp; fresh drinks into Bar inventory.
+                </span>
+              ) : (
+                <span className="text-blue-800 font-medium">
+                  🏢 <strong>Main Store:</strong> Registered into central warehouse for subsequent transfer requests.
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
