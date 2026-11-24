@@ -9,7 +9,7 @@ const titles = {
   '/': 'Dashboard',
   '/materials': 'Raw Materials',
   '/production': 'Kitchen & Bar Production',
-  '/products': 'Sales Products & Recipes',
+  '/products': 'Menu & Recipes',
   '/analytics': 'Analytics & Performance',
   '/transactions': 'Stock Movements',
   '/transactions/cash-grv': 'Cash GRV Entries',

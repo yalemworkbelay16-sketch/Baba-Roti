@@ -84,7 +84,7 @@ export const translations = {
       digitalMenu: 'Digital Menu (QR)',
       inventory: 'Inventory & Items',
       rawMaterials: 'Raw Materials',
-      products: 'Products & Recipes',
+      products: 'Menu & Recipes',
       suppliers: 'Suppliers Directory',
       consumption: 'Consumption',
       operations: 'Operations',
@@ -183,9 +183,9 @@ export const translations = {
       saleCompletedSuccess: 'Sale completed & stock deducted!',
     },
 
-    // ── Products & Recipes ──
+    // ── Menu & Recipes ──
     products: {
-      title: 'Sales Products & Recipes',
+      title: 'Menu Items & Recipes',
       subtitle: 'Manage menu items, recipes, prices, and categories',
       addProduct: 'Add Product',
       editProduct: 'Edit Product',
@@ -441,7 +441,7 @@ export const translations = {
       digitalMenu: 'የደንበኞች ዲጂታል ሜኑ (QR)',
       inventory: 'የዕቃና ምርቶች መዝገብ',
       rawMaterials: 'ጥሬ ዕቃዎች (Raw Materials)',
-      products: 'ምርቶችና አዘገጃጀት (Products & Recipes)',
+      products: 'የምግብና መጠጥ ሜኑ (Menu & Recipes)',
       suppliers: 'አቅራቢዎች ማውጫ',
       consumption: 'የዕቃ ፍጆታ (Consumption)',
       operations: 'የዕለት ስራዎች',
@@ -540,9 +540,9 @@ export const translations = {
       saleCompletedSuccess: 'ሽያጭ ተጠናቋል፤ የዕቃ ስቶክ ተቀንሷል!',
     },
 
-    // ── Products & Recipes ──
+    // ── Menu & Recipes ──
     products: {
-      title: 'የሽያጭ ምርቶችና አዘገጃጀት',
+      title: 'የምግብና መጠጥ ሜኑና አዘገጃጀት (Menu & Recipes)',
       subtitle: 'የምግብ ዝርዝር፣ አዘገጃጀት (Recipe)፣ ዋጋና ምድቦችን ያስተዳድሩ',
       addProduct: 'ምግብ ጨምር',
       editProduct: 'ምግብ አስተካክል',

@@ -4,7 +4,7 @@ const Production = require('../models/Production');
 const RawMaterial = require('../models/RawMaterial');
 const StockTransaction = require('../models/StockTransaction');
 const Setting = require('../models/Setting');
-const { convertUnit, areUnitsCompatible } = require('../utils/unitConverter');
+const { convertUnit, areUnitsCompatible, isDiscreteUnit, cleanQuantity } = require('../utils/unitConverter');
 const { getStationField, getStationLabel } = require('../utils/stationHelper');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
@@ -276,7 +276,7 @@ const calculateBatchRequirements = asyncHandler(async (req, res) => {
     throw new Error('Production recipe not found');
   }
 
-  const plannedQty = Math.max(0.001, Number(quantity) || 1);
+  const plannedQty = Math.max(0.0001, Number(quantity) || 1);
   const ratio = plannedQty / Number(recipe.yieldQuantity || 1);
   const stationField = getStationField(recipe.station);
   const stationName = getStationLabel(recipe.station);
@@ -286,13 +286,24 @@ const calculateBatchRequirements = asyncHandler(async (req, res) => {
 
   const ingredientRequirements = (recipe.ingredients || []).map((ing) => {
     const mat = ing.material;
-    const reqRecipeQty = (Number(ing.quantity) || 0) * ratio;
+    const isDiscrete = isDiscreteUnit(ing.unit, mat?.name) || isDiscreteUnit(mat?.unit, mat?.name);
+
     const recipeUnit = (ing.unit || mat?.unit || '').trim();
     const baseUnit = mat?.unit || recipeUnit;
 
+    const rawReqRecipeQty = (Number(ing.quantity) || 0) * ratio;
+    const reqRecipeQty = isDiscrete
+      ? Math.max(1, Math.round(rawReqRecipeQty))
+      : cleanQuantity(rawReqRecipeQty, recipeUnit, mat?.name);
+
     // Convert required qty from recipe unit to material base unit
-    const reqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
-    const availableStationStock = Number(mat ? mat[stationField] || 0 : 0);
+    const rawReqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
+    const reqBaseQty = isDiscrete
+      ? Math.max(1, Math.round(rawReqBaseQty))
+      : cleanQuantity(rawReqBaseQty, baseUnit, mat?.name);
+
+    const rawStock = Number(mat ? mat[stationField] || 0 : 0);
+    const availableStationStock = cleanQuantity(rawStock, baseUnit, mat?.name);
     const isSufficient = availableStationStock >= reqBaseQty;
     if (!isSufficient) canProduce = false;
 
@@ -300,16 +311,20 @@ const calculateBatchRequirements = asyncHandler(async (req, res) => {
     const lineCost = Math.round(reqBaseQty * unitCost * 100) / 100;
     totalCost += lineCost;
 
+    const shortage = isSufficient
+      ? 0
+      : (isDiscrete ? Math.max(1, Math.round(reqBaseQty - availableStationStock)) : cleanQuantity(reqBaseQty - availableStationStock, baseUnit, mat?.name));
+
     return {
       materialId: mat?._id,
       materialName: mat?.name || 'Unknown Item',
-      requiredRecipeQuantity: Math.round(reqRecipeQty * 1000) / 1000,
+      requiredRecipeQuantity: reqRecipeQty,
       recipeUnit,
-      requiredBaseQuantity: Math.round(reqBaseQty * 1000) / 1000,
+      requiredBaseQuantity: reqBaseQty,
       baseUnit,
       availableStationStock,
       isSufficient,
-      shortage: isSufficient ? 0 : Math.round((reqBaseQty - availableStationStock) * 1000) / 1000,
+      shortage,
       unitCost,
       totalCost: lineCost,
     };
@@ -390,17 +405,28 @@ const produceBatch = asyncHandler(async (req, res) => {
     const mat = ing.material;
     if (!mat) continue;
 
-    const reqRecipeQty = (Number(ing.quantity) || 0) * ratio;
+    const isDiscrete = isDiscreteUnit(ing.unit, mat.name) || isDiscreteUnit(mat.unit, mat.name);
+
     const recipeUnit = (ing.unit || mat.unit || '').trim();
     const baseUnit = mat.unit || recipeUnit;
-    const reqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
 
-    const availableBal = Number(mat[stationField] || 0);
+    const rawReqRecipeQty = (Number(ing.quantity) || 0) * ratio;
+    const reqRecipeQty = isDiscrete
+      ? Math.max(1, Math.round(rawReqRecipeQty))
+      : cleanQuantity(rawReqRecipeQty, recipeUnit, mat.name);
+
+    const rawReqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
+    const reqBaseQty = isDiscrete
+      ? Math.max(1, Math.round(rawReqBaseQty))
+      : cleanQuantity(rawReqBaseQty, baseUnit, mat.name);
+
+    const rawBal = Number(mat[stationField] || 0);
+    const availableBal = cleanQuantity(rawBal, baseUnit, mat.name);
 
     if (!allowNegativeStock && availableBal - reqBaseQty < -0.0001) {
       res.status(400);
       throw new Error(
-        `Insufficient ${stationName} stock for ingredient "${mat.name}". Available: ${availableBal} ${mat.unit}, Required: ${reqBaseQty.toFixed(2)} ${mat.unit}. Please issue stock from Main Store.`
+        `Insufficient ${stationName} stock for ingredient "${mat.name}". Available: ${availableBal} ${mat.unit}, Required: ${reqBaseQty} ${mat.unit}. Please issue stock from Main Store.`
       );
     }
 
@@ -586,7 +612,20 @@ const getProductionBatches = asyncHandler(async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  res.json(batches);
+  const sanitizeBatch = (b) => {
+    if (!b) return b;
+    return {
+      ...b,
+      producedQuantity: cleanQuantity(b.producedQuantity, b.producedUnit, b.targetMaterialName),
+      ingredientsConsumed: (b.ingredientsConsumed || []).map((i) => ({
+        ...i,
+        quantity: cleanQuantity(i.quantity, i.unit, i.materialName),
+        inputQuantity: cleanQuantity(i.inputQuantity, i.unit, i.materialName),
+      })),
+    };
+  };
+
+  res.json(batches.map(sanitizeBatch));
 });
 
 // ── GET /api/production/batches/:id ──────────────────────────────────
@@ -601,7 +640,17 @@ const getProductionBatchById = asyncHandler(async (req, res) => {
     throw new Error('Production batch not found');
   }
 
-  res.json(batch);
+  const sanitized = {
+    ...batch,
+    producedQuantity: cleanQuantity(batch.producedQuantity, batch.producedUnit, batch.targetMaterialName),
+    ingredientsConsumed: (batch.ingredientsConsumed || []).map((i) => ({
+      ...i,
+      quantity: cleanQuantity(i.quantity, i.unit, i.materialName),
+      inputQuantity: cleanQuantity(i.inputQuantity, i.unit, i.materialName),
+    })),
+  };
+
+  res.json(sanitized);
 });
 
 // ── POST /api/production/batches/:id/void ────────────────────────────

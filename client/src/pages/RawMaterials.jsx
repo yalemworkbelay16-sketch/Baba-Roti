@@ -14,6 +14,32 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import { exportToExcel } from '../utils/exportUtils';
+
+const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
+
+const isDiscreteUnit = (unit = '', name = '') => {
+  const u = String(unit || '').trim();
+  if (DISCRETE_UNITS_REGEX.test(u)) return true;
+  const n = String(name || '').toLowerCase();
+  if (/\b(egg|eggs|injera|bread|bun|buns|can|bottle)\b/i.test(n) && !/^(kg|kilogram|g|gram|gm|mg|l|ltr|liter|litre|ml|cl|dl)$/i.test(u)) {
+    return true;
+  }
+  return false;
+};
+
+const formatQty = (val, unit = '', name = '') => {
+  const num = Number(val);
+  if (isNaN(num)) return '0';
+  if (isDiscreteUnit(unit, name)) {
+    return String(Math.round(num));
+  }
+  if (Math.abs(num) < 0.00001) return '0';
+  const r2 = Math.round((num + Number.EPSILON) * 100) / 100;
+  if (Math.abs(num - r2) < 0.005) {
+    return String(r2);
+  }
+  return String(Math.round((num + Number.EPSILON) * 1000) / 1000);
+};
 const emptyForm = {
   code: '',
   name: '',
@@ -609,7 +635,7 @@ const RawMaterials = () => {
           const val = Number(r.kitchenStock || 0);
           return (
             <span className={`tabular font-bold text-sm ${val > 0 ? 'text-amber-700' : 'text-rose-600 font-bold'}`}>
-              {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+              {formatQty(val, r.unit, r.name)} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
             </span>
           );
         },
@@ -627,7 +653,7 @@ const RawMaterials = () => {
           const val = Number(r.barStock || 0);
           return (
             <span className={`tabular font-bold text-sm ${val > 0 ? 'text-emerald-700' : 'text-rose-600 font-bold'}`}>
-              {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+              {formatQty(val, r.unit, r.name)} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
             </span>
           );
         },
@@ -647,7 +673,7 @@ const RawMaterials = () => {
             const val = Number(r.mainStoreStock !== undefined ? r.mainStoreStock : r.currentStock ?? 0);
             return (
               <span className={`tabular font-semibold ${val > 0 ? 'text-blue-700' : 'text-ink-400'}`}>
-                {val} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+                {formatQty(val, r.unit, r.name)} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
               </span>
             );
           },
@@ -663,7 +689,7 @@ const RawMaterials = () => {
             const val = Number(r.kitchenStock || 0);
             return (
               <span className={`tabular font-semibold ${val > 0 ? 'text-amber-700 font-semibold' : 'text-ink-300'}`}>
-                {val > 0 ? `${val} ` : '—'}
+                {val > 0 ? `${formatQty(val, r.unit, r.name)} ` : '—'}
                 {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
               </span>
             );
@@ -680,7 +706,7 @@ const RawMaterials = () => {
             const val = Number(r.barStock || 0);
             return (
               <span className={`tabular font-semibold ${val > 0 ? 'text-emerald-700 font-semibold' : 'text-ink-300'}`}>
-                {val > 0 ? `${val} ` : '—'}
+                {val > 0 ? `${formatQty(val, r.unit, r.name)} ` : '—'}
                 {val > 0 && <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>}
               </span>
             );
@@ -693,7 +719,7 @@ const RawMaterials = () => {
           ),
           render: (r) => (
             <span className="tabular font-bold text-ink-900">
-              {r.currentStock} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
+              {formatQty(r.currentStock, r.unit, r.name)} <span className="text-[11px] font-normal text-ink-500">{r.unit}</span>
             </span>
           ),
         },

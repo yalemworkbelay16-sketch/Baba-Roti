@@ -75,7 +75,7 @@ const NAV_ITEMS = [
   { key: 'kitchenStore', label: '🍳 Kitchen Store Station' },
   { key: 'barStore', label: '☕ Bar Store Station' },
   { key: 'stationMapping', label: '⚙️ Station Category Mapping' },
-  { key: 'products', label: 'Products & Recipes' },
+  { key: 'products', label: 'Menu & Recipes' },
   { key: 'stockMovements', label: 'Stock Movements' },
   { key: 'suppliers', label: 'Suppliers' },
   { key: 'consumption', label: 'Consumption' },

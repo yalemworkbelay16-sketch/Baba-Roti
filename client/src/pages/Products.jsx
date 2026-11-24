@@ -707,8 +707,8 @@ const Products = () => {
           {/* Export & Import (Excel, PDF, CSV, Print) */}
           <ExportDropdown
             data={exportData}
-            fileName="products_catalog"
-            pdfTitle="Products & Recipes Catalog"
+            fileName="menu_recipes_catalog"
+            pdfTitle="Menu & Recipes Catalog"
             pdfColumns={pdfColumns}
             showImport={canEdit}
             onImport={() => importRef.current?.click()}

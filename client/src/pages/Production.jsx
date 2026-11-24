@@ -14,6 +14,32 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
+
+const isDiscreteUnit = (unit = '', name = '') => {
+  const u = String(unit || '').trim();
+  if (DISCRETE_UNITS_REGEX.test(u)) return true;
+  const n = String(name || '').toLowerCase();
+  if (/\b(egg|eggs|injera|bread|bun|buns|can|bottle)\b/i.test(n) && !/^(kg|kilogram|g|gram|gm|mg|l|ltr|liter|litre|ml|cl|dl)$/i.test(u)) {
+    return true;
+  }
+  return false;
+};
+
+const formatUnitQty = (val, unit = '', name = '') => {
+  const num = Number(val);
+  if (isNaN(num)) return '0';
+  if (isDiscreteUnit(unit, name)) {
+    return String(Math.round(num));
+  }
+  if (Math.abs(num) < 0.00001) return '0';
+  const r2 = Math.round((num + Number.EPSILON) * 100) / 100;
+  if (Math.abs(num - r2) < 0.005) {
+    return String(r2);
+  }
+  return String(Math.round((num + Number.EPSILON) * 1000) / 1000);
+};
+
 export default function Production() {
   const { user, can, hasRole } = useAuth();
   const isManagerOrAdmin = ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role);
@@ -576,8 +602,8 @@ export default function Production() {
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        min="0.001"
-                        step="0.1"
+                        min="0.0001"
+                        step="any"
                         value={plannedQty}
                         onChange={(e) => setPlannedQty(e.target.value)}
                         className="flex-1 rounded-xl border border-ink-200 px-3 py-2 text-sm font-bold text-ink-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -707,8 +733,8 @@ export default function Production() {
                       <thead className="bg-ink-50/80 text-[11px] font-bold uppercase tracking-wider text-ink-600 border-b border-ink-100">
                         <tr>
                           <th className="px-3.5 py-2.5">Raw Ingredient</th>
-                          <th className="px-3.5 py-2.5 text-center">Required (Formula)</th>
-                          <th className="px-3.5 py-2.5 text-center">In {calcPreview.stationName}</th>
+                          <th className="px-3.5 py-2.5 text-center">Needed Amount</th>
+                          <th className="px-3.5 py-2.5 text-center">{calcPreview.station === 'bar' ? 'Bar Stock' : 'Kitchen Stock'}</th>
                           <th className="px-3.5 py-2.5 text-right">Line Cost</th>
                           <th className="px-3.5 py-2.5 text-center">Status</th>
                         </tr>
@@ -721,11 +747,11 @@ export default function Production() {
                             </td>
                             <td className="px-3.5 py-3 text-center">
                               <span className="font-bold text-ink-900">
-                                {ing.requiredRecipeQuantity} {ing.recipeUnit}
+                                {formatUnitQty(ing.requiredRecipeQuantity, ing.recipeUnit, ing.materialName)} {ing.recipeUnit}
                               </span>
                               {ing.recipeUnit !== ing.baseUnit && (
                                 <span className="block text-[10px] text-ink-500">
-                                  (= {ing.requiredBaseQuantity} {ing.baseUnit})
+                                  (= {formatUnitQty(ing.requiredBaseQuantity, ing.baseUnit, ing.materialName)} {ing.baseUnit})
                                 </span>
                               )}
                             </td>
@@ -734,7 +760,7 @@ export default function Production() {
                                 ? 'text-emerald-700'
                                 : 'text-red-600'
                                 }`}>
-                                {ing.availableStationStock} {ing.baseUnit}
+                                {formatUnitQty(ing.availableStationStock, ing.baseUnit, ing.materialName)} {ing.baseUnit}
                               </span>
                             </td>
                             <td className="px-3.5 py-3 text-right font-bold text-ink-900">
@@ -746,8 +772,8 @@ export default function Production() {
                                   <Check size={11} /> Ready
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800" title={`Short by ${ing.shortage} ${ing.baseUnit}`}>
-                                  <AlertCircle size={11} /> Short ({ing.shortage} {ing.baseUnit})
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800" title={`Short by ${formatUnitQty(ing.shortage, ing.baseUnit, ing.materialName)} ${ing.baseUnit}`}>
+                                  <AlertCircle size={11} /> Short ({formatUnitQty(ing.shortage, ing.baseUnit, ing.materialName)} {ing.baseUnit})
                                 </span>
                               )}
                             </td>
@@ -830,7 +856,7 @@ export default function Production() {
                   <div className="p-2.5 rounded-xl bg-ink-50/70 border border-ink-100/80 text-[11px] grid grid-cols-2 gap-2">
                     <div>
                       <span className="text-ink-500 block">Std Yield:</span>
-                      <strong>{r.yieldQuantity} {r.yieldUnit}</strong>
+                      <strong>{formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}</strong>
                     </div>
                     <div>
                       <span className="text-ink-500 block">Unit Cost:</span>
@@ -846,7 +872,7 @@ export default function Production() {
                       {(r.ingredients || []).map((ing, idx) => (
                         <li key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-ink-50 last:border-0">
                           <span>{ing.material?.name || 'Item'}</span>
-                          <span className="font-bold text-ink-800">{ing.quantity} {ing.unit || ing.material?.unit}</span>
+                          <span className="font-bold text-ink-800">{formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit}</span>
                         </li>
                       ))}
                     </ul>
@@ -944,17 +970,17 @@ export default function Production() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-bold text-amber-800">
-                            {mat.kitchenStock || 0} {mat.unit}
+                            {formatUnitQty(mat.kitchenStock, mat.unit, mat.name)} {mat.unit}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-bold text-emerald-800">
-                            {mat.barStock || 0} {mat.unit}
+                            {formatUnitQty(mat.barStock, mat.unit, mat.name)} {mat.unit}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-black text-ink-900 text-sm">
-                            {mat.currentStock || 0} {mat.unit}
+                            {formatUnitQty(mat.currentStock, mat.unit, mat.name)} {mat.unit}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-ink-700">
@@ -1092,7 +1118,7 @@ export default function Production() {
                         {b.targetMaterialName}
                       </td>
                       <td className="px-4 py-3 text-center font-bold text-ink-900">
-                        +{b.producedQuantity} {b.producedUnit}
+                        +{formatUnitQty(b.producedQuantity, b.producedUnit, b.targetMaterialName)} {b.producedUnit}
                       </td>
                       <td className="px-4 py-3 text-right font-black text-ink-900">
                         {etb(b.totalCost)}
@@ -1258,8 +1284,8 @@ export default function Production() {
                 </label>
                 <input
                   type="number"
-                  min="0.001"
-                  step="0.01"
+                  min="0.0001"
+                  step="any"
                   required
                   value={recipeForm.yieldQuantity}
                   onChange={(e) => setRecipeForm({ ...recipeForm, yieldQuantity: e.target.value })}
@@ -1286,7 +1312,7 @@ export default function Production() {
             <div className="space-y-2 pt-2 border-t border-ink-100">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-ink-800">
-                  Required Ingredients (Formula per Standard Yield)
+                  Recipe Ingredients (Amount needed per Standard Yield)
                 </label>
                 <button
                   type="button"
@@ -1418,7 +1444,7 @@ export default function Production() {
               </div>
               <div>
                 <span className="text-[11px] text-ink-500 block">Quantity Produced:</span>
-                <strong className="text-sm font-black text-emerald-700">+{selectedBatch.producedQuantity} {selectedBatch.producedUnit}</strong>
+                <strong className="text-sm font-black text-emerald-700">+{formatUnitQty(selectedBatch.producedQuantity, selectedBatch.producedUnit, selectedBatch.targetMaterialName)} {selectedBatch.producedUnit}</strong>
               </div>
               <div>
                 <span className="text-[11px] text-ink-500 block">Station:</span>
@@ -1454,7 +1480,7 @@ export default function Production() {
                     {(selectedBatch.ingredientsConsumed || []).map((ing, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2 font-medium text-ink-900">{ing.materialName}</td>
-                        <td className="px-3 py-2 text-center font-bold text-ink-800">{ing.quantity} {ing.unit}</td>
+                        <td className="px-3 py-2 text-center font-bold text-ink-800">{formatUnitQty(ing.quantity, ing.unit, ing.materialName)} {ing.unit}</td>
                         <td className="px-3 py-2 text-right text-ink-600">{etb(ing.unitCost)}</td>
                         <td className="px-3 py-2 text-right font-bold text-ink-900">{etb(ing.totalCost)}</td>
                       </tr>
