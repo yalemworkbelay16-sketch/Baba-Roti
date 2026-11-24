@@ -22,7 +22,10 @@ const getEmployees = asyncHandler(async (req, res) => {
     filter.$or = [{ firstName: q }, { lastName: q }, { employeeId: q }, { position: q }];
   }
 
-  const employees = await Employee.find(filter).sort({ department: 1, firstName: 1 }).lean();
+  const employees = await Employee.find(filter)
+    .populate('allowedProducts', 'name code uom sellingPrice category station parentCategory')
+    .sort({ department: 1, firstName: 1 })
+    .lean();
   res.json(employees);
 });
 // ── GET /api/employees/departments ────────────────────────────────────
@@ -32,7 +35,7 @@ const getDepartments = asyncHandler(async (req, res) => {
 
 // ── POST /api/employees ───────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
-  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl } = req.body;
+  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts } = req.body;
 
   if (!firstName || !lastName) {
     res.status(400); throw new Error('First name and last name are required.');
@@ -50,6 +53,7 @@ const createEmployee = asyncHandler(async (req, res) => {
     status: status || 'active',
     notes: notes || '',
     photoUrl: photoUrl || '',
+    allowedProducts: Array.isArray(allowedProducts) ? allowedProducts : [],
   });
 
   tg.notifyEmployeeCreated(emp, req.user);
@@ -73,7 +77,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const emp = await Employee.findById(req.params.id);
   if (!emp || emp.deletedAt) { res.status(404); throw new Error('Employee not found'); }
 
-  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl'];
+  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts'];
   fields.forEach(f => {
     if (req.body[f] !== undefined) {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];

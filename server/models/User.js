@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema(
       enum: ['all', 'main', 'kitchen', 'bar'],
       default: 'all',
     },
+    // Allowed staff meal / consumption items
+    allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
     isActive: { type: Boolean, default: true },
     // Real-time online/offline and machine tracking
     isOnline: { type: Boolean, default: false },
