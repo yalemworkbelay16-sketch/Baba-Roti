@@ -581,15 +581,17 @@ export default function Consumption() {
             createdAt: new Date(),
           };
 
-          // Dispatch print ticket directly to Kitchen & Bar thermal order printers like POS ordering (no browser popup)
-          await dispatchPrint('kot', createdOrder, {
+          // Dispatch print ticket directly in background without blocking UI (instant order & print like POS)
+          dispatchPrint('kot', createdOrder, {
             businessName: 'Baba Roti Café',
             fallbackBrowser: false,
+          }).catch(printErr => {
+            console.warn('[CONSUMPTION] Background KOT print dispatch error:', printErr);
           });
 
-          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted from Kitchen & Bar and order sent directly to kitchen printer.`);
+          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted and order sent to kitchen printer.`);
         } catch (kotErr) {
-          console.warn('Captain order / KOT dispatch error:', kotErr);
+          console.warn('Captain order error:', kotErr);
           setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} recorded & auto-approved! (Stock deducted)`);
         }
       } else {
@@ -601,6 +603,7 @@ export default function Consumption() {
       }
 
       setModalOpen(false);
+      setSubmitting(false);
       load();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save.');
