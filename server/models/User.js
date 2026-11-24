@@ -22,8 +22,15 @@ const userSchema = new mongoose.Schema(
       enum: ['all', 'main', 'kitchen', 'bar'],
       default: 'all',
     },
-    // Allowed staff meal / consumption items
+    // Allowed staff meal / consumption items and daily limits
     allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+    dailyMealLimit:  { type: Number, default: 1, min: 1 },
+    mealLimits: [
+      {
+        product:   { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+        maxPerDay: { type: Number, default: 1, min: 1 },
+      },
+    ],
     isActive: { type: Boolean, default: true },
     // Real-time online/offline and machine tracking
     isOnline: { type: Boolean, default: false },

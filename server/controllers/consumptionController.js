@@ -70,6 +70,7 @@ const getConsumptions = asyncHandler(async (req, res) => {
     .populate('items.product', 'name code uom')
     .populate('performedBy', 'name')
     .populate('approvedBy', 'name')
+    .populate('employee', 'firstName lastName department position dailyMealLimit mealLimits allowedProducts')
     .sort({ date: -1 })
     .lean();
 
@@ -124,6 +125,108 @@ const createConsumption = asyncHandler(async (req, res) => {
   }
 
   const isStaffMeal = category === 'staff_meal';
+
+  // ── Staff Meal Daily Quota & Frequency Validation ──────────────────────────
+  let employeeDoc = null;
+  if (isStaffMeal) {
+    const Employee = require('../models/Employee');
+    if (req.body.employee) {
+      employeeDoc = await Employee.findById(req.body.employee);
+    } else if (beneficiary) {
+      const parts = beneficiary.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        employeeDoc = await Employee.findOne({
+          firstName: new RegExp(`^${parts[0]}$`, 'i'),
+          lastName: new RegExp(`^${parts.slice(1).join(' ')}$`, 'i'),
+          deletedAt: null,
+        });
+      }
+      if (!employeeDoc) {
+        employeeDoc = await Employee.findOne({
+          $or: [
+            { employeeId: beneficiary.trim() },
+            { email: beneficiary.trim().toLowerCase() },
+          ],
+          deletedAt: null,
+        });
+      }
+    }
+    if (!employeeDoc && req.user) {
+      const User = require('../models/User');
+      const u = await User.findById(req.user._id).lean();
+      if (u?.employeeId) {
+        employeeDoc = await Employee.findOne({ employeeId: u.employeeId, deletedAt: null });
+      }
+      if (!employeeDoc && req.user.email) {
+        employeeDoc = await Employee.findOne({ email: req.user.email.toLowerCase(), deletedAt: null });
+      }
+    }
+
+    // Check today's existing consumption for this employee to prevent exceeding daily quota
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const empMatchConditions = [];
+    if (employeeDoc?._id) empMatchConditions.push({ employee: employeeDoc._id });
+    if (beneficiary) empMatchConditions.push({ beneficiary: beneficiary.trim() });
+    if (!['admin', 'dev'].includes(req.user.role)) empMatchConditions.push({ performedBy: req.user._id });
+
+    if (empMatchConditions.length > 0) {
+      const todayRecords = await Consumption.find({
+        category: 'staff_meal',
+        status: { $in: ['pending', 'approved'] },
+        deletedAt: null,
+        date: { $gte: startOfDay, $lte: endOfDay },
+        $or: empMatchConditions,
+      }).lean();
+
+      let totalPortionsConsumedToday = 0;
+      const productUsageToday = {};
+      for (const rec of todayRecords) {
+        for (const itm of rec.items || []) {
+          const pId = String(itm.product?._id || itm.product);
+          const q = Number(itm.quantity) || 1;
+          totalPortionsConsumedToday += q;
+          productUsageToday[pId] = (productUsageToday[pId] || 0) + q;
+        }
+      }
+
+      const overallDailyLimit = Number(employeeDoc?.dailyMealLimit) || 1;
+      const mealLimitsMap = {};
+      for (const ml of employeeDoc?.mealLimits || []) {
+        const pId = String(ml.product?._id || ml.product);
+        mealLimitsMap[pId] = Number(ml.maxPerDay) || 1;
+      }
+
+      let requestedNewPortions = 0;
+      for (const itm of items) {
+        const pId = String(itm.product);
+        const reqQty = Number(itm.quantity) || 1;
+        requestedNewPortions += reqQty;
+
+        const maxForThisItem = mealLimitsMap[pId] || 1;
+        const usedForThisItem = productUsageToday[pId] || 0;
+
+        if (usedForThisItem + reqQty > maxForThisItem) {
+          const prodDoc = await Product.findById(pId).lean();
+          const pName = prodDoc?.name || 'this item';
+          res.status(400);
+          throw new Error(
+            `Daily meal limit reached: ${beneficiary || 'Staff'} has already ordered "${pName}" today (${usedForThisItem}/${maxForThisItem} used). Daily allowance is ${maxForThisItem} portion per day.`
+          );
+        }
+      }
+
+      if (totalPortionsConsumedToday + requestedNewPortions > overallDailyLimit) {
+        res.status(400);
+        throw new Error(
+          `Daily meal quota reached: ${beneficiary || 'Staff'} has already ordered ${totalPortionsConsumedToday}/${overallDailyLimit} meal portions today. Allowed limit is ${overallDailyLimit} per day.`
+        );
+      }
+    }
+  }
+
   const shouldAutoApprove = req.body.autoApprove !== undefined ? Boolean(req.body.autoApprove) : isStaffMeal;
 
   const record = await Consumption.create({
@@ -131,6 +234,7 @@ const createConsumption = asyncHandler(async (req, res) => {
     category,
     date: date ? new Date(date) : new Date(),
     beneficiary: beneficiary || '',
+    employee: employeeDoc?._id || req.body.employee || undefined,
     pax: Number(pax) || 1,
     department: department || '',
     items: resolvedItems,
@@ -159,6 +263,7 @@ const createConsumption = asyncHandler(async (req, res) => {
 
   const populated = await Consumption.findById(record._id)
     .populate('items.product', 'name code uom')
+    .populate('employee', 'firstName lastName department position dailyMealLimit mealLimits')
     .populate('performedBy approvedBy', 'name')
     .lean();
 

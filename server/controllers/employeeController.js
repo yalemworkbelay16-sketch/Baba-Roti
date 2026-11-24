@@ -24,6 +24,7 @@ const getEmployees = asyncHandler(async (req, res) => {
 
   const employees = await Employee.find(filter)
     .populate('allowedProducts', 'name code uom sellingPrice category station parentCategory')
+    .populate('mealLimits.product', 'name code uom sellingPrice category station parentCategory')
     .sort({ department: 1, firstName: 1 })
     .lean();
   res.json(employees);
@@ -35,7 +36,7 @@ const getDepartments = asyncHandler(async (req, res) => {
 
 // ── POST /api/employees ───────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
-  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts } = req.body;
+  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts, dailyMealLimit, mealLimits } = req.body;
 
   if (!firstName || !lastName) {
     res.status(400); throw new Error('First name and last name are required.');
@@ -54,6 +55,8 @@ const createEmployee = asyncHandler(async (req, res) => {
     notes: notes || '',
     photoUrl: photoUrl || '',
     allowedProducts: Array.isArray(allowedProducts) ? allowedProducts : [],
+    dailyMealLimit:  Number(dailyMealLimit) || 1,
+    mealLimits:      Array.isArray(mealLimits) ? mealLimits : [],
   });
 
   tg.notifyEmployeeCreated(emp, req.user);
@@ -77,7 +80,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const emp = await Employee.findById(req.params.id);
   if (!emp || emp.deletedAt) { res.status(404); throw new Error('Employee not found'); }
 
-  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts'];
+  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts', 'dailyMealLimit', 'mealLimits'];
   fields.forEach(f => {
     if (req.body[f] !== undefined) {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];
@@ -86,8 +89,8 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
   await emp.save();
 
-  // Sync allowed meal quota to matching User record if one exists by email or name
-  if (req.body.allowedProducts !== undefined) {
+  // Sync allowed meal quota and daily limits to matching User record if one exists by email or name
+  if (req.body.allowedProducts !== undefined || req.body.dailyMealLimit !== undefined || req.body.mealLimits !== undefined) {
     try {
       const User = require('../models/User');
       const userMatch = await User.findOne({
@@ -97,7 +100,9 @@ const updateEmployee = asyncHandler(async (req, res) => {
         ]
       });
       if (userMatch) {
-        userMatch.allowedProducts = emp.allowedProducts;
+        if (req.body.allowedProducts !== undefined) userMatch.allowedProducts = emp.allowedProducts;
+        if (req.body.dailyMealLimit !== undefined) userMatch.dailyMealLimit = emp.dailyMealLimit;
+        if (req.body.mealLimits !== undefined) userMatch.mealLimits = emp.mealLimits;
         await userMatch.save();
       }
     } catch (_) { }
@@ -118,6 +123,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
   const populated = await Employee.findById(emp._id)
     .populate('allowedProducts', 'name code uom sellingPrice category station parentCategory')
+    .populate('mealLimits.product', 'name code uom sellingPrice category station parentCategory')
     .lean();
 
   res.json(populated || emp);

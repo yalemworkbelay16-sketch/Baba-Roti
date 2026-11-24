@@ -67,6 +67,7 @@ const consumptionSchema = new mongoose.Schema(
 
     // Who consumed / beneficiary
     beneficiary: { type: String, trim: true, default: '' }, // e.g. "5 Staff on night shift" or "Mr. John - VIP Guest"
+    employee:    { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }, // Direct reference to Employee if staff meal
     pax:         { type: Number, default: 1 },              // number of people
     department:  { type: String, trim: true, default: '' }, // e.g. Kitchen, F&B, Housekeeping
 

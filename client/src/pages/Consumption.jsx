@@ -66,6 +66,8 @@ export default function Consumption() {
   const [allowedMealsModalOpen, setAllowedMealsModalOpen] = useState(false);
   const [selectedEmpForQuotaId, setSelectedEmpForQuotaId] = useState('');
   const [selectedProductIdsForQuota, setSelectedProductIdsForQuota] = useState(new Set());
+  const [quotaDailyMealLimit, setQuotaDailyMealLimit] = useState(1);
+  const [productDailyLimits, setProductDailyLimits] = useState({});
   const [quotaSearchQuery, setQuotaSearchQuery] = useState('');
   const [quotaCategoryFilter, setQuotaCategoryFilter] = useState('');
   const [savingAllowedMeals, setSavingAllowedMeals] = useState(false);
@@ -263,6 +265,67 @@ export default function Consumption() {
     return products.filter(p => allowedProductIds.has(String(p._id)));
   }, [products, form.category, allowedProductIds, isPrivileged]);
 
+  // ── Calculate today's staff meal consumption for currently selected employee / user ──
+  const todayEmployeeConsumption = useMemo(() => {
+    if (form.category !== 'staff_meal') return { totalPortions: 0, byProduct: {}, recordsToday: [] };
+
+    const empName = (form.beneficiary || '').trim().toLowerCase();
+    const empId = selectedEmployeeObj?._id ? String(selectedEmployeeObj._id) : null;
+    const userId = user?._id ? String(user._id) : null;
+    const todayStr = new Date().toDateString();
+
+    const matchingRecords = (records || []).filter(r => {
+      if (r.category !== 'staff_meal' || r.status === 'voided') return false;
+      if (new Date(r.date).toDateString() !== todayStr) return false;
+
+      const rBeneficiary = String(r.beneficiary || '').trim().toLowerCase();
+      const rEmpId = r.employee ? String(r.employee?._id || r.employee) : null;
+      const rPerfId = r.performedBy ? String(r.performedBy?._id || r.performedBy) : null;
+
+      if (empId && rEmpId && rEmpId === empId) return true;
+      if (empName && rBeneficiary === empName) return true;
+      if (!isPrivileged && (rPerfId === userId || rBeneficiary === String(user?.name || '').trim().toLowerCase())) return true;
+      return false;
+    });
+
+    let totalPortions = 0;
+    const byProduct = {};
+    for (const rec of matchingRecords) {
+      for (const itm of rec.items || []) {
+        const pId = String(itm.product?._id || itm.product);
+        const q = Number(itm.quantity) || 1;
+        totalPortions += q;
+        byProduct[pId] = (byProduct[pId] || 0) + q;
+      }
+    }
+
+    return { totalPortions, byProduct, recordsToday: matchingRecords };
+  }, [records, form.category, form.beneficiary, selectedEmployeeObj, user, isPrivileged]);
+
+  // Overall daily meal limit (portions per day)
+  const dailyMealLimit = useMemo(() => {
+    if (!isPrivileged && currentUserEmployee?.dailyMealLimit) {
+      return Number(currentUserEmployee.dailyMealLimit);
+    }
+    if (selectedEmployeeObj?.dailyMealLimit) {
+      return Number(selectedEmployeeObj.dailyMealLimit);
+    }
+    return 1; // Default 1 portion/meal per day
+  }, [isPrivileged, currentUserEmployee, selectedEmployeeObj]);
+
+  // Per-product daily limit map
+  const productDailyLimitsMap = useMemo(() => {
+    const map = {};
+    const emp = !isPrivileged ? currentUserEmployee : selectedEmployeeObj;
+    (emp?.mealLimits || []).forEach(ml => {
+      const pId = String(ml.product?._id || ml.product);
+      map[pId] = Number(ml.maxPerDay) || 1;
+    });
+    return map;
+  }, [isPrivileged, currentUserEmployee, selectedEmployeeObj]);
+
+  const isDailyQuotaReached = form.category === 'staff_meal' && todayEmployeeConsumption.totalPortions >= dailyMealLimit;
+
   /* ── form helpers ── */
   const openCreate = () => {
     setEditing(null);
@@ -344,6 +407,13 @@ export default function Consumption() {
     const empId = targetEmp?._id || '';
     setSelectedEmpForQuotaId(empId);
     setSelectedProductIdsForQuota(new Set((targetEmp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+    setQuotaDailyMealLimit(Number(targetEmp?.dailyMealLimit) || 1);
+    const limits = {};
+    (targetEmp?.mealLimits || []).forEach(ml => {
+      const pId = String(ml.product?._id || ml.product);
+      limits[pId] = Number(ml.maxPerDay) || 1;
+    });
+    setProductDailyLimits(limits);
     setQuotaSearchQuery('');
     setQuotaCategoryFilter('');
     setAllowedMealsModalOpen(true);
@@ -385,11 +455,16 @@ export default function Consumption() {
       const targetEmp = employees.find(e => e._id === selectedEmpForQuotaId);
       const res = await api.put(`/employees/${selectedEmpForQuotaId}`, {
         allowedProducts: Array.from(selectedProductIdsForQuota),
+        dailyMealLimit: Math.max(1, Number(quotaDailyMealLimit) || 1),
+        mealLimits: Array.from(selectedProductIdsForQuota).map(pId => ({
+          product: pId,
+          maxPerDay: Math.max(1, Number(productDailyLimits[pId]) || 1),
+        })),
       });
       const updatedEmp = res.data;
       setEmployees(prev => prev.map(e => e._id === selectedEmpForQuotaId ? updatedEmp : e));
       const empName = `${targetEmp?.firstName || ''} ${targetEmp?.lastName || ''}`.trim() || 'Employee';
-      setSuccessToast(`🍽️ Allowed meal quota for ${empName} saved successfully! (${selectedProductIdsForQuota.size} allowed items)`);
+      setSuccessToast(`🍽️ Allowed meal quota for ${empName} saved! (Limit: ${quotaDailyMealLimit}/day, ${selectedProductIdsForQuota.size} allowed items)`);
       setAllowedMealsModalOpen(false);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save allowed meals.');
@@ -419,9 +494,39 @@ export default function Consumption() {
         return;
       }
 
+      // Check daily meal limit before submitting
+      if (!isPrivileged && form.category === 'staff_meal' && isDailyQuotaReached) {
+        setFormError(`Daily meal limit reached: You have already consumed your allowed meal for today (${todayEmployeeConsumption.totalPortions}/${dailyMealLimit} portions used). Daily allowance resets tomorrow.`);
+        setSubmitting(false);
+        return;
+      }
+
+      if (form.category === 'staff_meal' && !isPrivileged) {
+        let requestedPortions = 0;
+        for (const item of cleanItems) {
+          const pId = String(item.product);
+          const q = Number(item.quantity) || 1;
+          requestedPortions += q;
+          const usedForP = todayEmployeeConsumption.byProduct[pId] || 0;
+          const maxForP = productDailyLimitsMap[pId] || 1;
+          if (usedForP + q > maxForP) {
+            const prod = products.find(p => String(p._id) === pId);
+            setFormError(`Daily limit exceeded for "${prod?.name || 'this item'}": Already ordered ${usedForP}/${maxForP} today. Limit is ${maxForP} portion per day.`);
+            setSubmitting(false);
+            return;
+          }
+        }
+        if (todayEmployeeConsumption.totalPortions + requestedPortions > dailyMealLimit) {
+          setFormError(`Daily meal quota exceeded: You can only order ${Math.max(0, dailyMealLimit - todayEmployeeConsumption.totalPortions)} more portion(s) today (Limit: ${dailyMealLimit} per day).`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         ...form,
         items: cleanItems,
+        employee: selectedEmployeeObj?._id || currentUserEmployee?._id || undefined,
         autoApprove: form.category === 'staff_meal',
       };
 
@@ -476,11 +581,13 @@ export default function Consumption() {
             createdAt: new Date(),
           };
 
-          // Dispatch print ticket to Kitchen & Bar thermal printers
-          await dispatchPrint('kot', createdOrder, { businessName: 'Baba Roti Café' });
-          posPrint.printKOT(createdOrder, { businessName: 'Baba Roti Café' });
+          // Dispatch print ticket directly to Kitchen & Bar thermal order printers like POS ordering (no browser popup)
+          await dispatchPrint('kot', createdOrder, {
+            businessName: 'Baba Roti Café',
+            fallbackBrowser: false,
+          });
 
-          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted from Kitchen & Bar and KOT printed to kitchen.`);
+          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted from Kitchen & Bar and order sent directly to kitchen printer.`);
         } catch (kotErr) {
           console.warn('Captain order / KOT dispatch error:', kotErr);
           setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} recorded & auto-approved! (Stock deducted)`);
@@ -951,41 +1058,60 @@ export default function Consumption() {
                   </div>
                 </div>
               ) : (
-                <div className={`p-2.5 rounded-xl border text-xs font-semibold mb-2.5 flex items-center justify-between transition-all ${allowedProductIds && allowedProductIds.size > 0
-                  ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
-                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                <div className={`p-3 rounded-xl border text-xs font-semibold mb-2.5 transition-all ${
+                  isDailyQuotaReached
+                    ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs'
+                    : allowedProductIds && allowedProductIds.size > 0
+                      ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
+                      : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                   }`}>
-                  <div className="flex items-center gap-2">
-                    <UtensilsCrossed size={15} className={allowedProductIds && allowedProductIds.size > 0 ? 'text-amber-600' : 'text-emerald-600'} />
-                    <div>
-                      {allowedProductIds && allowedProductIds.size > 0 ? (
-                        <div>
-                          <span>Allowed staff meal for <strong>{selectedEmployeeObj ? `${selectedEmployeeObj.firstName || ''} ${selectedEmployeeObj.lastName || ''}`.trim() : (form.beneficiary || 'Staff')}</strong>:</span>
-                          <span className="ml-1 text-amber-800 font-normal">
-                            ({availableProducts.map(p => p.name).join(', ')})
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <UtensilsCrossed size={16} className={`shrink-0 mt-0.5 ${
+                        isDailyQuotaReached ? 'text-rose-600' : (allowedProductIds && allowedProductIds.size > 0 ? 'text-amber-600' : 'text-emerald-600')
+                      }`} />
+                      <div className="min-w-0">
+                        {allowedProductIds && allowedProductIds.size > 0 ? (
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span>Allowed staff meal for <strong>{selectedEmployeeObj ? `${selectedEmployeeObj.firstName || ''} ${selectedEmployeeObj.lastName || ''}`.trim() : (form.beneficiary || 'Staff')}</strong>:</span>
+                              <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
+                                {availableProducts.length} Items Allowed
+                              </span>
+                            </div>
+                            <p className="text-amber-800 font-normal text-[11px] mt-0.5 truncate">
+                              ({availableProducts.map(p => p.name).join(', ')})
+                            </p>
+                          </div>
+                        ) : (
+                          <span>All menu items allowed for <strong>{form.beneficiary || 'Staff'}</strong> (no quota restriction)</span>
+                        )}
+                        {/* Daily Limit Tracker Badge */}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
+                            isDailyQuotaReached
+                              ? 'bg-rose-200 text-rose-950'
+                              : 'bg-emerald-100 text-emerald-900'
+                          }`}>
+                            <Clock size={11} />
+                            Daily Quota: {todayEmployeeConsumption.totalPortions} / {dailyMealLimit} portion(s) ordered today
+                            {isDailyQuotaReached ? ' (Limit Reached - Resets Tomorrow)' : ` (${Math.max(0, dailyMealLimit - todayEmployeeConsumption.totalPortions)} remaining today)`}
                           </span>
                         </div>
-                      ) : (
-                        <span>All menu items allowed for <strong>{form.beneficiary || 'Staff'}</strong> (no quota restriction)</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {canManageStaffMeals && (
+                        <button
+                          type="button"
+                          onClick={() => openAllowedMealsModal(form.beneficiary)}
+                          className="text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
+                          title="Configure allowed meals and daily limits for this employee"
+                        >
+                          <Settings2 size={11} /> {allowedProductIds && allowedProductIds.size > 0 ? 'Edit Quota' : '+ Set Allowed Meals'}
+                        </button>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {allowedProductIds && allowedProductIds.size > 0 && (
-                      <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
-                        {availableProducts.length} Items Allowed
-                      </span>
-                    )}
-                    {canManageStaffMeals && (
-                      <button
-                        type="button"
-                        onClick={() => openAllowedMealsModal(form.beneficiary)}
-                        className="text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
-                        title="Configure allowed meals for this employee"
-                      >
-                        <Settings2 size={11} /> {allowedProductIds && allowedProductIds.size > 0 ? 'Edit Quota' : '+ Set Allowed Meals'}
-                      </button>
-                    )}
                   </div>
                 </div>
               )
@@ -1000,11 +1126,23 @@ export default function Consumption() {
                   <SearchableSelect
                     required
                     placeholder="Search product…"
-                    options={availableProducts.map(p => ({
-                      value: p._id,
-                      label: `${p.name} (${p.uom})`,
-                      sublabel: p.sellingPrice ? `Price: ETB ${p.sellingPrice}` : (p.category || ''),
-                    }))}
+                    options={availableProducts.map(p => {
+                      const pId = String(p._id);
+                      const usedToday = todayEmployeeConsumption.byProduct[pId] || 0;
+                      const maxToday = productDailyLimitsMap[pId] || 1;
+                      const remToday = Math.max(0, maxToday - usedToday);
+                      const isItemLimitReached = usedToday >= maxToday;
+                      return {
+                        value: p._id,
+                        label: isItemLimitReached
+                          ? `⚠️ ${p.name} (${usedToday}/${maxToday} ordered today - Limit reached)`
+                          : `${p.name} (${remToday} left today)`,
+                        sublabel: isItemLimitReached
+                          ? `Daily limit reached for today`
+                          : (p.sellingPrice ? `Price: ETB ${p.sellingPrice} · ${p.category || 'Menu'}` : (p.category || 'Menu')),
+                        disabled: isItemLimitReached && !isPrivileged,
+                      };
+                    })}
                     value={item.product}
                     onChange={val => updateItem(idx, 'product', val)}
                   />
@@ -1045,7 +1183,7 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(false)}
-                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
+                    disabled={submitting || (!isPrivileged && (availableProducts.length === 0 || isDailyQuotaReached))}
                     className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save consumption record only without printing KOT ticket"
                   >
@@ -1054,7 +1192,7 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(true)}
-                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
+                    disabled={submitting || (!isPrivileged && (availableProducts.length === 0 || isDailyQuotaReached))}
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Printer size={15} />
@@ -1063,7 +1201,9 @@ export default function Consumption() {
                         ? 'Ordering & Printing…'
                         : (!isPrivileged && availableProducts.length === 0)
                           ? 'No Allowed Meals Configured'
-                          : '🍽️ Order & Print Captain Order'}
+                          : (!isPrivileged && isDailyQuotaReached)
+                            ? 'Daily Quota Reached for Today'
+                            : '🍽️ Order & Print Captain Order'}
                     </span>
                   </button>
                 </>
@@ -1244,6 +1384,13 @@ export default function Consumption() {
                 setSelectedEmpForQuotaId(empId);
                 const emp = employees.find(x => x._id === empId);
                 setSelectedProductIdsForQuota(new Set((emp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+                setQuotaDailyMealLimit(Number(emp?.dailyMealLimit) || 1);
+                const limits = {};
+                (emp?.mealLimits || []).forEach(ml => {
+                  const pId = String(ml.product?._id || ml.product);
+                  limits[pId] = Number(ml.maxPerDay) || 1;
+                });
+                setProductDailyLimits(limits);
               }}
               className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 outline-none focus:border-indigo-500 shadow-2xs"
             >
@@ -1253,6 +1400,47 @@ export default function Consumption() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Daily Meal Frequency & Portion Limit */}
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="block text-xs font-bold text-ink-800">
+                  Daily Meal Limit (Max Meals Allowed Per Day)
+                </label>
+                <p className="text-[11px] text-ink-500">
+                  How many times or meal portions this employee can order per day without approval.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3].map(cnt => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => setQuotaDailyMealLimit(cnt)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      quotaDailyMealLimit === cnt
+                        ? 'bg-indigo-600 text-white shadow-2xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {cnt} / day
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5">
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={quotaDailyMealLimit}
+                    onChange={(e) => setQuotaDailyMealLimit(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-10 text-center text-xs font-bold outline-none text-ink-900"
+                  />
+                  <span className="text-[10px] text-slate-400 font-medium">max/day</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Product Filter & Live Search */}
@@ -1349,7 +1537,28 @@ export default function Consumption() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0 ml-3">
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      {isSelected && (
+                        <div
+                          className="flex items-center gap-1 bg-white border border-indigo-200 rounded-md px-1.5 py-0.5 shadow-2xs"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Daily limit for this specific item"
+                        >
+                          <span className="text-[9.5px] font-bold text-indigo-700">Limit:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={productDailyLimits[p._id] || 1}
+                            onChange={(e) => {
+                              const val = Math.max(1, Number(e.target.value) || 1);
+                              setProductDailyLimits(prev => ({ ...prev, [p._id]: val }));
+                            }}
+                            className="w-7 text-center text-[11px] font-bold text-indigo-950 outline-none"
+                          />
+                          <span className="text-[9px] text-slate-400">/day</span>
+                        </div>
+                      )}
                       <span className="text-xs font-bold text-ink-700">
                         ETB {Number(p.sellingPrice || 0).toLocaleString()}
                       </span>
