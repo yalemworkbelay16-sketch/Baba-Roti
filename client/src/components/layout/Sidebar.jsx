@@ -370,17 +370,22 @@ const Sidebar = ({
       let kitchen = 0, bar = 0;
       data.forEach((m) => {
         const cat = String(m.category || '').toLowerCase();
+        const name = String(m.name || '').toLowerCase();
         const kVal = Number(m.kitchenStock || 0);
         const bVal = Number(m.barStock || 0);
-        const isBar = cat === 'bar' || /beverage|drink|coffee|tea|juice/i.test(cat);
+        const isBar = cat === 'bar' || /beverage|drink|coffee|tea|juice|soda|beer|wine|liquor|spirit/i.test(cat) || /coffee|tea|latte|espresso|juice|beer|wine/i.test(name);
         const isKitchen =
           cat === 'kitchen' ||
           cat === 'ferash bazare' ||
+          cat === 'fresh bazar' ||
           cat === 'mendi' ||
           cat === 'pastery' ||
-          /food|produce|meat|poultry|dairy|bakery/i.test(cat);
+          cat === 'pastry' ||
+          cat === 'food' ||
+          /food|produce|meat|poultry|dairy|egg|bakery|grain|spice|seasoning|oil|injera/i.test(cat) ||
+          /meat|siga|shinkurt|onion|tomato|tibs|injera|bread|oil|flour|butter/i.test(name);
         if (isKitchen || kVal > 0) kitchen++;
-        if (isBar || bVal > 0) bar++;
+        if ((isBar || bVal > 0) && !isKitchen) bar++;
       });
       // Main Store holds ALL materials because everything arrives & starts at Main Store
       setStationCounts({ all: data.length, main: data.length, kitchen, bar });

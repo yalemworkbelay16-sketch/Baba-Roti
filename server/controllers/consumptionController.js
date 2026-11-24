@@ -35,9 +35,10 @@ async function applyConsumptionStock(items, reverse = false) {
       const recipeUnit = (ing.unit || mat.unit || '').trim();
       const qty = convertUnit(recipeQty, recipeUnit, mat.unit);
 
+      const prodStation = product ? determineProductStation(product, settings?.stationCategoryMapping) : null;
       const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
         ? mat.productionStation
-        : determineMaterialStation(mat, settings?.stationCategoryMapping);
+        : determineMaterialStation(mat, settings?.stationCategoryMapping, prodStation);
 
       if (targetStation === 'bar') {
         mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));

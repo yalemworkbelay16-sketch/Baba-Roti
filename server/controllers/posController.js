@@ -152,7 +152,7 @@ const createOrder = asyncHandler(async (req, res) => {
         // Otherwise determine station based on category mapping.
         let targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
           ? mat.productionStation
-          : determineMaterialStation(mat, settings?.stationCategoryMapping);
+          : determineMaterialStation(mat, settings?.stationCategoryMapping, station);
 
         lineIngredients.push({
           materialId: mat._id,

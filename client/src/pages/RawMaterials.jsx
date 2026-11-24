@@ -135,19 +135,34 @@ const RawMaterials = () => {
   }, []);
 
   const getMaterialStation = (m) => {
+    if (m?.isProduced && m?.productionStation && m?.productionStation !== 'none') {
+      return m.productionStation;
+    }
     const cat = String(m?.category || '').trim();
     if (stationMapping[cat]) return stationMapping[cat];
     const loc = String(m?.storeLocation || '').toLowerCase();
-    if (loc.includes('kitchen')) return 'kitchen';
-    if (loc.includes('bar')) return 'bar';
+    if (loc.includes('kitchen') && !loc.includes('main')) return 'kitchen';
+    if (loc.includes('bar') && !loc.includes('main')) return 'bar';
     const lower = cat.toLowerCase();
-    if (lower === 'bar' || /beverage|drink|coffee|tea|juice|soda|beer|wine|water/i.test(lower)) return 'bar';
+    const lowerName = String(m?.name || '').toLowerCase();
+    if (
+      lower === 'bar' ||
+      /beverage|drink|coffee|tea|juice|soda|beer|wine|water|liquor|spirit/i.test(lower) ||
+      /coffee|tea|espresso|latte|cappuccino|macchiato|juice|smoothie|soda|cocktail|beer|wine/i.test(lowerName)
+    ) {
+      return 'bar';
+    }
     if (
       lower === 'kitchen' ||
       lower === 'ferash bazare' ||
+      lower === 'fresh bazar' ||
+      lower === 'fresh bazaar' ||
       lower === 'mendi' ||
       lower === 'pastery' ||
-      /produce|meat|poultry|dairy|bakery|grains|spices|food|fresh|fruit|veg/i.test(lower)
+      lower === 'pastry' ||
+      lower === 'food' ||
+      /produce|meat|poultry|dairy|egg|bakery|grain|spice|seasoning|food|fresh|fruit|veg|oil|sauce|salt|sugar|flour|injera/i.test(lower) ||
+      /meat|siga|shinkurt|onion|tomato|tibs|injera|bread|flour|butter|oil|egg|spice|garlic|ginger/i.test(lowerName)
     ) {
       return 'kitchen';
     }
@@ -197,7 +212,7 @@ const RawMaterials = () => {
       }
       if (stationFilter === 'bar') {
         const bVal = Number(m.barStock || 0);
-        return st === 'bar' || bVal > 0;
+        return st === 'bar' || (bVal > 0 && st !== 'kitchen');
       }
       // Main Store holds 100% of materials as central mother warehouse
       return true;
@@ -236,7 +251,7 @@ const RawMaterials = () => {
       const kVal = Number(m.kitchenStock || 0);
       const bVal = Number(m.barStock || 0);
       if (st === 'kitchen' || kVal > 0) kitchen++;
-      if (st === 'bar' || bVal > 0) bar++;
+      if (st === 'bar' || (bVal > 0 && st !== 'kitchen')) bar++;
     });
     // Main Store is the mother warehouse holding ALL items (161 / 100%)
     return { all: materials.length, main: materials.length, kitchen, bar };

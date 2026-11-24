@@ -772,9 +772,10 @@ const importSales = asyncHandler(async (req, res) => {
           const ingCost = (Number(mat.unitCost) || 0) * deductQty;
           cogs += ingCost;
           materialDeductions[matId] = (materialDeductions[matId] || 0) + deductQty;
+          const prodStation = product ? determineProductStation(product, settings?.stationCategoryMapping) : null;
           const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
             ? mat.productionStation
-            : determineMaterialStation(mat, settings?.stationCategoryMapping);
+            : determineMaterialStation(mat, settings?.stationCategoryMapping, prodStation);
           const sKey = `${matId}_${targetStation}`;
           stationDeductions[sKey] = (stationDeductions[sKey] || 0) + deductQty;
           lineIngredients.push({
