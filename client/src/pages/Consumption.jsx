@@ -115,34 +115,6 @@ export default function Consumption() {
       .catch(() => setEmployees([]));
   }, []);
 
-  /* ── filtered + paginated ── */
-  const filtered = useMemo(() => {
-    const safe = Array.isArray(records) ? records : [];
-    // If not privileged (dev / admin), only show records belonging to the current user
-    const scoped = isPrivileged
-      ? safe
-      : safe.filter(r => {
-        if (!r.beneficiary) return false;
-        const b = r.beneficiary.toLowerCase();
-        const myName = (user?.name || '').trim().toLowerCase();
-        const myEmpName = currentUserEmployee
-          ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim().toLowerCase()
-          : '';
-        return (myEmpName && (b.includes(myEmpName) || myEmpName.includes(b))) ||
-          (myName && (b.includes(myName) || myName.includes(b)));
-      });
-
-    if (!search) return scoped;
-    const q = search.toLowerCase();
-    return scoped.filter(r =>
-      r.voucherNo?.toLowerCase().includes(q) ||
-      r.beneficiary?.toLowerCase().includes(q) ||
-      r.department?.toLowerCase().includes(q)
-    );
-  }, [records, search, isPrivileged, user, currentUserEmployee]);
-
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
   /* ── Current user & role-based employee scoping ── */
   const currentUserEmployee = useMemo(() => {
     if (!user) return null;
@@ -194,6 +166,34 @@ export default function Consumption() {
       allowedProducts: user?.allowedProducts || [],
     };
   }, [user, employees, isPrivileged]);
+
+  /* ── filtered + paginated ── */
+  const filtered = useMemo(() => {
+    const safe = Array.isArray(records) ? records : [];
+    // If not privileged (dev / admin), only show records belonging to the current user
+    const scoped = isPrivileged
+      ? safe
+      : safe.filter(r => {
+        if (!r.beneficiary) return false;
+        const b = r.beneficiary.toLowerCase();
+        const myName = (user?.name || '').trim().toLowerCase();
+        const myEmpName = currentUserEmployee
+          ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim().toLowerCase()
+          : '';
+        return (myEmpName && (b.includes(myEmpName) || myEmpName.includes(b))) ||
+          (myName && (b.includes(myName) || myName.includes(b)));
+      });
+
+    if (!search) return scoped;
+    const q = search.toLowerCase();
+    return scoped.filter(r =>
+      r.voucherNo?.toLowerCase().includes(q) ||
+      r.beneficiary?.toLowerCase().includes(q) ||
+      r.department?.toLowerCase().includes(q)
+    );
+  }, [records, search, isPrivileged, user, currentUserEmployee]);
+
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   // Selectable employees: Dev and Admin see ALL employees.
   // Other staff are locked strictly to their own identity.
