@@ -36,7 +36,6 @@ const UNITS = [
   { group: 'Length', items: ['Metre (m)', 'Centimetre (cm)'] },
   { group: 'Other', items: ['Portion', 'Serving', 'Tray', 'Batch', 'Pair', 'Set'] },
 ];
-
 // Common categories for hospitality / kitchen / store
 const CATEGORIES = [
   { group: 'Food & Kitchen', items: ['Produce', 'Meat & Poultry', 'Fish & Seafood', 'Dairy & Eggs', 'Bakery & Pastry', 'Grains', 'Spices & Seasonings', 'Pantry', 'Frozen Foods'] },
@@ -641,7 +640,7 @@ const RawMaterials = () => {
           key: 'mainStoreStock',
           header: (
             <span className="inline-flex items-center gap-1.5 text-white font-bold uppercase tracking-wider" title="Main Store Central Warehouse">
-              <Warehouse size={13} className="text-sky-300" /> Main Store
+              <Warehouse size={13} className="text-sky-300" /> Main Store Item
             </span>
           ),
           render: (r) => {
@@ -1003,7 +1002,7 @@ const RawMaterials = () => {
         <div className="flex items-center gap-2.5 flex-wrap pr-1">
           {stationFilter !== 'all' && (
             <span className="text-[11px] font-semibold text-ink-500">
-              Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter === 'main' ? 'Main Store' : stationFilter} Station</strong>
+              Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter === 'main' ? 'Main Store Item' : stationFilter} Station</strong>
             </span>
           )}
           {!isStationRestricted && hasRole('admin', 'manager') && (
@@ -1397,11 +1396,11 @@ const RawMaterials = () => {
                   });
                 }}
                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation === 'Main Store' || (!form.storeLocation?.includes('Kitchen') && !form.storeLocation?.includes('Bar'))
-                    ? 'border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20 shadow-2xs'
-                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  ? 'border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20 shadow-2xs'
+                  : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
                   }`}
               >
-                <span className="flex items-center gap-1">🏢 Main Store</span>
+                <span className="flex items-center gap-1">🏢 Main Store Item</span>
                 <span className="text-[9.5px] font-normal text-ink-500 mt-0.5">Central Warehouse</span>
               </button>
 
@@ -1421,8 +1420,8 @@ const RawMaterials = () => {
                   });
                 }}
                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation?.includes('Kitchen')
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-500/20 shadow-2xs'
-                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  ? 'border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-500/20 shadow-2xs'
+                  : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
                   }`}
               >
                 <span className="flex items-center gap-1">🍳 Kitchen Station</span>
@@ -1445,8 +1444,8 @@ const RawMaterials = () => {
                   });
                 }}
                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${form.storeLocation?.includes('Bar')
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20 shadow-2xs'
-                    : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20 shadow-2xs'
+                  : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
                   }`}
               >
                 <span className="flex items-center gap-1">☕ Bar Station</span>
