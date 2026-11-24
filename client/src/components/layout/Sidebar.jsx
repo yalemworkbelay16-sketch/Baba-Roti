@@ -349,13 +349,17 @@ const Sidebar = ({
     location.pathname.startsWith(p)
   );
 
+  const onStoresSub =
+    location.pathname === '/production' ||
+    (location.pathname === '/materials' && Boolean(location.search));
+
   const [stockOpen, setStockOpen] = useState(onTransactions);
   const [reportOpen, setReportOpen] = useState(onReports);
   const [inventoryOpen, setInventoryOpen] = useState(onInventory);
   const [financeOpen, setFinanceOpen] = useState(onFinance);
   const [staffOpen, setStaffOpen] = useState(onStaff);
   const [subsystemOpen, setSubsystemOpen] = useState(onSubsystem);
-  const [rawMaterialsSubOpen, setRawMaterialsSubOpen] = useState(true);
+  const [rawMaterialsSubOpen, setRawMaterialsSubOpen] = useState(onStoresSub);
 
   // Live item counts per station for sidebar badges
   const [stationCounts, setStationCounts] = useState(null);
@@ -763,7 +767,6 @@ const Sidebar = ({
                             label={t('nav.rawMaterials')}
                             icon={WidgetsRoundedIcon}
                             onClick={() => {
-                              setRawMaterialsSubOpen(true);
                               onClose && onClose();
                             }}
                             end={true}
