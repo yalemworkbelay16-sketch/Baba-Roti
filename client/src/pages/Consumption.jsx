@@ -3,7 +3,7 @@ import {
   Plus, Search, Trash2, Eye, X, CheckCircle, Ban,
   UtensilsCrossed, Users, Briefcase, BookOpen, Gift, FileText,
   RefreshCw, Pencil, Printer, Check, ShieldCheck, Lock,
-  Settings2,
+  Settings2, AlertCircle, UserCheck,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -41,7 +41,7 @@ const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFracti
 
 export default function Consumption() {
   const { user, can, hasRole } = useAuth();
-  const isPrivileged = ['dev', 'admin', 'manager'].includes(user?.role);
+  const isPrivileged = ['dev', 'admin'].includes(user?.role);
   const canManageStaffMeals = ['admin', 'dev'].includes(user?.role);
   const canCreate = can('recordGoods') || Boolean(user);
   const canApprove = can('approveGoods');
@@ -118,101 +118,191 @@ export default function Consumption() {
   /* ── filtered + paginated ── */
   const filtered = useMemo(() => {
     const safe = Array.isArray(records) ? records : [];
-    if (!search) return safe;
+    // If not privileged (dev / admin), only show records belonging to the current user
+    const scoped = isPrivileged
+      ? safe
+      : safe.filter(r => {
+        if (!r.beneficiary) return false;
+        const b = r.beneficiary.toLowerCase();
+        const myName = (user?.name || '').trim().toLowerCase();
+        const myEmpName = currentUserEmployee
+          ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim().toLowerCase()
+          : '';
+        return (myEmpName && (b.includes(myEmpName) || myEmpName.includes(b))) ||
+          (myName && (b.includes(myName) || myName.includes(b)));
+      });
+
+    if (!search) return scoped;
     const q = search.toLowerCase();
-    return safe.filter(r =>
+    return scoped.filter(r =>
       r.voucherNo?.toLowerCase().includes(q) ||
       r.beneficiary?.toLowerCase().includes(q) ||
       r.department?.toLowerCase().includes(q)
     );
-  }, [records, search]);
+  }, [records, search, isPrivileged, user, currentUserEmployee]);
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   /* ── Current user & role-based employee scoping ── */
   const currentUserEmployee = useMemo(() => {
-    if (!user || !employees.length) return null;
+    if (!user) return null;
     const userName = (user.name || '').trim().toLowerCase();
     const userEmail = (user.email || '').trim().toLowerCase();
     const userEmpId = (user.employeeId || '').trim().toLowerCase();
+    const userPhone = (user.phone || '').trim().replace(/\D/g, '');
+    const userRole = (user.role || '').trim().toLowerCase();
 
-    return employees.find(e => {
-      const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase();
-      const empEmail = (e.email || '').trim().toLowerCase();
-      const empId = (e.employeeId || '').trim().toLowerCase();
-      return (
-        (userEmpId && empId && userEmpId === empId) ||
-        (userEmail && empEmail && userEmail === empEmail) ||
-        (userName && fullName && (userName === fullName || fullName.includes(userName) || userName.includes(fullName)))
-      );
-    }) || null;
-  }, [user, employees]);
+    // 1. Search in employees list
+    if (employees.length > 0) {
+      if (userEmpId) {
+        const m = employees.find(e => (e.employeeId || '').trim().toLowerCase() === userEmpId);
+        if (m) return m;
+      }
+      if (userEmail) {
+        const m = employees.find(e => (e.email || '').trim().toLowerCase() === userEmail);
+        if (m) return m;
+      }
+      if (userPhone && userPhone.length >= 7) {
+        const m = employees.find(e => (e.phone || '').trim().replace(/\D/g, '').endsWith(userPhone.slice(-7)));
+        if (m) return m;
+      }
+      const exactName = employees.find(e => {
+        const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase();
+        return fullName === userName;
+      });
+      if (exactName) return exactName;
 
-  // Selectable employees: Dev, Admin, Manager can see ALL employees.
-  // Other staff see ONLY their own employee profile!
+      const partialName = employees.find(e => {
+        const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase();
+        return (fullName && userName && (fullName.includes(userName) || userName.includes(fullName)));
+      });
+      if (partialName) return partialName;
+
+      if (!isPrivileged && userRole) {
+        const roleMatch = employees.find(e => (e.position || '').toLowerCase().includes(userRole));
+        if (roleMatch) return roleMatch;
+      }
+    }
+
+    // 2. Fallback synthetic profile from user
+    return {
+      _id: user?._id || 'self',
+      firstName: user?.name?.split(' ')[0] || user?.name || 'Staff',
+      lastName: user?.name?.split(' ').slice(1).join(' ') || '',
+      department: user?.department || 'Staff',
+      position: user?.role || 'Staff',
+      allowedProducts: user?.allowedProducts || [],
+    };
+  }, [user, employees, isPrivileged]);
+
+  // Selectable employees: Dev and Admin see ALL employees.
+  // Other staff are locked strictly to their own identity.
   const selectableEmployees = useMemo(() => {
     if (isPrivileged) {
       return employees;
     }
-    if (currentUserEmployee) {
-      return [currentUserEmployee];
-    }
-    return [{
-      _id: user?._id || 'self',
-      firstName: user?.name?.split(' ')[0] || user?.name || 'My',
-      lastName: user?.name?.split(' ').slice(1).join(' ') || 'Account',
-      department: user?.department || 'Staff',
-      position: user?.role || 'Staff',
-      allowedProducts: user?.allowedProducts || [],
-    }];
-  }, [isPrivileged, employees, currentUserEmployee, user]);
+    return currentUserEmployee ? [currentUserEmployee] : [];
+  }, [isPrivileged, employees, currentUserEmployee]);
 
   // Find the selected employee object
+  // For non-privileged staff, this is ALWAYS strictly the current user's profile
+  // For privileged (admin / dev), resolves from form.beneficiary
   const selectedEmployeeObj = useMemo(() => {
     if (form.category !== 'staff_meal') return null;
-    if (!form.beneficiary) {
-      return !isPrivileged ? currentUserEmployee : null;
+    if (!isPrivileged) {
+      return currentUserEmployee;
     }
+    if (!form.beneficiary) return null;
     const cleanName = String(form.beneficiary).trim().toLowerCase();
     return employees.find(e => {
       const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase();
       return fullName === cleanName || cleanName.includes(fullName) || fullName.includes(cleanName);
-    }) || (!isPrivileged ? currentUserEmployee : null);
+    }) || null;
   }, [form.category, form.beneficiary, employees, isPrivileged, currentUserEmployee]);
 
-  // Allowed product IDs for the selected employee (empty means all allowed)
+  // Allowed product IDs for the selected employee:
+  // null = all menu products permitted (no quota restriction)
+  // Set with IDs = restricted strictly to these products
+  // empty Set = 0 allowed products configured (staff cannot order without admin quota)
   const allowedProductIds = useMemo(() => {
-    if (form.category !== 'staff_meal' || !selectedEmployeeObj) return null;
+    if (form.category !== 'staff_meal') return null;
+
+    if (!isPrivileged) {
+      const empList = Array.isArray(currentUserEmployee?.allowedProducts) ? currentUserEmployee.allowedProducts : [];
+      const userList = Array.isArray(user?.allowedProducts) ? user.allowedProducts : [];
+      const combined = [...empList, ...userList];
+      if (combined.length === 0) {
+        return new Set(); // 0 meals allowed -> alert user
+      }
+      return new Set(combined.map(p => (typeof p === 'object' && p !== null ? String(p._id) : String(p))));
+    }
+
+    // Privileged (admin / dev):
+    if (!selectedEmployeeObj) return null;
     const list = selectedEmployeeObj.allowedProducts;
     if (!Array.isArray(list) || list.length === 0) return null;
     return new Set(list.map(p => (typeof p === 'object' && p !== null ? String(p._id) : String(p))));
-  }, [form.category, selectedEmployeeObj]);
+  }, [form.category, selectedEmployeeObj, isPrivileged, currentUserEmployee, user]);
 
-  // Available products: filtered to allowed meal products when employee has quota restriction
+  // Available products: strictly filtered to allowed meal products
   const availableProducts = useMemo(() => {
-    if (form.category !== 'staff_meal' || !allowedProductIds) {
+    if (form.category !== 'staff_meal') {
+      return products;
+    }
+    if (!isPrivileged) {
+      // Non-privileged staff: if no allowed products configured, return empty list!
+      if (!allowedProductIds || allowedProductIds.size === 0) {
+        return [];
+      }
+      return products.filter(p => allowedProductIds.has(String(p._id)));
+    }
+    // Privileged (admin / dev):
+    if (!allowedProductIds) {
       return products;
     }
     return products.filter(p => allowedProductIds.has(String(p._id)));
-  }, [products, form.category, allowedProductIds]);
+  }, [products, form.category, allowedProductIds, isPrivileged]);
 
   /* ── form helpers ── */
   const openCreate = () => {
     setEditing(null);
     const defaultBeneficiary = !isPrivileged
-      ? (currentUserEmployee ? `${currentUserEmployee.firstName} ${currentUserEmployee.lastName}` : (user?.name || ''))
+      ? (currentUserEmployee ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim() : (user?.name || ''))
       : '';
     const defaultDept = !isPrivileged
       ? (currentUserEmployee?.department || user?.department || '')
       : '';
     setForm({
       ...emptyForm,
+      category: 'staff_meal',
       beneficiary: defaultBeneficiary,
       department: defaultDept,
     });
     setFormError('');
     setModalOpen(true);
   };
+
+  // Auto-synchronize beneficiary and department for non-privileged users whenever modal opens
+  useEffect(() => {
+    if (!isPrivileged && modalOpen && !editing) {
+      const empName = currentUserEmployee
+        ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim()
+        : (user?.name || '');
+      const empDept = currentUserEmployee?.department || user?.department || '';
+      setForm(f => {
+        if (f.beneficiary === empName && f.department === empDept && f.category === 'staff_meal') {
+          return f;
+        }
+        return {
+          ...f,
+          category: 'staff_meal',
+          beneficiary: empName,
+          department: empDept,
+        };
+      });
+    }
+  }, [modalOpen, isPrivileged, currentUserEmployee, user, editing]);
+
   const openEdit = (r) => {
     setEditing(r);
     setForm({
@@ -312,6 +402,12 @@ export default function Consumption() {
     setSubmitting(true);
     setFormError('');
     try {
+      if (!isPrivileged && form.category === 'staff_meal' && availableProducts.length === 0) {
+        setFormError('No allowed staff meals have been configured for your account. Please ask an Admin or Developer to assign your meals first.');
+        setSubmitting(false);
+        return;
+      }
+
       const cleanItems = form.items.filter(i => i.product).map(i => ({
         product: i.product,
         quantity: Number(i.quantity) || 1,
@@ -701,23 +797,33 @@ export default function Consumption() {
         <form onSubmit={(e) => { e.preventDefault(); handleSave(form.category === 'staff_meal'); }} className="space-y-4">
 
           {/* Category selector */}
-          <div>
-            <label className="block text-xs font-semibold text-ink-700 mb-2">Category *</label>
-            <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map(cat => {
-                const Icon = cat.icon;
-                const isActive = form.category === cat.key;
-                return (
-                  <button key={cat.key} type="button"
-                    onClick={() => setForm(f => ({ ...f, category: cat.key, beneficiary: '' }))}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border transition ${isActive ? `${cat.activeCls} text-white border-transparent` : 'bg-white border-ink-200 text-ink-600 hover:border-blue-400'
-                      }`}>
-                    <Icon size={12} /> {cat.label}
-                  </button>
-                );
-              })}
+          {!isPrivileged ? (
+            <div className="flex items-center gap-2.5 p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs text-emerald-900 shadow-2xs">
+              <UtensilsCrossed size={16} className="text-emerald-600 shrink-0" />
+              <div>
+                <span className="font-bold">Staff Meal Consumption</span>
+                <span className="text-emerald-700 font-normal ml-1.5">— Record daily staff meal order with direct captain KOT dispatch</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-semibold text-ink-700 mb-2">Category *</label>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIES.map(cat => {
+                  const Icon = cat.icon;
+                  const isActive = form.category === cat.key;
+                  return (
+                    <button key={cat.key} type="button"
+                      onClick={() => setForm(f => ({ ...f, category: cat.key, beneficiary: '' }))}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border transition ${isActive ? `${cat.activeCls} text-white border-transparent` : 'bg-white border-ink-200 text-ink-600 hover:border-blue-400'
+                        }`}>
+                      <Icon size={12} /> {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Date, Beneficiary, Pax, Department */}
           <div className="grid grid-cols-2 gap-3">
@@ -750,39 +856,63 @@ export default function Consumption() {
                     </button>
                   )}
                   {form.category === 'staff_meal' && !isPrivileged && (
-                    <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                      <Lock size={10} /> Scoped to you
+                    <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <Lock size={10} className="text-emerald-600" /> Auto-Assigned (You)
                     </span>
                   )}
                 </div>
               </div>
               {form.category === 'staff_meal' ? (
-                <div>
-                  <SearchableSelect
-                    required
-                    placeholder="Search and select employee…"
-                    options={selectableEmployees.map(e => ({
-                      value: `${e.firstName} ${e.lastName}`,
-                      label: `${e.firstName} ${e.lastName}`,
-                      sublabel: [e.department, e.position].filter(Boolean).join(' • '),
-                    }))}
-                    value={form.beneficiary}
-                    onChange={val => {
-                      const emp = employees.find(e => `${e.firstName} ${e.lastName}` === val);
-                      setForm(f => ({
-                        ...f,
-                        beneficiary: val,
-                        department: emp?.department || f.department,
-                      }));
-                    }}
-                    disabled={!isPrivileged && selectableEmployees.length <= 1}
-                  />
-                  {!isPrivileged && (
-                    <p className="text-[10.5px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
-                      <span>Employee selection is automatically locked to your assigned account.</span>
-                    </p>
-                  )}
-                </div>
+                !isPrivileged ? (
+                  /* Non-privileged: Clean locked card with own identity */
+                  <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 p-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                          {(currentUserEmployee?.firstName?.[0] || user?.name?.[0] || 'U').toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-ink-900 flex items-center gap-1.5">
+                            <span>{currentUserEmployee ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim() : (user?.name || 'Staff Member')}</span>
+                            <span className="text-[9.5px] font-bold bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-md border border-blue-200">
+                              Your Account
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink-500">
+                            {[currentUserEmployee?.department || user?.department, currentUserEmployee?.position || user?.role].filter(Boolean).join(' • ') || 'Staff Member'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-ink-500 flex items-center gap-1 bg-white/90 px-2 py-0.5 rounded-md border border-ink-150">
+                        <Lock size={10} className="text-amber-600" /> Locked
+                      </span>
+                    </div>
+                    <input type="hidden" value={form.beneficiary} required />
+                  </div>
+                ) : (
+                  /* Admin / Dev: Searchable Select of all employees */
+                  <div>
+                    <SearchableSelect
+                      required
+                      placeholder="Search and select employee…"
+                      options={employees.map(e => ({
+                        value: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+                        label: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+                        sublabel: [e.department, e.position].filter(Boolean).join(' • '),
+                        employee: e,
+                      }))}
+                      value={form.beneficiary}
+                      onChange={(val, raw) => {
+                        const emp = raw?.employee || employees.find(e => `${e.firstName || ''} ${e.lastName || ''}`.trim() === val);
+                        setForm(f => ({
+                          ...f,
+                          beneficiary: val,
+                          department: emp?.department || f.department,
+                        }));
+                      }}
+                    />
+                  </div>
+                )
               ) : (
                 <input value={form.beneficiary} placeholder="e.g. Mr. John VIP Guest"
                   onChange={e => setForm(f => ({ ...f, beneficiary: e.target.value }))}
@@ -793,7 +923,8 @@ export default function Consumption() {
               <label className="block text-xs font-semibold text-ink-700 mb-1">Department</label>
               <input value={form.department} placeholder="e.g. Kitchen, F&B, Front Office"
                 onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                readOnly={!isPrivileged && form.category === 'staff_meal'}
+                className={`w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 ${!isPrivileged && form.category === 'staff_meal' ? 'bg-slate-50 text-ink-600 cursor-not-allowed' : ''}`} />
             </div>
           </div>
 
@@ -809,43 +940,55 @@ export default function Consumption() {
 
             {/* Allowed Meal Quota Banner */}
             {form.category === 'staff_meal' && (
-              <div className={`p-2.5 rounded-xl border text-xs font-semibold mb-2.5 flex items-center justify-between transition-all ${allowedProductIds
+              !isPrivileged && (!allowedProductIds || allowedProductIds.size === 0) ? (
+                <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-xs flex items-start gap-2.5 mb-2.5 shadow-2xs">
+                  <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">No Allowed Meals Configured</p>
+                    <p className="text-amber-800 text-[11px] mt-0.5">
+                      Your staff meal quota has not been set yet. Please contact an Admin or System Developer to configure your permitted meal items before ordering.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className={`p-2.5 rounded-xl border text-xs font-semibold mb-2.5 flex items-center justify-between transition-all ${allowedProductIds && allowedProductIds.size > 0
                   ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
                   : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                }`}>
-                <div className="flex items-center gap-2">
-                  <UtensilsCrossed size={15} className={allowedProductIds ? 'text-amber-600' : 'text-emerald-600'} />
-                  <div>
-                    {allowedProductIds ? (
-                      <div>
-                        <span>Permitted staff meal for <strong>{selectedEmployeeObj?.firstName} {selectedEmployeeObj?.lastName}</strong>:</span>
-                        <span className="ml-1 text-amber-800 font-normal">
-                          ({availableProducts.map(p => p.name).join(', ')})
-                        </span>
-                      </div>
-                    ) : (
-                      <span>All menu items allowed for <strong>{form.beneficiary || 'Staff'}</strong> (no quota restriction)</span>
+                  }`}>
+                  <div className="flex items-center gap-2">
+                    <UtensilsCrossed size={15} className={allowedProductIds && allowedProductIds.size > 0 ? 'text-amber-600' : 'text-emerald-600'} />
+                    <div>
+                      {allowedProductIds && allowedProductIds.size > 0 ? (
+                        <div>
+                          <span>Allowed staff meal for <strong>{selectedEmployeeObj ? `${selectedEmployeeObj.firstName || ''} ${selectedEmployeeObj.lastName || ''}`.trim() : (form.beneficiary || 'Staff')}</strong>:</span>
+                          <span className="ml-1 text-amber-800 font-normal">
+                            ({availableProducts.map(p => p.name).join(', ')})
+                          </span>
+                        </div>
+                      ) : (
+                        <span>All menu items allowed for <strong>{form.beneficiary || 'Staff'}</strong> (no quota restriction)</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {allowedProductIds && allowedProductIds.size > 0 && (
+                      <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
+                        {availableProducts.length} Items Allowed
+                      </span>
+                    )}
+                    {canManageStaffMeals && (
+                      <button
+                        type="button"
+                        onClick={() => openAllowedMealsModal(form.beneficiary)}
+                        className="text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
+                        title="Configure allowed meals for this employee"
+                      >
+                        <Settings2 size={11} /> {allowedProductIds && allowedProductIds.size > 0 ? 'Edit Quota' : '+ Set Allowed Meals'}
+                      </button>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {allowedProductIds && (
-                    <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
-                      {availableProducts.length} Items Allowed
-                    </span>
-                  )}
-                  {canManageStaffMeals && (
-                    <button
-                      type="button"
-                      onClick={() => openAllowedMealsModal(form.beneficiary)}
-                      className="text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
-                      title="Configure allowed meals for this employee"
-                    >
-                      <Settings2 size={11} /> {allowedProductIds ? 'Edit Quota' : '+ Set Allowed Meals'}
-                    </button>
-                  )}
-                </div>
-              </div>
+              )
             )}
 
             <div className="grid gap-1.5 mb-1 px-1 text-xs font-semibold text-ink-400 grid-cols-[1fr_80px_24px]">
@@ -902,8 +1045,8 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(false)}
-                    disabled={submitting}
-                    className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-2xs transition cursor-pointer disabled:opacity-50"
+                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
+                    className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save consumption record only without printing KOT ticket"
                   >
                     Record Only
@@ -911,11 +1054,17 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(true)}
-                    disabled={submitting}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50"
+                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Printer size={15} />
-                    <span>{submitting ? 'Ordering & Printing…' : '🍽️ Order & Print Captain Order'}</span>
+                    <span>
+                      {submitting
+                        ? 'Ordering & Printing…'
+                        : (!isPrivileged && availableProducts.length === 0)
+                          ? 'No Allowed Meals Configured'
+                          : '🍽️ Order & Print Captain Order'}
+                    </span>
                   </button>
                 </>
               ) : (
