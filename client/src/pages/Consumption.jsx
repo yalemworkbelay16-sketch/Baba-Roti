@@ -3,6 +3,7 @@ import {
   Plus, Search, Trash2, Eye, X, CheckCircle, Ban,
   UtensilsCrossed, Users, Briefcase, BookOpen, Gift, FileText,
   RefreshCw, Pencil, Printer, Check, ShieldCheck, Lock,
+  Settings2,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -41,7 +42,8 @@ const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFracti
 export default function Consumption() {
   const { user, can, hasRole } = useAuth();
   const isPrivileged = ['dev', 'admin', 'manager'].includes(user?.role);
-  const canCreate = can('recordGoods');
+  const canManageStaffMeals = ['admin', 'dev'].includes(user?.role);
+  const canCreate = can('recordGoods') || Boolean(user);
   const canApprove = can('approveGoods');
   const canVoid = can('voidTransactions');
 
@@ -59,6 +61,14 @@ export default function Consumption() {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Allowed Meals Quota Modal (Admin / Dev only)
+  const [allowedMealsModalOpen, setAllowedMealsModalOpen] = useState(false);
+  const [selectedEmpForQuotaId, setSelectedEmpForQuotaId] = useState('');
+  const [selectedProductIdsForQuota, setSelectedProductIdsForQuota] = useState(new Set());
+  const [quotaSearchQuery, setQuotaSearchQuery] = useState('');
+  const [quotaCategoryFilter, setQuotaCategoryFilter] = useState('');
+  const [savingAllowedMeals, setSavingAllowedMeals] = useState(false);
 
   // Detail modal
   const [detailOpen, setDetailOpen] = useState(false);
@@ -229,6 +239,75 @@ export default function Consumption() {
     return { ...f, items };
   });
 
+  // ── Allowed Meals Modal Handlers (Admin / Dev only) ──
+  const openAllowedMealsModal = (empNameOrId = '') => {
+    let targetEmp = null;
+    if (empNameOrId) {
+      targetEmp = employees.find(e => e._id === empNameOrId || `${e.firstName} ${e.lastName}` === empNameOrId);
+    }
+    if (!targetEmp && form.beneficiary) {
+      targetEmp = employees.find(e => `${e.firstName} ${e.lastName}` === form.beneficiary);
+    }
+    if (!targetEmp && employees.length > 0) {
+      targetEmp = employees[0];
+    }
+    const empId = targetEmp?._id || '';
+    setSelectedEmpForQuotaId(empId);
+    setSelectedProductIdsForQuota(new Set((targetEmp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+    setQuotaSearchQuery('');
+    setQuotaCategoryFilter('');
+    setAllowedMealsModalOpen(true);
+  };
+
+  const handleToggleProductForQuota = (prodId) => {
+    setSelectedProductIdsForQuota(prev => {
+      const next = new Set(prev);
+      if (next.has(prodId)) next.delete(prodId);
+      else next.add(prodId);
+      return next;
+    });
+  };
+
+  const filteredQuotaProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchCat = !quotaCategoryFilter || (p.category || 'General') === quotaCategoryFilter;
+      const matchQ = !quotaSearchQuery || (p.name || '').toLowerCase().includes(quotaSearchQuery.toLowerCase()) || (p.code || '').toLowerCase().includes(quotaSearchQuery.toLowerCase());
+      return matchCat && matchQ;
+    });
+  }, [products, quotaCategoryFilter, quotaSearchQuery]);
+
+  const handleSelectAllShownProducts = () => {
+    setSelectedProductIdsForQuota(prev => {
+      const next = new Set(prev);
+      filteredQuotaProducts.forEach(p => next.add(p._id));
+      return next;
+    });
+  };
+
+  const handleClearAllQuotaProducts = () => {
+    setSelectedProductIdsForQuota(new Set());
+  };
+
+  const handleSaveAllowedMeals = async () => {
+    if (!selectedEmpForQuotaId) return;
+    setSavingAllowedMeals(true);
+    try {
+      const targetEmp = employees.find(e => e._id === selectedEmpForQuotaId);
+      const res = await api.put(`/employees/${selectedEmpForQuotaId}`, {
+        allowedProducts: Array.from(selectedProductIdsForQuota),
+      });
+      const updatedEmp = res.data;
+      setEmployees(prev => prev.map(e => e._id === selectedEmpForQuotaId ? updatedEmp : e));
+      const empName = `${targetEmp?.firstName || ''} ${targetEmp?.lastName || ''}`.trim() || 'Employee';
+      setSuccessToast(`🍽️ Allowed meal quota for ${empName} saved successfully! (${selectedProductIdsForQuota.size} allowed items)`);
+      setAllowedMealsModalOpen(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save allowed meals.');
+    } finally {
+      setSavingAllowedMeals(false);
+    }
+  };
+
   const handleSave = async (andPrintCaptainOrder = false) => {
     setSubmitting(true);
     setFormError('');
@@ -247,6 +326,7 @@ export default function Consumption() {
       const payload = {
         ...form,
         items: cleanItems,
+        autoApprove: form.category === 'staff_meal',
       };
 
       // 1. Record consumption
@@ -304,13 +384,17 @@ export default function Consumption() {
           await dispatchPrint('kot', createdOrder, { businessName: 'Baba Roti Café' });
           posPrint.printKOT(createdOrder, { businessName: 'Baba Roti Café' });
 
-          setSuccessToast(`🍽️ Staff meal order sent to Kitchen & KOT printed! (Voucher: ${savedRecord?.voucherNo || ''})`);
+          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted from Kitchen & Bar and KOT printed to kitchen.`);
         } catch (kotErr) {
           console.warn('Captain order / KOT dispatch error:', kotErr);
-          setSuccessToast(`Consumption recorded (${savedRecord?.voucherNo || ''}), but kitchen printer dispatch had an issue.`);
+          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} recorded & auto-approved! (Stock deducted)`);
         }
       } else {
-        setSuccessToast(`Consumption record ${savedRecord?.voucherNo || ''} recorded successfully.`);
+        const isStaff = form.category === 'staff_meal';
+        setSuccessToast(isStaff
+          ? `🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Raw materials deducted from Kitchen & Bar.`
+          : `Consumption record ${savedRecord?.voucherNo || ''} recorded successfully.`
+        );
       }
 
       setModalOpen(false);
@@ -405,6 +489,16 @@ export default function Consumption() {
               { header: 'Status', accessor: 'Status', align: 'center' },
             ]}
           />
+          {canManageStaffMeals && (
+            <button
+              type="button"
+              onClick={() => openAllowedMealsModal()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 text-xs sm:text-sm font-bold text-indigo-700 shadow-2xs transition cursor-pointer"
+              title="Assign allowed staff meals per employee (Admin & System Developer only)"
+            >
+              <UtensilsCrossed size={16} /> Set Allowed Meals
+            </button>
+          )}
           {canCreate && (
             <button
               onClick={openCreate}
@@ -644,11 +738,23 @@ export default function Consumption() {
                 <label className="block text-xs font-semibold text-ink-700">
                   {form.category === 'staff_meal' ? 'Employee *' : 'Beneficiary / Guest Name'}
                 </label>
-                {form.category === 'staff_meal' && !isPrivileged && (
-                  <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                    <Lock size={10} /> Scoped to you
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {canManageStaffMeals && form.category === 'staff_meal' && (
+                    <button
+                      type="button"
+                      onClick={() => openAllowedMealsModal(form.beneficiary)}
+                      className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 transition"
+                      title="Set allowed meals for this employee (Admin / Dev only)"
+                    >
+                      <Settings2 size={11} /> Set Allowed Meals
+                    </button>
+                  )}
+                  {form.category === 'staff_meal' && !isPrivileged && (
+                    <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      <Lock size={10} /> Scoped to you
+                    </span>
+                  )}
+                </div>
               </div>
               {form.category === 'staff_meal' ? (
                 <div>
@@ -723,11 +829,23 @@ export default function Consumption() {
                     )}
                   </div>
                 </div>
-                {allowedProductIds && (
-                  <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
-                    {availableProducts.length} Items Allowed
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {allowedProductIds && (
+                    <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
+                      {availableProducts.length} Items Allowed
+                    </span>
+                  )}
+                  {canManageStaffMeals && (
+                    <button
+                      type="button"
+                      onClick={() => openAllowedMealsModal(form.beneficiary)}
+                      className="text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
+                      title="Configure allowed meals for this employee"
+                    >
+                      <Settings2 size={11} /> {allowedProductIds ? 'Edit Quota' : '+ Set Allowed Meals'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -940,6 +1058,186 @@ export default function Consumption() {
                 }`}>
               {actionWorking ? 'Working…' : (actionType === 'approve' ? 'Approve & Deduct Stock' : 'Void')}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ══ Assign Allowed Meals Modal (Admin / System Developer Only) ══ */}
+      <Modal
+        open={allowedMealsModalOpen}
+        onClose={() => setAllowedMealsModalOpen(false)}
+        title="🍽️ Set Allowed Staff Meals Quota"
+        width="max-w-2xl"
+      >
+        <div className="space-y-4">
+          {/* Admin badge & explanation */}
+          <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 p-3 text-xs text-indigo-900">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={18} className="text-indigo-600 shrink-0" />
+              <div>
+                <p className="font-bold">Staff Meal Allowance Configuration</p>
+                <p className="text-[11px] text-indigo-700">
+                  Select which food & beverage products this employee is permitted to consume. Allowed items can be ordered immediately with no approval required.
+                </p>
+              </div>
+            </div>
+            <span className="text-[9.5px] uppercase tracking-wider font-extrabold bg-indigo-600 text-white px-2.5 py-0.5 rounded-full shrink-0">
+              Admin & Dev
+            </span>
+          </div>
+
+          {/* Employee Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-700 mb-1.5">Select Employee *</label>
+            <select
+              value={selectedEmpForQuotaId}
+              onChange={(e) => {
+                const empId = e.target.value;
+                setSelectedEmpForQuotaId(empId);
+                const emp = employees.find(x => x._id === empId);
+                setSelectedProductIdsForQuota(new Set((emp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+              }}
+              className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 outline-none focus:border-indigo-500 shadow-2xs"
+            >
+              {employees.map(e => (
+                <option key={e._id} value={e._id}>
+                  {e.firstName} {e.lastName} ({[e.department, e.position].filter(Boolean).join(' • ') || 'Staff'}) — {(e.allowedProducts?.length || 0)} allowed items
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Product Filter & Live Search */}
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-2.5 text-ink-400" />
+                <input
+                  type="text"
+                  placeholder="Search products e.g. Tibs, tea, sandwich..."
+                  value={quotaSearchQuery}
+                  onChange={(e) => setQuotaSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-ink-200 pl-8 pr-3 py-1.5 text-xs outline-none focus:border-indigo-500"
+                />
+                {quotaSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setQuotaSearchQuery('')}
+                    className="absolute right-2.5 top-2 text-ink-400 hover:text-ink-700"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Quick action buttons: Select All Filtered / Clear All */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSelectAllShownProducts}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllQuotaProducts}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1">
+              {['all', ...new Set(products.map(p => p.category || 'General'))].slice(0, 8).map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setQuotaCategoryFilter(cat === 'all' ? '' : cat)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer ${
+                    (quotaCategoryFilter === '' && cat === 'all') || quotaCategoryFilter === cat
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {cat === 'all' ? 'All Categories' : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Product Cards Grid with Checkboxes */}
+          <div className="max-h-72 overflow-y-auto border border-ink-100 rounded-xl p-2 divide-y divide-ink-50 bg-slate-50/50">
+            {filteredQuotaProducts.length === 0 ? (
+              <div className="py-8 text-center text-xs text-ink-400">
+                No products found matching your search.
+              </div>
+            ) : (
+              filteredQuotaProducts.map(p => {
+                const isSelected = selectedProductIdsForQuota.has(p._id);
+                return (
+                  <div
+                    key={p._id}
+                    onClick={() => handleToggleProductForQuota(p._id)}
+                    className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition select-none ${
+                      isSelected
+                        ? 'bg-indigo-50/90 border border-indigo-200 font-semibold'
+                        : 'hover:bg-white hover:shadow-2xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`h-4 w-4 rounded flex items-center justify-center border transition ${
+                        isSelected
+                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          : 'border-slate-300 bg-white'
+                      }`}>
+                        {isSelected && <Check size={11} className="stroke-[3]" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-xs truncate ${isSelected ? 'text-indigo-950 font-bold' : 'text-ink-800 font-medium'}`}>
+                          {p.name}
+                        </p>
+                        <p className="text-[10px] text-ink-400">
+                          {p.category || 'General'} · {p.uom || 'portion'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <span className="text-xs font-bold text-ink-700">
+                        ETB {Number(p.sellingPrice || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Summary & Save Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-ink-100">
+            <div className="text-xs text-ink-600">
+              <span className="font-bold text-indigo-700">{selectedProductIdsForQuota.size}</span> items selected for staff allowance
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAllowedMealsModalOpen(false)}
+                className="rounded-xl border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAllowedMeals}
+                disabled={savingAllowedMeals || !selectedEmpForQuotaId}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition cursor-pointer disabled:opacity-50"
+              >
+                {savingAllowedMeals ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                <span>{savingAllowedMeals ? 'Saving Allowed Meals…' : 'Save Allowed Meals'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

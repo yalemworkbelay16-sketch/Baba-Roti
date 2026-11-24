@@ -123,6 +123,9 @@ const createConsumption = asyncHandler(async (req, res) => {
     });
   }
 
+  const isStaffMeal = category === 'staff_meal';
+  const shouldAutoApprove = req.body.autoApprove !== undefined ? Boolean(req.body.autoApprove) : isStaffMeal;
+
   const record = await Consumption.create({
     voucherNo: voucherNo || (await generateVoucherNo()),
     category,
@@ -134,20 +137,45 @@ const createConsumption = asyncHandler(async (req, res) => {
     totalRecipeCost,
     notes: notes || '',
     performedBy: req.user._id,
-    status: 'pending',
-    trail: [{ action: 'pending', by: req.user._id, byName: req.user.name, byRole: req.user.role }],
+    status: shouldAutoApprove ? 'approved' : 'pending',
+    approvedBy: shouldAutoApprove ? req.user._id : undefined,
+    approvedAt: shouldAutoApprove ? new Date() : undefined,
+    trail: [
+      { action: 'pending', by: req.user._id, byName: req.user.name, byRole: req.user.role },
+      ...(shouldAutoApprove ? [{
+        action: 'approved',
+        by: req.user._id,
+        byName: req.user.name,
+        byRole: req.user.role,
+        note: isStaffMeal ? 'Staff meal order auto-approved (no manual approval required)' : 'Direct order auto-approved'
+      }] : [])
+    ],
   });
 
-  // NOTE: Stock is NOT deducted on creation — only on approval (same rule as transactions)
+  // Automatically deduct raw materials from Kitchen / Bar station stock when auto-approved
+  if (shouldAutoApprove) {
+    await applyConsumptionStock(record.items);
+  }
 
   const populated = await Consumption.findById(record._id)
     .populate('items.product', 'name code uom')
-    .populate('performedBy', 'name')
+    .populate('performedBy approvedBy', 'name')
     .lean();
 
   invalidateDashboardCache();
   tg.notifyConsumptionCreated(populated, req.user);
-  notify.push({ type: 'consumption', title: 'New Consumption Record', message: `${req.user.name} created consumption voucher ${populated.voucherNo}`, icon: '🍽️', link: '/consumption', severity: 'info', userId: req.user._id });
+  if (shouldAutoApprove) {
+    tg.notifyConsumptionApproved(populated, req.user);
+  }
+  notify.push({
+    type: 'consumption',
+    title: shouldAutoApprove ? 'Staff Meal Ordered & Approved' : 'New Consumption Record',
+    message: `${req.user.name} ordered staff meal ${populated.voucherNo} — auto-approved, stock deducted`,
+    icon: '🍽️',
+    link: '/consumption',
+    severity: shouldAutoApprove ? 'success' : 'info',
+    userId: req.user._id
+  });
   res.status(201).json(populated);
 });
 

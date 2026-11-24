@@ -85,6 +85,24 @@ const updateEmployee = asyncHandler(async (req, res) => {
   });
 
   await emp.save();
+
+  // Sync allowed meal quota to matching User record if one exists by email or name
+  if (req.body.allowedProducts !== undefined) {
+    try {
+      const User = require('../models/User');
+      const userMatch = await User.findOne({
+        $or: [
+          ...(emp.email ? [{ email: emp.email }] : []),
+          { name: new RegExp(`^${emp.firstName}\\s+${emp.lastName}$`, 'i') }
+        ]
+      });
+      if (userMatch) {
+        userMatch.allowedProducts = emp.allowedProducts;
+        await userMatch.save();
+      }
+    } catch (_) { }
+  }
+
   tg.notifyEmployeeUpdated(emp, req.user);
   notify.push({ type: 'employee', title: 'Employee Updated', message: `${req.user?.name || 'Staff'} updated ${emp.firstName} ${emp.lastName}`, icon: '✏️', link: '/employees', severity: 'info', userId: req.user?._id });
 
@@ -98,7 +116,11 @@ const updateEmployee = asyncHandler(async (req, res) => {
     });
   } catch (_) { }
 
-  res.json(emp);
+  const populated = await Employee.findById(emp._id)
+    .populate('allowedProducts', 'name code uom sellingPrice category station parentCategory')
+    .lean();
+
+  res.json(populated || emp);
 });
 
 // ── DELETE /api/employees/:id  (soft delete) ──────────────────────────
