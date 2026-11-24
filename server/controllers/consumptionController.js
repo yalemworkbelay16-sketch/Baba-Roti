@@ -28,27 +28,56 @@ async function applyConsumptionStock(items, reverse = false) {
       .populate('ingredients.material', 'name unit category storeLocation currentStock mainStoreStock kitchenStock barStock unitCost');
     if (!product) continue;
 
-    for (const ing of product.ingredients) {
-      const mat = await RawMaterial.findById(ing.material._id || ing.material);
-      if (!mat) continue;
-      const recipeQty = (Number(ing.quantity) || 0) * (Number(item.quantity) || 0);
-      const recipeUnit = (ing.unit || mat.unit || '').trim();
-      const qty = convertUnit(recipeQty, recipeUnit, mat.unit);
+    if (product.ingredients && product.ingredients.length > 0) {
+      for (const ing of product.ingredients) {
+        const mat = await RawMaterial.findById(ing.material._id || ing.material);
+        if (!mat) continue;
+        const recipeQty = (Number(ing.quantity) || 0) * (Number(item.quantity) || 0);
+        const recipeUnit = (ing.unit || mat.unit || '').trim();
+        const qty = convertUnit(recipeQty, recipeUnit, mat.unit);
 
-      const prodStation = product ? determineProductStation(product, settings?.stationCategoryMapping) : null;
-      const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
-        ? mat.productionStation
-        : determineMaterialStation(mat, settings?.stationCategoryMapping, prodStation);
+        const prodStation = product ? determineProductStation(product, settings?.stationCategoryMapping) : null;
+        const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
+          ? mat.productionStation
+          : determineMaterialStation(mat, settings?.stationCategoryMapping, prodStation);
 
-      if (targetStation === 'bar') {
-        mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));
-      } else if (targetStation === 'kitchen') {
-        mat.kitchenStock = Math.max(0, Number(mat.kitchenStock || 0) + (reverse ? qty : -qty));
-      } else {
-        mat.mainStoreStock = Math.max(0, Number(mat.mainStoreStock || 0) + (reverse ? qty : -qty));
+        if (targetStation === 'bar') {
+          mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));
+        } else if (targetStation === 'kitchen') {
+          mat.kitchenStock = Math.max(0, Number(mat.kitchenStock || 0) + (reverse ? qty : -qty));
+        } else {
+          mat.mainStoreStock = Math.max(0, Number(mat.mainStoreStock || 0) + (reverse ? qty : -qty));
+        }
+        mat.currentStock = Math.max(0, (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
+        await mat.save();
       }
-      mat.currentStock = Math.max(0, (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
-      await mat.save();
+    } else {
+      // Direct raw material match (e.g. single-stock bakery item, bottled drink, or retail item)
+      const directMat = await RawMaterial.findOne({
+        $or: [
+          { name: new RegExp(`^${product.name.trim()}$`, 'i') },
+          ...(product.code ? [{ code: product.code }] : []),
+        ],
+        deletedAt: null,
+      });
+
+      if (directMat) {
+        const qty = Number(item.quantity) || 1;
+        const prodStation = product ? determineProductStation(product, settings?.stationCategoryMapping) : null;
+        const targetStation = directMat.isProduced && directMat.productionStation && directMat.productionStation !== 'none'
+          ? directMat.productionStation
+          : determineMaterialStation(directMat, settings?.stationCategoryMapping, prodStation);
+
+        if (targetStation === 'bar') {
+          directMat.barStock = Math.max(0, Number(directMat.barStock || 0) + (reverse ? qty : -qty));
+        } else if (targetStation === 'kitchen') {
+          directMat.kitchenStock = Math.max(0, Number(directMat.kitchenStock || 0) + (reverse ? qty : -qty));
+        } else {
+          directMat.mainStoreStock = Math.max(0, Number(directMat.mainStoreStock || 0) + (reverse ? qty : -qty));
+        }
+        directMat.currentStock = Math.max(0, (directMat.mainStoreStock || 0) + (directMat.kitchenStock || 0) + (directMat.barStock || 0));
+        await directMat.save();
+      }
     }
   }
 }
@@ -111,8 +140,22 @@ const createConsumption = asyncHandler(async (req, res) => {
       .populate('ingredients.material', 'name unit unitCost');
     if (!product) { res.status(404); throw new Error(`Product not found: ${item.product}`); }
 
-    const recipeCost = (product.ingredients || []).reduce((sum, ing) =>
+    let recipeCost = (product.ingredients || []).reduce((sum, ing) =>
       sum + (ing.material?.unitCost ?? 0) * ing.quantity, 0);
+
+    if (recipeCost === 0 && (!product.ingredients || product.ingredients.length === 0)) {
+      const directMat = await RawMaterial.findOne({
+        $or: [
+          { name: new RegExp(`^${product.name.trim()}$`, 'i') },
+          ...(product.code ? [{ code: product.code }] : []),
+        ],
+        deletedAt: null,
+      }).lean();
+      if (directMat?.unitCost) {
+        recipeCost = Number(directMat.unitCost) || 0;
+      }
+    }
+
     const totalCost = recipeCost * Number(item.quantity);
     totalRecipeCost += totalCost;
 

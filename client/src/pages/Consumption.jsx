@@ -823,7 +823,14 @@ export default function Consumption() {
                       {etb(r.totalRecipeCost)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <WorkflowBadge status={r.status} size="sm" />
+                      {r.category === 'staff_meal' && r.status === 'approved' ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full font-bold px-2.5 py-0.5 text-[11px] bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs" title="Auto-approved upon ordering — no manual approval required">
+                          <CheckCircle size={11} className="text-emerald-600" />
+                          Auto-Approved
+                        </span>
+                      ) : (
+                        <WorkflowBadge status={r.status} size="sm" />
+                      )}
                     </td>
                     {/* Items Consumed */}
                     <td className="px-4 py-3 max-w-[220px]">
@@ -1238,7 +1245,14 @@ export default function Consumption() {
                   </span>
                 </div>
                 <div><p className="text-xs text-ink-400">Status</p>
-                  <WorkflowBadge status={detailRecord.status} />
+                  {detailRecord.category === 'staff_meal' && detailRecord.status === 'approved' ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full font-bold px-2.5 py-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800" title="Auto-approved upon ordering — no manual approval required">
+                      <CheckCircle size={12} className="text-emerald-600" />
+                      Auto-Approved (No Approval Needed)
+                    </span>
+                  ) : (
+                    <WorkflowBadge status={detailRecord.status} />
+                  )}
                 </div>
                 <div><p className="text-xs text-ink-400">Date</p>
                   <p className="font-medium">{new Date(detailRecord.date).toLocaleString()}</p>
@@ -1274,10 +1288,12 @@ export default function Consumption() {
                   <tbody className="divide-y divide-ink-50">
                     {(detailRecord.items || []).map((item, i) => (
                       <tr key={i}>
-                        <td className="px-3 py-2">{item.product?.name || '—'}</td>
+                        <td className="px-3 py-2 font-medium text-ink-900">{item.product?.name || '—'}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{item.quantity} {item.product?.uom || ''}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{etb(item.recipeCost)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums font-semibold">{etb(item.totalCost)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-ink-600">
+                          {item.recipeCost > 0 ? etb(item.recipeCost) : <span className="text-[10px] text-amber-600 italic">No recipe linked</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-ink-900">{etb(item.totalCost)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1289,6 +1305,18 @@ export default function Consumption() {
                   </tfoot>
                 </table>
               </div>
+
+              {detailRecord.totalRecipeCost === 0 && (
+                <div className="rounded-lg bg-amber-50/80 border border-amber-200 p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                  <UtensilsCrossed size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">No Recipe Ingredients Linked:</span>
+                    <span className="ml-1 text-amber-800">
+                      These menu items currently have 0 raw material ingredients defined under Menu & Recipes. To deduct raw ingredients from Kitchen/Bar stock automatically, configure their recipe under Products & Recipes.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {detailRecord.notes && (
                 <div className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
