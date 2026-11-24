@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal';
 import WorkflowBadge from '../components/ui/WorkflowBadge';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
+import SearchableSelect from '../components/ui/SearchableSelect';
 
 /* ── Category config ─────────────────────────────────────────────── */
 const CATEGORIES = [
@@ -252,8 +253,8 @@ export default function Consumption() {
         <button
           onClick={() => { setFilterCat(''); }}
           className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${!filterCat
-              ? 'bg-blue-900 text-white shadow-xs'
-              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            ? 'bg-blue-900 text-white shadow-xs'
+            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
         >
           <span>All</span>
@@ -475,24 +476,17 @@ export default function Consumption() {
                 {form.category === 'staff_meal' ? 'Employee *' : 'Beneficiary / Guest Name'}
               </label>
               {form.category === 'staff_meal' ? (
-                <select required value={form.beneficiary}
-                  onChange={e => setForm(f => ({ ...f, beneficiary: e.target.value }))}
-                  className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
-                  <option value="">Select employee…</option>
-                  {/* Group by department */}
-                  {Array.from(new Set(employees.map(e => e.department))).sort().map(dept => (
-                    <optgroup key={dept} label={dept}>
-                      {employees.filter(e => e.department === dept).map(e => (
-                        <option key={e._id} value={`${e.firstName} ${e.lastName}`}>
-                          {e.firstName} {e.lastName}{e.position ? ` — ${e.position}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {employees.length === 0 && (
-                    <option disabled>No active employees found — add them in Employees page</option>
-                  )}
-                </select>
+                <SearchableSelect
+                  required
+                  placeholder="Search and select employee…"
+                  options={employees.map(e => ({
+                    value: `${e.firstName} ${e.lastName}`,
+                    label: `${e.firstName} ${e.lastName}`,
+                    sublabel: [e.department, e.position].filter(Boolean).join(' • '),
+                  }))}
+                  value={form.beneficiary}
+                  onChange={val => setForm(f => ({ ...f, beneficiary: val }))}
+                />
               ) : (
                 <input value={form.beneficiary} placeholder="e.g. Mr. John VIP Guest"
                   onChange={e => setForm(f => ({ ...f, beneficiary: e.target.value }))}
@@ -522,14 +516,17 @@ export default function Consumption() {
             <div className="space-y-2">
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid gap-2 items-center grid-cols-[1fr_80px_24px]">
-                  <select required value={item.product}
-                    onChange={e => updateItem(idx, 'product', e.target.value)}
-                    className="rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500">
-                    <option value="">Select product…</option>
-                    {products.map(p => (
-                      <option key={p._id} value={p._id}>{p.name} ({p.uom})</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    required
+                    placeholder="Search product…"
+                    options={products.map(p => ({
+                      value: p._id,
+                      label: `${p.name} (${p.uom})`,
+                      sublabel: p.sellingPrice ? `Price: ETB ${p.sellingPrice}` : (p.category || ''),
+                    }))}
+                    value={item.product}
+                    onChange={val => updateItem(idx, 'product', val)}
+                  />
                   <input type="number" step="any" min="0" required placeholder="Qty" value={item.quantity}
                     onChange={e => updateItem(idx, 'quantity', e.target.value)}
                     className="rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />

@@ -8,6 +8,7 @@ import Modal from '../components/ui/Modal';
 import WorkflowBadge from '../components/ui/WorkflowBadge';
 import ApproveModal, { TrailTimeline } from '../components/ui/ApproveModal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
 
 const emptyItem = { material: '', quantity: 1, unitCost: 0 };
@@ -459,11 +460,13 @@ export default function Purchases() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Supplier *</label>
-              <select required value={supplier} onChange={e => setSupplier(e.target.value)}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-                <option value="">Select supplier</option>
-                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
+              <SearchableSelect
+                required
+                options={suppliers}
+                value={supplier}
+                onChange={val => setSupplier(val)}
+                placeholder="Search supplier..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Invoice number</label>
@@ -481,11 +484,14 @@ export default function Purchases() {
             <div className="space-y-2">
               {items.map((it, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2">
-                  <select value={it.material} onChange={e => updateItem(i, { material: e.target.value })}
-                    required className="col-span-5 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500">
-                    <option value="">Material</option>
-                    {materials.map(m => <option key={m._id} value={m._id}>{m.name} ({m.unit})</option>)}
-                  </select>
+                  <SearchableSelect
+                    required
+                    options={materials}
+                    value={it.material}
+                    onChange={val => updateItem(i, { material: val })}
+                    placeholder="Search material…"
+                    className="col-span-5"
+                  />
                   <input type="number" step="any" min="0" placeholder="Qty" value={it.quantity}
                     onChange={e => updateItem(i, { quantity: e.target.value })}
                     className="col-span-3 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500" />

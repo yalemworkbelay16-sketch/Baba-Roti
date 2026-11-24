@@ -10,6 +10,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
+import SearchableSelect from '../components/ui/SearchableSelect';
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -540,17 +541,16 @@ export default function Production() {
                     <label className="block text-xs font-bold text-ink-700 mb-1.5">
                       Production Recipe (Formulas)
                     </label>
-                    <select
+                    <SearchableSelect
+                      options={availableRecipes.map(r => ({
+                        value: r._id,
+                        label: `${r.station === 'bar' ? '☕ Bar: ' : '🍳 Kitchen: '}${r.name} (${r.targetMaterial?.name || 'Item'})`,
+                        sublabel: `Yield: ${r.yieldQuantity} ${r.yieldUnit} • Est. Cost: ${etb(r.estimatedUnitCost)} • ${r.ingredients?.length || 0} ingredients`,
+                      }))}
                       value={selectedRecipeId}
-                      onChange={(e) => setSelectedRecipeId(e.target.value)}
-                      className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-semibold text-ink-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                    >
-                      {availableRecipes.map(r => (
-                        <option key={r._id} value={r._id}>
-                          {r.station === 'bar' ? '☕ Bar: ' : '🍳 Kitchen: '} {r.name} ({r.targetMaterial?.name || 'Item'})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setSelectedRecipeId(val)}
+                      placeholder="Type to search production recipe formula..."
+                    />
                   </div>
 
                   {/* Recipe Overview Card */}
@@ -1249,18 +1249,19 @@ export default function Production() {
                   />
                 </div>
               ) : (
-                <select
+                <SearchableSelect
+                  options={rawMaterials.map(m => ({
+                    value: m._id,
+                    label: `${m.name} (${m.unit})`,
+                    sublabel: m.isProduced
+                      ? `★ [${m.productionStation === 'bar' ? 'Bar' : 'Kitchen'} Produced Item]`
+                      : `Stock: Kitchen ${m.kitchenStock || 0} | Main ${m.mainStoreStock || 0}`,
+                    raw: m,
+                  }))}
                   value={recipeForm.targetMaterial}
-                  onChange={(e) => setRecipeForm({ ...recipeForm, targetMaterial: e.target.value })}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-900"
-                >
-                  <option value="">-- Choose Produced Item --</option>
-                  {rawMaterials.map(m => (
-                    <option key={m._id} value={m._id}>
-                      {m.name} ({m.unit}) {m.isProduced ? '★ [Produced Item]' : ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setRecipeForm({ ...recipeForm, targetMaterial: val })}
+                  placeholder="Search and choose produced item..."
+                />
               )}
             </div>
 
@@ -1314,27 +1315,29 @@ export default function Production() {
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-72 overflow-visible pr-1">
                 {recipeForm.ingredients.map((ing, idx) => (
                   <div key={idx} className="flex items-center gap-2 bg-ink-50 p-2 rounded-xl border border-ink-100 text-xs">
-                    <select
-                      value={ing.material}
-                      onChange={(e) => {
-                        const next = [...recipeForm.ingredients];
-                        next[idx].material = e.target.value;
-                        const matObj = rawMaterials.find(m => m._id === e.target.value);
-                        if (matObj && !next[idx].unit) next[idx].unit = matObj.unit;
-                        setRecipeForm({ ...recipeForm, ingredients: next });
-                      }}
-                      className="flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-xs text-ink-900"
-                    >
-                      <option value="">-- Choose Raw Material --</option>
-                      {rawMaterials.map(m => (
-                        <option key={m._id} value={m._id}>
-                          {m.name} ({m.unit}) — {etb(m.unitCost)}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex-1 min-w-[200px]">
+                      <SearchableSelect
+                        size="sm"
+                        options={rawMaterials.map(m => ({
+                          value: m._id,
+                          label: `${m.name} (${m.unit})`,
+                          sublabel: `Cost: ${etb(m.unitCost)} • Stock: Kitchen ${m.kitchenStock || 0} | Main ${m.mainStoreStock || 0}${m.isProduced ? ' ★ [Produced]' : ''}`,
+                          category: m.category,
+                          raw: m,
+                        }))}
+                        value={ing.material}
+                        onChange={(val, raw) => {
+                          const next = [...recipeForm.ingredients];
+                          next[idx].material = val;
+                          if (raw && !next[idx].unit) next[idx].unit = raw.unit;
+                          setRecipeForm({ ...recipeForm, ingredients: next });
+                        }}
+                        placeholder="Search & choose raw material..."
+                      />
+                    </div>
 
                     <input
                       type="number"

@@ -21,7 +21,7 @@ async function applyConsumptionStock(items, reverse = false) {
   let settings = null;
   try {
     settings = await Setting.findOne().lean();
-  } catch (_) {}
+  } catch (_) { }
 
   for (const item of items) {
     const product = await Product.findById(item.product)

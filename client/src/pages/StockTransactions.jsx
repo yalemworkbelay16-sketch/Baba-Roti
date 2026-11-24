@@ -545,8 +545,8 @@ export default function StockTransactions({ defaultVoucher } = {}) {
             type="button"
             onClick={() => setQuickVoucherFilter('all')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${quickVoucherFilter === 'all'
-                ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
           >
             <span>All Movements</span>
@@ -567,8 +567,8 @@ export default function StockTransactions({ defaultVoucher } = {}) {
                 type="button"
                 onClick={() => setQuickVoucherFilter(isActive ? 'all' : v.key)}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive
-                    ? `${v.activeCls} text-white shadow-xs ring-2 ring-blue-400/40`
-                    : `${v.badgeCls} border border-transparent hover:opacity-90`
+                  ? `${v.activeCls} text-white shadow-xs ring-2 ring-blue-400/40`
+                  : `${v.badgeCls} border border-transparent hover:opacity-90`
                   }`}
               >
                 <Icon size={12} className={isActive ? 'text-white' : ''} />
@@ -758,11 +758,17 @@ export default function StockTransactions({ defaultVoucher } = {}) {
               {activeV.needsSupplier && (
                 <div className="col-span-2">
                   <label className="mb-1 block text-xs font-semibold text-ink-500">Supplier *</label>
-                  <select required value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
-                    className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-                    <option value="">Select supplier…</option>
-                    {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                  </select>
+                  <SearchableSelect
+                    required
+                    placeholder="Search and select supplier…"
+                    options={suppliers.map(s => ({
+                      value: s._id,
+                      label: s.name,
+                      sublabel: s.phone ? `Phone: ${s.phone}` : (s.contactPerson || ''),
+                    }))}
+                    value={form.supplier}
+                    onChange={val => setForm(f => ({ ...f, supplier: val }))}
+                  />
                 </div>
               )}
               {!activeV.needsSupplier && (
