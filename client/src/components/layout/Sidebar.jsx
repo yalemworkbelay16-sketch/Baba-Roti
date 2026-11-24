@@ -355,9 +355,7 @@ const Sidebar = ({
   const [financeOpen, setFinanceOpen] = useState(onFinance);
   const [staffOpen, setStaffOpen] = useState(onStaff);
   const [subsystemOpen, setSubsystemOpen] = useState(onSubsystem);
-  const [rawMaterialsSubOpen, setRawMaterialsSubOpen] = useState(
-    location.pathname === '/materials' || location.pathname === '/production'
-  );
+  const [rawMaterialsSubOpen, setRawMaterialsSubOpen] = useState(true);
 
   // Live item counts per station for sidebar badges
   const [stationCounts, setStationCounts] = useState(null);
@@ -495,17 +493,17 @@ const Sidebar = ({
       label: t('nav.rawMaterials'),
       icon: WidgetsRoundedIcon,
     },
-    canSeeNav('rawMaterials') && canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && {
+    canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && {
       to: '/materials?station=main',
       label: isAmharic ? '🏢 ዋና መጋዘን ዕቃዎች' : '🏢 Main Store Item',
       icon: StoreRoundedIcon,
     },
-    canSeeNav('rawMaterials') && canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && {
+    canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && {
       to: '/materials?station=kitchen',
       label: isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store',
       icon: RestaurantMenuRoundedIcon,
     },
-    canSeeNav('rawMaterials') && canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && {
+    canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && {
       to: '/materials?station=bar',
       label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store',
       icon: CoffeeRoundedIcon,
@@ -755,9 +753,9 @@ const Sidebar = ({
                 onToggle={() => setInventoryOpen((o) => !o)}
                 collapsed={collapsed}
               >
-                {canSeeNav('rawMaterials') && (
+                {(canSeeNav('rawMaterials') || canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('production') || canSeeNav('stationMapping')) && (
                   <div className="space-y-1">
-                    {!isStationRestricted && (
+                    {canSeeNav('rawMaterials') && !isStationRestricted && (
                       <div className="flex items-center justify-between rounded-lg pr-1">
                         <div className="flex-1 min-w-0">
                           <SubLink
@@ -797,7 +795,7 @@ const Sidebar = ({
                     )}
 
                     {/* ── Selection Box: Main Store, Kitchen Store, Bar Store, Production ── */}
-                    {rawMaterialsSubOpen && (
+                    {(rawMaterialsSubOpen || !canSeeNav('rawMaterials')) && (canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('production')) && (
                       <div
                         className={`my-1 ml-2 mr-0.5 rounded-xl p-1.5 space-y-0.5 border transition-all ${theme.isLight
                           ? 'border-blue-200/90 bg-blue-50/60 shadow-2xs'

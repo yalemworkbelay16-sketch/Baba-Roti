@@ -74,6 +74,7 @@ const NAV_ITEMS = [
   { key: 'mainStore', label: '🏢 Main Store (Central Warehouse)' },
   { key: 'kitchenStore', label: '🍳 Kitchen Store Station' },
   { key: 'barStore', label: '☕ Bar Store Station' },
+  { key: 'production', label: '🏭 Kitchen & Bar Production' },
   { key: 'stationMapping', label: '⚙️ Station Category Mapping' },
   { key: 'products', label: 'Menu & Recipes' },
   { key: 'stockMovements', label: 'Stock Movements' },
@@ -185,6 +186,7 @@ export default function Settings() {
       mainStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       kitchenStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       barStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      production: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       stationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       products: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       stockMovements: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
@@ -405,14 +407,29 @@ export default function Settings() {
         .get('/settings')
         .then((res) => {
           if (res.data) {
-            setSystemForm((prev) => ({
-              ...prev,
-              ...res.data,
-              sidebarTheme: res.data.sidebarTheme || res.data.licensedModules?.sidebarTheme || 'navy',
-              sidebarMaterialIcons: res.data.sidebarMaterialIcons !== undefined
-                ? res.data.sidebarMaterialIcons
-                : (res.data.licensedModules?.materialIcons !== false),
-            }));
+            setSystemForm((prev) => {
+              const loadedNav = res.data.navVisibility || {};
+              const normalizedNav = {};
+              NAV_ITEMS.forEach((navItem) => {
+                normalizedNav[navItem.key] = {};
+                SETTINGS_ROLES.forEach((r) => {
+                  const storedVal = loadedNav[navItem.key]?.[r.key];
+                  normalizedNav[navItem.key][r.key] = storedVal !== undefined
+                    ? Boolean(storedVal)
+                    : Boolean(prev.navVisibility?.[navItem.key]?.[r.key] ?? false);
+                });
+              });
+
+              return {
+                ...prev,
+                ...res.data,
+                navVisibility: normalizedNav,
+                sidebarTheme: res.data.sidebarTheme || res.data.licensedModules?.sidebarTheme || 'navy',
+                sidebarMaterialIcons: res.data.sidebarMaterialIcons !== undefined
+                  ? res.data.sidebarMaterialIcons
+                  : (res.data.licensedModules?.materialIcons !== false),
+              };
+            });
             if (res.data.licensedModules) {
               setDevLicenseForm((prev) => ({
                 ...prev,
@@ -2162,7 +2179,7 @@ export default function Settings() {
                             <input
                               type="checkbox"
                               disabled={!hasRole('admin')}
-                              checked={systemForm.navVisibility?.[nav.key]?.[r.key] ?? true}
+                              checked={Boolean(systemForm.navVisibility?.[nav.key]?.[r.key])}
                               onChange={(e) => {
                                 const checked = e.target.checked;
                                 setSystemForm(prev => ({

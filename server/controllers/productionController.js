@@ -15,18 +15,15 @@ const generateBatchNo = async () => {
   const count = await Production.countDocuments();
   return `PRD-${String(count + 1).padStart(5, '0')}`;
 };
-
 const generateRecipeCode = async (station = 'kitchen') => {
   const prefix = station === 'bar' ? 'BPRC' : 'KPRC';
   const count = await ProductionRecipe.countDocuments({ station });
   return `${prefix}-${String(count + 1).padStart(4, '0')}`;
 };
-
 // ── GET /api/production/recipes ──────────────────────────────────────
 const getProductionRecipes = asyncHandler(async (req, res) => {
   const { station, search, isActive } = req.query;
   const filter = {};
-
   if (station && station !== 'all') {
     filter.station = station;
   }
@@ -40,16 +37,13 @@ const getProductionRecipes = asyncHandler(async (req, res) => {
       { code: new RegExp(q, 'i') },
     ];
   }
-
   const recipes = await ProductionRecipe.find(filter)
     .populate('targetMaterial', 'name unit currentStock mainStoreStock kitchenStock barStock unitCost category storeLocation isProduced')
     .populate('ingredients.material', 'name unit currentStock mainStoreStock kitchenStock barStock unitCost category storeLocation')
     .sort({ name: 1 })
     .lean();
-
   res.json(recipes);
 });
-
 // ── GET /api/production/recipes/:id ──────────────────────────────────
 const getProductionRecipeById = asyncHandler(async (req, res) => {
   const recipe = await ProductionRecipe.findById(req.params.id)
@@ -61,10 +55,8 @@ const getProductionRecipeById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Production recipe not found');
   }
-
   res.json(recipe);
 });
-
 // ── POST /api/production/recipes ─────────────────────────────────────
 const createProductionRecipe = asyncHandler(async (req, res) => {
   const {
@@ -76,7 +68,6 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
     ingredients = [],
     instructions = '',
   } = req.body;
-
   if (!name || !name.trim()) {
     res.status(400);
     throw new Error('Recipe name is required');
@@ -93,29 +84,24 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('At least one ingredient is required in the production recipe');
   }
-
   const targetMat = await RawMaterial.findById(targetMaterial);
   if (!targetMat) {
     res.status(404);
     throw new Error('Target produced material does not exist in inventory');
   }
-
   // Pre-load ingredients to calculate estimated unit cost
   let totalCost = 0;
   const processedIngredients = [];
-
   for (const item of ingredients) {
     if (!item.material) continue;
     const mat = await RawMaterial.findById(item.material).lean();
     if (!mat) continue;
-
     const qty = Number(item.quantity) || 0;
     const ingUnit = (item.unit || mat.unit || '').trim();
     // Convert to material base unit for costing
     const baseQty = convertUnit(qty, ingUnit, mat.unit);
     const lineCost = baseQty * (Number(mat.unitCost) || 0);
     totalCost += lineCost;
-
     processedIngredients.push({
       material: mat._id,
       quantity: qty,
@@ -123,10 +109,8 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
       notes: (item.notes || '').trim(),
     });
   }
-
   const code = req.body.code?.trim() || await generateRecipeCode(station);
   const estimatedUnitCost = totalCost > 0 ? (totalCost / Number(yieldQuantity)) : 0;
-
   const recipe = await ProductionRecipe.create({
     code,
     name: name.trim(),
@@ -139,7 +123,6 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
     estimatedUnitCost: Math.round(estimatedUnitCost * 100) / 100,
     createdBy: req.user?._id,
   });
-
   // Automatically mark target material as an internally produced item
   targetMat.isProduced = true;
   targetMat.itemType = 'produced';
@@ -156,10 +139,8 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
     description: `Created production recipe "${recipe.name}" for ${targetMat.name} (Station: ${station.toUpperCase()})`,
     details: { recipeId: recipe._id, code: recipe.code, station, yieldQuantity, estimatedUnitCost },
   });
-
   res.status(201).json(recipe);
 });
-
 // ── PUT /api/production/recipes/:id ──────────────────────────────────
 const updateProductionRecipe = asyncHandler(async (req, res) => {
   const recipe = await ProductionRecipe.findById(req.params.id);
@@ -167,7 +148,6 @@ const updateProductionRecipe = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Production recipe not found');
   }
-
   const {
     name,
     station,
@@ -232,10 +212,8 @@ const updateProductionRecipe = asyncHandler(async (req, res) => {
     description: `Updated production recipe "${recipe.name}"`,
     details: { recipeId: recipe._id, code: recipe.code },
   });
-
   res.json(recipe);
 });
-
 // ── DELETE /api/production/recipes/:id ───────────────────────────────
 const deleteProductionRecipe = asyncHandler(async (req, res) => {
   const recipe = await ProductionRecipe.findById(req.params.id);

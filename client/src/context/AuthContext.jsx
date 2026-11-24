@@ -268,14 +268,18 @@ export const AuthProvider = ({ children }) => {
 
     const nav = navVisibility ?? DEFAULT_NAV_VISIBILITY;
     if (navKey === 'subsystem') {
-      const p = nav.pos?.[user.role] ?? true;
-      const c = nav.captainOrder?.[user.role] ?? true;
-      const s = nav.cashSales?.[user.role] ?? true;
+      const p = nav.pos?.[user.role] ?? DEFAULT_NAV_VISIBILITY.pos?.[user.role] ?? true;
+      const c = nav.captainOrder?.[user.role] ?? DEFAULT_NAV_VISIBILITY.captainOrder?.[user.role] ?? true;
+      const s = nav.cashSales?.[user.role] ?? DEFAULT_NAV_VISIBILITY.cashSales?.[user.role] ?? true;
       return Boolean(p || c || s);
     }
-    const entry = nav[navKey];
+    const entry = nav[navKey] || DEFAULT_NAV_VISIBILITY[navKey];
     if (!entry) return true; // unknown key — show by default
-    return Boolean(entry[user.role]);
+    const val = entry[user.role];
+    if (val !== undefined) return Boolean(val);
+    const defaultVal = DEFAULT_NAV_VISIBILITY[navKey]?.[user.role];
+    if (defaultVal !== undefined) return Boolean(defaultVal);
+    return true;
   };
 
   /**

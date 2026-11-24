@@ -5,17 +5,24 @@ const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
 
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard: { storekeeper: true, manager: true, admin: true },
-  pos: { storekeeper: true, manager: true, admin: true },
-  rawMaterials: { storekeeper: true, manager: true, admin: true },
-  products: { storekeeper: true, manager: true, admin: true },
-  stockMovements: { storekeeper: true, manager: true, admin: true },
-  suppliers: { storekeeper: false, manager: true, admin: true },
-  consumption: { storekeeper: true, manager: true, admin: true },
-  reports: { storekeeper: false, manager: true, admin: true },
-  expenses: { storekeeper: true, manager: true, admin: true },
-  analytics: { storekeeper: false, manager: true, admin: true },
-  staffAccounts: { storekeeper: false, manager: false, admin: true },
+  dashboard:     { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  pos:           { storekeeper: true,  cashier: true,  waiter: true,  supervisor: true,  manager: true,  admin: true },
+  captainOrder:  { storekeeper: true,  cashier: true,  waiter: true,  supervisor: true,  manager: true,  admin: true },
+  cashSales:     { storekeeper: true,  cashier: true,  waiter: false, supervisor: true,  manager: true,  admin: true },
+  rawMaterials:  { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  mainStore:     { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  kitchenStore:  { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  barStore:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  stationMapping:{ storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  products:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  stockMovements:{ storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  suppliers:     { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  consumption:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  production:    { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  reports:       { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  expenses:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  analytics:     { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: true,  admin: true },
+  staffAccounts: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
 };
 
 const DEFAULT_CRUD_PERMISSIONS = {
