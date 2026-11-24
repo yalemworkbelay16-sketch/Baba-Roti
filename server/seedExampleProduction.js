@@ -4,14 +4,16 @@ const mongoose = require('mongoose');
 
 const dbUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL;
 
-async function seed() {
-  if (!dbUri) {
-    console.error('No MongoDB URI found in environment variables!');
-    process.exit(1);
+async function seed(isCli = false) {
+  if (mongoose.connection.readyState === 0) {
+    if (!dbUri) {
+      console.error('No MongoDB URI found in environment variables!');
+      if (isCli) process.exit(1);
+      return;
+    }
+    await mongoose.connect(dbUri);
+    console.log('Connected to MongoDB:', mongoose.connection.name);
   }
-
-  await mongoose.connect(dbUri);
-  console.log('Connected to MongoDB:', mongoose.connection.name);
 
   const RawMaterial = require('./models/RawMaterial');
   const ProductionRecipe = require('./models/ProductionRecipe');
@@ -186,10 +188,14 @@ async function seed() {
   console.log('3. Finished Mayonnaise Current Stock: 0 KG (Ready to produce)');
   console.log('4. POS Product: "Extra Mayonnaise (Serving)" -> Consumes 40g Mayonnaise');
   console.log('======================================================');
-  process.exit(0);
+  if (isCli) process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error('Seed error:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seed(true).catch((err) => {
+    console.error('Seed error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedExampleProduction: seed };

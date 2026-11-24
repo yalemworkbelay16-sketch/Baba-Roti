@@ -355,6 +355,9 @@ const Sidebar = ({
   const [financeOpen, setFinanceOpen] = useState(onFinance);
   const [staffOpen, setStaffOpen] = useState(onStaff);
   const [subsystemOpen, setSubsystemOpen] = useState(onSubsystem);
+  const [rawMaterialsSubOpen, setRawMaterialsSubOpen] = useState(
+    location.pathname === '/materials' || location.pathname === '/production'
+  );
 
   // Live item counts per station for sidebar badges
   const [stationCounts, setStationCounts] = useState(null);
@@ -389,6 +392,9 @@ const Sidebar = ({
     if (onTransactions) setStockOpen(true);
     if (onReports) setReportOpen(true);
     if (onInventory) setInventoryOpen(true);
+    if (location.pathname === '/materials' || location.pathname === '/production') {
+      setRawMaterialsSubOpen(true);
+    }
     if (onFinance) setFinanceOpen(true);
     if (onStaff) setStaffOpen(true);
     if (onSubsystem) setSubsystemOpen(true);
@@ -745,44 +751,109 @@ const Sidebar = ({
                 collapsed={collapsed}
               >
                 {canSeeNav('rawMaterials') && (
-                  <>
+                  <div className="space-y-1">
                     {!isStationRestricted && (
-                      <SubLink to="/materials" label={t('nav.rawMaterials')} icon={WidgetsRoundedIcon} onClick={onClose} end={true} />
+                      <div className="flex items-center justify-between rounded-lg pr-1">
+                        <div className="flex-1 min-w-0">
+                          <SubLink
+                            to="/materials"
+                            label={t('nav.rawMaterials')}
+                            icon={WidgetsRoundedIcon}
+                            onClick={() => {
+                              setRawMaterialsSubOpen(true);
+                              onClose && onClose();
+                            }}
+                            end={true}
+                          />
+                        </div>
+                        {/* Toggle button on the right for collapsible selection box */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRawMaterialsSubOpen((prev) => !prev);
+                          }}
+                          className={`flex h-6 w-6 items-center justify-center rounded-md transition-all duration-150 cursor-pointer ${
+                            theme.isLight
+                              ? 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'
+                              : 'text-white/50 hover:bg-white/15 hover:text-white'
+                          }`}
+                          title={rawMaterialsSubOpen ? (isAmharic ? 'ዝጋ' : 'Collapse stores') : (isAmharic ? 'ክፈት' : 'Expand stores')}
+                        >
+                          <ChevronRightRoundedIcon
+                            sx={{
+                              fontSize: 16,
+                              transform: rawMaterialsSubOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s ease-in-out',
+                            }}
+                          />
+                        </button>
+                      </div>
                     )}
 
-                    {/* ── Multi-Station Working Stock Sub-links ── */}
-                    <div className="my-1 ml-3.5 space-y-0.5 border-l-2 border-white/15 pl-2">
-                      {canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && (
-                        <SubLink
-                          to="/materials?station=main"
-                          label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
-                          icon={StoreRoundedIcon}
-                          onClick={onClose}
-                          isItemActive={location.pathname === '/materials' && (location.search === '?station=main' || isStationRestricted)}
-                          badge={stationCounts?.main}
-                        />
-                      )}
-                      {canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && (
-                        <SubLink
-                          to="/materials?station=kitchen"
-                          label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
-                          icon={RestaurantMenuRoundedIcon}
-                          onClick={onClose}
-                          isItemActive={location.pathname === '/materials' && (location.search === '?station=kitchen' || isStationRestricted)}
-                          badge={stationCounts?.kitchen}
-                        />
-                      )}
-                      {canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && (
-                        <SubLink
-                          to="/materials?station=bar"
-                          label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
-                          icon={CoffeeRoundedIcon}
-                          onClick={onClose}
-                          isItemActive={location.pathname === '/materials' && (location.search === '?station=bar' || isStationRestricted)}
-                          badge={stationCounts?.bar}
-                        />
-                      )}
-                    </div>
+                    {/* ── Selection Box: Main Store, Kitchen Store, Bar Store, Production ── */}
+                    {rawMaterialsSubOpen && (
+                      <div
+                        className={`my-1 ml-2 mr-0.5 rounded-xl p-1.5 space-y-0.5 border transition-all ${
+                          theme.isLight
+                            ? 'border-blue-200/90 bg-blue-50/60 shadow-2xs'
+                            : 'border-white/15 bg-black/25 shadow-inner backdrop-blur-xs'
+                        }`}
+                      >
+                        <div className="px-2 py-0.5 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider border-b pb-1 mb-1">
+                          <span className={theme.isLight ? 'text-blue-900/70 border-slate-200' : 'text-white/50 border-white/10'}>
+                            {isAmharic ? 'የስቶክ መጋዘኖች' : 'Stores & Production'}
+                          </span>
+                          <span className={`text-[8.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                            theme.isLight ? 'bg-blue-100 text-blue-800' : 'bg-white/15 text-white/80'
+                          }`}>
+                            4
+                          </span>
+                        </div>
+
+                        {canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && (
+                          <SubLink
+                            to="/materials?station=main"
+                            label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
+                            icon={StoreRoundedIcon}
+                            onClick={onClose}
+                            isItemActive={location.pathname === '/materials' && (location.search === '?station=main' || isStationRestricted)}
+                            badge={stationCounts?.main}
+                          />
+                        )}
+                        {canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && (
+                          <SubLink
+                            to="/materials?station=kitchen"
+                            label={isAmharic ? '🍳 ኩሽና ስቶር' : '🍳 Kitchen Store'}
+                            icon={RestaurantMenuRoundedIcon}
+                            onClick={onClose}
+                            isItemActive={location.pathname === '/materials' && (location.search === '?station=kitchen' || isStationRestricted)}
+                            badge={stationCounts?.kitchen}
+                          />
+                        )}
+                        {canSeeNav('barStore') && (!isStationRestricted || userStation === 'bar') && (
+                          <SubLink
+                            to="/materials?station=bar"
+                            label={isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store'}
+                            icon={CoffeeRoundedIcon}
+                            onClick={onClose}
+                            isItemActive={location.pathname === '/materials' && (location.search === '?station=bar' || isStationRestricted)}
+                            badge={stationCounts?.bar}
+                          />
+                        )}
+                        {canSeeNav('production') && (
+                          <SubLink
+                            to="/production"
+                            label={isAmharic ? '🏭 የማምረቻ ስራ (ኩሽና/ባር)' : '🏭 Kitchen & Bar Production'}
+                            icon={LayersRoundedIcon}
+                            onClick={onClose}
+                            isItemActive={location.pathname === '/production'}
+                          />
+                        )}
+                      </div>
+                    )}
+
                     {(canSeeNav('stationMapping') || (can && can('manageStationMapping'))) && (
                       <SubLink
                         to="/settings?tab=stations"
@@ -792,15 +863,7 @@ const Sidebar = ({
                         isItemActive={location.pathname === '/settings' && location.search.includes('tab=stations')}
                       />
                     )}
-                  </>
-                )}
-                {canSeeNav('production') && (
-                  <SubLink
-                    to="/production"
-                    label={isAmharic ? '🏭 የማምረቻ ስራ (ኩሽና/ባር)' : '🏭 Kitchen & Bar Production'}
-                    icon={LayersRoundedIcon}
-                    onClick={onClose}
-                  />
+                  </div>
                 )}
                 {canSeeNav('products') && (
                   <SubLink to="/products" label={t('nav.products')} icon={RestaurantMenuRoundedIcon} onClick={onClose} />

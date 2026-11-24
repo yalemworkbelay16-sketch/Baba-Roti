@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, X, Zap,
   Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse,
-  UtensilsCrossed, Coffee, Sliders, ArrowRightLeft, Send, ArrowRight
+  UtensilsCrossed, Coffee, Sliders, ArrowRightLeft, Send, ArrowRight,
+  Factory, ChevronDown, Layers
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +52,7 @@ const statusBadge = (status) => {
 };
 
 const RawMaterials = () => {
+  const navigate = useNavigate();
   const { user, hasRole, can, canCrud } = useAuth();
   const userStation = (user?.assignedStation && user?.assignedStation !== 'all')
     ? user.assignedStation
@@ -563,9 +565,8 @@ const RawMaterials = () => {
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-semibold text-ink-900">{r.name}</span>
             {r.isProduced && (
-              <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${
-                r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
                 {r.productionStation === 'bar' ? '☕ Bar Produced' : '🍳 Kitchen Produced'}
               </span>
             )}
@@ -936,6 +937,38 @@ const RawMaterials = () => {
               <Coffee size={13} /> ☕ Bar Station ({stationCounts.bar})
             </button>
           )}
+
+          {/* Kitchen & Bar Production Link */}
+          <Link
+            to="/production"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100 hover:border-purple-300"
+            title="Go to Kitchen & Bar Production management"
+          >
+            <Factory size={13} className="text-purple-600" /> 🏭 Kitchen & Bar Production
+          </Link>
+
+          {/* Quick Selection Dropdown Box */}
+          <div className="relative inline-flex items-center ml-1">
+            <select
+              value={stationFilter}
+              onChange={(e) => {
+                if (e.target.value === 'production') {
+                  navigate('/production');
+                } else {
+                  handleStationChange(e.target.value);
+                }
+              }}
+              className="appearance-none rounded-xl border border-ink-200 bg-ink-50/90 pl-3 pr-8 py-1.5 text-xs font-bold text-ink-800 hover:bg-ink-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
+              title="Select Store or Production Station"
+            >
+              <option value="all">🌐 All Stations ({stationCounts.all})</option>
+              <option value="main">🏢 Main Store ({stationCounts.main})</option>
+              <option value="kitchen">🍳 Kitchen Store ({stationCounts.kitchen})</option>
+              <option value="bar">☕ Bar Store ({stationCounts.bar})</option>
+              <option value="production">🏭 Kitchen & Bar Production</option>
+            </select>
+            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 text-ink-500" />
+          </div>
 
           {isStationRestricted && (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 ml-1">
@@ -1358,8 +1391,8 @@ const RawMaterials = () => {
                   type="button"
                   onClick={() => setTransferForm(f => ({ ...f, toStation: 'kitchen' }))}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${transferForm.toStation === 'kitchen'
-                      ? 'border-amber-400 bg-amber-50 text-amber-900 ring-2 ring-amber-300'
-                      : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
+                    ? 'border-amber-400 bg-amber-50 text-amber-900 ring-2 ring-amber-300'
+                    : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
                     }`}
                 >
                   <UtensilsCrossed size={14} className="text-amber-600" />
@@ -1369,8 +1402,8 @@ const RawMaterials = () => {
                   type="button"
                   onClick={() => setTransferForm(f => ({ ...f, toStation: 'bar' }))}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition cursor-pointer ${transferForm.toStation === 'bar'
-                      ? 'border-emerald-400 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-300'
-                      : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-300'
+                    : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
                     }`}
                 >
                   <Coffee size={14} className="text-emerald-600" />

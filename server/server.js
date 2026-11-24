@@ -78,9 +78,26 @@ const syncStationStocks = async () => {
 
 const { migrateLocalUploads } = require('./utils/gridfs');
 
+// ── Auto-seed example production recipe on startup if database has none ──
+const autoSeedProduction = async () => {
+  try {
+    const ProductionRecipe = require('./models/ProductionRecipe');
+    const count = await ProductionRecipe.countDocuments();
+    if (count === 0) {
+      console.log('[SEED] No production recipes found. Auto-seeding initial Mayonnaise recipe example...');
+      const { seedExampleProduction } = require('./seedExampleProduction');
+      await seedExampleProduction(false);
+      console.log('[SEED] Production recipe example seeded successfully!');
+    }
+  } catch (err) {
+    console.warn('[SEED] Auto-seed production warning:', err.message);
+  }
+};
+
 connectDB()
   .then(async () => {
     await autoSeed();
+    await autoSeedProduction();
     await syncStationStocks();
     await migrateLocalUploads();
   })
