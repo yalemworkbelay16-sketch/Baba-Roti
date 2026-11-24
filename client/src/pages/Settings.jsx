@@ -191,7 +191,7 @@ export default function Settings() {
       products: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       stockMovements: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       suppliers: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
-      consumption: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+      consumption: { storekeeper: true, cashier: false, waiter: true, supervisor: true, manager: true, admin: true },
       reports: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       expenses: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
       analytics: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: true, admin: true },

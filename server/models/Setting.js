@@ -13,7 +13,7 @@ const DEFAULT_NAV_VISIBILITY = {
   products:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   stockMovements:{ storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   suppliers:     { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  consumption:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  consumption:   { storekeeper: true,  cashier: false, waiter: true,  supervisor: true,  manager: true,  admin: true },
   production:    { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   reports:       { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
   expenses:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
