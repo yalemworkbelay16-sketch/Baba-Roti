@@ -14,6 +14,11 @@ const rawMaterialSchema = new mongoose.Schema(
     reorderLevel: { type: Number, required: true, default: 10 },
     unitCost: { type: Number, default: 0 },
     storeLocation: { type: String, trim: true, default: 'Main Store' },
+    // Production / Manufactured item flags
+    isProduced: { type: Boolean, default: false },
+    itemType: { type: String, enum: ['raw', 'produced', 'semi_finished'], default: 'raw' },
+    productionStation: { type: String, enum: ['none', 'kitchen', 'bar'], default: 'none' },
+    productionRecipe: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductionRecipe', default: null },
     isActive: { type: Boolean, default: true },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: String, default: null },

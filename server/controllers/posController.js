@@ -5,6 +5,7 @@ const RawMaterial = require('../models/RawMaterial');
 const StockTransaction = require('../models/StockTransaction');
 const SalesRecord = require('../models/SalesRecord');
 const Setting = require('../models/Setting');
+const { convertUnit } = require('../utils/unitConverter');
 const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
 const {
@@ -138,20 +139,28 @@ const createOrder = asyncHandler(async (req, res) => {
         if (!mat) continue;
 
         const matId = String(mat._id);
-        const usedQty = (Number(ing.quantity) || 0) * qty;
+        const recipeQty = (Number(ing.quantity) || 0) * qty;
+        const recipeUnit = (ing.unit || mat.unit || '').trim();
+        // Automatically convert recipe unit to material base inventory unit (e.g. 40 g -> 0.04 kg)
+        const baseQty = convertUnit(recipeQty, recipeUnit, mat.unit);
         const ingUnitCost = Number(mat.unitCost || 0);
-        const ingTotalCost = Math.round(usedQty * ingUnitCost * 100) / 100;
+        const ingTotalCost = Math.round(baseQty * ingUnitCost * 100) / 100;
         lineCogs += ingTotalCost;
 
-        // Resolve target station based on the material's category mapping
-        // If mapped to bar -> bar; if mapped to kitchen -> kitchen; if not mapped -> mainStore
-        const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+        // Resolve target station:
+        // If material is an internally produced item, deduct directly from its production station!
+        // Otherwise determine station based on category mapping.
+        let targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
+          ? mat.productionStation
+          : determineMaterialStation(mat, settings?.stationCategoryMapping);
 
         lineIngredients.push({
           materialId: mat._id,
           materialName: mat.name,
           unit: mat.unit,
-          quantityUsed: usedQty,
+          quantityUsed: baseQty,
+          inputQuantity: recipeQty,
+          inputUnit: recipeUnit,
           unitCost: ingUnitCost,
           totalCost: ingTotalCost,
           deductedFromStation: targetStation,
@@ -162,7 +171,7 @@ const createOrder = asyncHandler(async (req, res) => {
         if (!materialDeductions[deductionKey]) {
           materialDeductions[deductionKey] = { material: mat, targetStation, totalQty: 0 };
         }
-        materialDeductions[deductionKey].totalQty += usedQty;
+        materialDeductions[deductionKey].totalQty += baseQty;
       }
     }
 
@@ -593,7 +602,7 @@ const reprintOrder = asyncHandler(async (req, res) => {
         printCount: order.printCount,
       },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({
     success: true,

@@ -4,6 +4,7 @@ const ingredientSchema = new mongoose.Schema(
   {
     material: { type: mongoose.Schema.Types.ObjectId, ref: 'RawMaterial', required: true },
     quantity: { type: Number, required: true, min: 0 },
+    unit:     { type: String, default: '' },
   },
   { _id: false }
 );

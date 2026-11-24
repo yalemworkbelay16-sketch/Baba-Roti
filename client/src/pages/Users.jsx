@@ -89,10 +89,8 @@ const Users = () => {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, []);
-
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [roleFilter, statusFilter, search]);
-
   const roleCounts = useMemo(() => {
     const counts = { all: users.length, active: 0, inactive: 0, online: 0, offline: 0 };
     users.forEach(u => {
@@ -124,7 +122,6 @@ const Users = () => {
       return true;
     });
   }, [users, roleFilter, statusFilter, search]);
-
   const openCreate = () => {
     setEditUser(null);
     setForm(emptyForm);
@@ -132,7 +129,6 @@ const Users = () => {
     setPhotoUploadErr('');
     setModalOpen(true);
   };
-
   const openEdit = (u) => {
     setEditUser(u);
     setForm({
@@ -576,7 +572,6 @@ const Users = () => {
               <X size={13} /> {error}
             </div>
           )}
-
           {/* Name */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-ink-700">Full Name *</label>
@@ -584,7 +579,6 @@ const Users = () => {
               placeholder="e.g. Abebe Girma"
               className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
           </div>
-
           {/* Email */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-ink-700">Email *</label>

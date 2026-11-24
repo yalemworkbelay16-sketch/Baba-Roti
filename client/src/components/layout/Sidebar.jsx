@@ -59,7 +59,6 @@ const STOCK_ITEMS = [
   { to: '/transactions/neg-adjustment', label: 'Negative Adjustment', icon: TrendingDownRoundedIcon },
   { to: '/sales-import', label: 'Import Sales Report', icon: CloudUploadRoundedIcon },
 ];
-
 const REPORT_ITEMS = [
   { to: '/reports/summary', label: 'Overview Summary', icon: AssessmentRoundedIcon },
   { to: '/reports/stock-balance', label: 'Stock Balance Sheet', icon: ScaleRoundedIcon },
@@ -499,6 +498,11 @@ const Sidebar = ({
       to: '/materials?station=bar',
       label: isAmharic ? '☕ ባር ስቶር' : '☕ Bar Store',
       icon: CoffeeRoundedIcon,
+    },
+    canSeeNav('production') && {
+      to: '/production',
+      label: isAmharic ? '🏭 የማምረቻ ስራ (ኩሽና/ባር)' : '🏭 Production (Kitchen & Bar)',
+      icon: LayersRoundedIcon,
     },
     (canSeeNav('stationMapping') || (can && can('manageStationMapping'))) && {
       to: '/settings?tab=stations',

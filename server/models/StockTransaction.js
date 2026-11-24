@@ -22,6 +22,8 @@ const VOUCHER_TYPES = [
   'sales_import',
   'pos_sale',
   'manual_sale',
+  'production',
+  'production_void',
 ];
 
 // Direction each voucher type moves stock
@@ -35,6 +37,8 @@ const VOUCHER_DIRECTION = {
   sales_import:   'out',
   pos_sale:       'out',
   manual_sale:    'out',
+  production:     'out',
+  production_void: 'in',
 };
 
 const lineItemSchema = new mongoose.Schema(
@@ -106,6 +110,7 @@ const stockTransactionSchema = new mongoose.Schema(
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },
     reason:    { type: String, trim: true, default: '' },
     reference: { type: String, trim: true, default: '' },
+    productionRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Production', default: null },
 
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: { type: String, trim: true, default: '' },

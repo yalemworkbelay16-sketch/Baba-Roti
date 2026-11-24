@@ -143,6 +143,7 @@ app.use('/api/activity-log', require('./routes/activityLogRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/pos', require('./routes/posRoutes'));
+app.use('/api/production', require('./routes/productionRoutes'));
 app.use('/api/captain-orders', require('./routes/captainOrderRoutes'));
 app.use('/api/printers', require('./routes/printerRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));

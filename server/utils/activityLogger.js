@@ -27,7 +27,6 @@ const logActivity = (req, {
     const ip = getClientIp(req);
     const userAgent = req?.headers ? req.headers['user-agent'] || '' : '';
     const device = parseDevice(userAgent);
-
     ActivityLog.create({
       user: actor?._id || null,
       userName: actor?.name || 'System / Guest',

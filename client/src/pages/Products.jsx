@@ -234,7 +234,7 @@ const Products = () => {
       ingredients: (p.ingredients || []).map((ing) => ({
         material: ing.material?._id ?? ing.material,
         materialName: ing.material?.name ?? '',
-        unit: ing.material?.unit ?? '',
+        unit: ing.unit || ing.material?.unit || '',
         quantity: ing.quantity,
       })),
     });
@@ -436,9 +436,10 @@ const Products = () => {
       description: form.description,
       sellingPrice: form.sellingPrice === '' ? 0 : Number(form.sellingPrice),
       imageUrl: form.imageUrl || '',
-      ingredients: form.ingredients.map(({ material, quantity }) => ({
+      ingredients: form.ingredients.map(({ material, quantity, unit }) => ({
         material,
         quantity: quantity === '' ? 0 : Number(quantity),
+        unit: unit || '',
       })),
     };
     try {
@@ -1387,28 +1388,48 @@ const Products = () => {
               </p>
             )}
             <div className="space-y-2">
-              {form.ingredients.map((ing, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                  <SearchableSelect
-                    required
-                    placeholder="Select raw material…"
-                    options={materials}
-                    value={ing.material}
-                    onChange={(val) => updateIngredient(idx, 'material', val)}
-                  />
-                  <div className="flex items-center gap-1">
-                    <input type="number" step="any" min="0" required value={ing.quantity}
-                      onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
-                      className="w-24 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      placeholder="Qty" />
-                    <span className="w-8 text-xs text-ink-400">{ing.unit}</span>
+              {form.ingredients.map((ing, idx) => {
+                const mat = materials.find((m) => m._id === ing.material);
+                return (
+                  <div key={idx} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                    <div>
+                      <SearchableSelect
+                        required
+                        placeholder="Select raw material or prepared item…"
+                        options={materials.map(m => ({
+                          ...m,
+                          name: `${m.name} (${m.unit})${m.isProduced ? (m.productionStation === 'bar' ? ' ☕ [Bar Prepared]' : ' 🍳 [Kitchen Prepared]') : ''}`
+                        }))}
+                        value={ing.material}
+                        onChange={(val) => updateIngredient(idx, 'material', val)}
+                      />
+                      {mat?.isProduced && (
+                        <span className="text-[10px] text-amber-700 font-bold ml-1">
+                          ★ Prepared in {mat.productionStation === 'bar' ? 'Bar Store' : 'Kitchen Store'} (Will deduct prepared stock, not raw ingredients)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input type="number" step="any" min="0" required value={ing.quantity}
+                        onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
+                        className="w-20 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500 text-center font-bold"
+                        placeholder="Qty" />
+                      <input
+                        type="text"
+                        value={ing.unit || mat?.unit || ''}
+                        onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
+                        className="w-14 rounded-lg border border-ink-200 px-1 py-2 text-xs text-center font-semibold text-ink-700"
+                        placeholder="Unit"
+                        title="Recipe unit (e.g. g, kg, ml, pcs)"
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeIngredient(idx)}
+                      className="rounded-md p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
+                      <X size={15} />
+                    </button>
                   </div>
-                  <button type="button" onClick={() => removeIngredient(idx)}
-                    className="rounded-md p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
-                    <X size={15} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {(form.ingredients?.length > 0) && (
               <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-sm">

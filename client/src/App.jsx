@@ -13,6 +13,7 @@ import Purchases from './pages/Purchases';
 import StockIssueRequest from './pages/StockIssueRequest';
 import Users from './pages/Users';
 import Products from './pages/Products';
+import Production from './pages/Production';
 import Settings from './pages/Settings';
 import SalesImport from './pages/SalesImport';
 import Analytics from './pages/Analytics';
@@ -59,6 +60,7 @@ function App() {
             <Route path="/captain-order" element={<ProtectedRoute module="subsystem"><CaptainOrder /></ProtectedRoute>} />
             <Route path="/cash-sales" element={<ProtectedRoute module="subsystem" roles={['admin', 'manager', 'supervisor', 'cashier', 'storekeeper', 'dev']}><CashSales /></ProtectedRoute>} />
             <Route path="/materials" element={<RawMaterials />} />
+            <Route path="/production" element={<Production />} />
             <Route path="/products" element={<Products />} />
             <Route path="/analytics" element={<ProtectedRoute module="finance" capability="viewReports"><Analytics /></ProtectedRoute>} />
             <Route path="/transactions" element={<StockTransactions />} />

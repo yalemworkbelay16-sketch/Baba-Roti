@@ -9,6 +9,7 @@ const tg = require('../utils/telegramNotifier');
 const { uploadBufferToGridFS, saveLocalCache } = require('../utils/gridfs');
 const { generateAndSaveProductImage } = require('../utils/aiImageService');
 const { logActivity } = require('../utils/activityLogger');
+const { convertUnit } = require('../utils/unitConverter');
 
 // ── Pricing helper — applies settings-based adjustments to recipe cost ──
 // Returns full cost breakdown:
@@ -29,7 +30,7 @@ function calcRecipeCostBreakdown(ingredients, settings = {}) {
   let baseRawCost = 0;
   let adjustedRawCost = 0;
 
-  // Step 1: ingredient line-item pricing with global adjustment support
+  // Step 1: ingredient line-item pricing with global adjustment support & unit conversion
   const enrichedIngredients = (ingredients || []).map((ing) => {
     const rawCost = Number(ing.material?.unitCost ?? 0);
     let effectiveCost = rawCost;
@@ -41,13 +42,17 @@ function calcRecipeCostBreakdown(ingredients, settings = {}) {
       }
     }
     const qty = Number(ing.quantity || 0);
-    const subtotal = effectiveCost * qty;
-    baseRawCost += rawCost * qty;
+    const ingUnit = (ing.unit || ing.material?.unit || '').trim();
+    const baseQty = convertUnit(qty, ingUnit, ing.material?.unit);
+    const subtotal = effectiveCost * baseQty;
+    baseRawCost += rawCost * baseQty;
     adjustedRawCost += subtotal;
 
     return {
       material: ing.material,
       quantity: qty,
+      unit: ingUnit,
+      baseQuantity: baseQty,
       baseUnitCost: Math.round(rawCost * 100) / 100,
       effectiveUnitCost: Math.round(effectiveCost * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,
@@ -94,7 +99,6 @@ function calcRecipeCostBreakdown(ingredients, settings = {}) {
     },
   };
 }
-
 // GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
   const { search, pos } = req.query;
@@ -102,7 +106,6 @@ const getProducts = asyncHandler(async (req, res) => {
   if (search && search.trim()) {
     filter.name = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
   }
-
   // Fast POS Mode: lightweight query, no deep populate/cost calculation needed for cashier terminal
   if (pos === 'true' || pos === '1') {
     const products = await Product.find(filter)
@@ -111,7 +114,6 @@ const getProducts = asyncHandler(async (req, res) => {
       .lean();
     return res.json(products);
   }
-
   const [products, settings] = await Promise.all([
     Product.find(filter)
       .populate('ingredients.material', 'name unit unitCost')
@@ -217,7 +219,7 @@ const createProduct = asyncHandler(async (req, res) => {
       status: 'success',
       details: { id: populated._id, name: populated.name, code: populated.code, sellingPrice: populated.sellingPrice },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.status(201).json(populated);
 });
@@ -296,7 +298,7 @@ const updateProduct = asyncHandler(async (req, res) => {
       status: 'success',
       details: { id: populated._id, name: populated.name, changes },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json(populated);
 });
@@ -321,7 +323,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { id: product._id, name: product.name },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ message: 'Product moved to recycle bin.' });
 });

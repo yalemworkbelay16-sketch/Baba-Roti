@@ -7,6 +7,7 @@ const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
+const { convertUnit } = require('../utils/unitConverter');
 const Setting = require('../models/Setting');
 
 // ── Auto voucher number ───────────────────────────────────────────
@@ -30,8 +31,13 @@ async function applyConsumptionStock(items, reverse = false) {
     for (const ing of product.ingredients) {
       const mat = await RawMaterial.findById(ing.material._id || ing.material);
       if (!mat) continue;
-      const qty = ing.quantity * item.quantity;
-      const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+      const recipeQty = (Number(ing.quantity) || 0) * (Number(item.quantity) || 0);
+      const recipeUnit = (ing.unit || mat.unit || '').trim();
+      const qty = convertUnit(recipeQty, recipeUnit, mat.unit);
+
+      const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
+        ? mat.productionStation
+        : determineMaterialStation(mat, settings?.stationCategoryMapping);
 
       if (targetStation === 'bar') {
         mat.barStock = Math.max(0, Number(mat.barStock || 0) + (reverse ? qty : -qty));

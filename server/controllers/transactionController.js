@@ -9,6 +9,7 @@ const { hasPermission } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
+const { convertUnit } = require('../utils/unitConverter');
 const Setting = require('../models/Setting');
 const { logActivity } = require('../utils/activityLogger');
 
@@ -193,7 +194,7 @@ const createTransaction = asyncHandler(async (req, res) => {
         itemCount: populated.items?.length,
       },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.status(201).json(populated);
 });
@@ -354,7 +355,7 @@ const deleteTransaction = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { voucherNo: transaction.voucherNo, voucherType: transaction.voucherType },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   tg.notifyTransactionDeleted(transaction, req.user);
   notify.push({ type: 'transaction', title: 'Transaction Deleted', message: `${req.user.name} deleted voucher ${transaction.voucherNo || transaction._id?.toString().slice(-6)}`, icon: '🗑️', link: '/transactions', severity: 'warning', userId: req.user._id });
@@ -765,11 +766,15 @@ const importSales = asyncHandler(async (req, res) => {
           const mat = matId ? rawMaterialById.get(matId) : null;
           if (!mat) continue;
 
-          const deductQty = (Number(ing.quantity) || 0) * qty;
+          const recipeQty = (Number(ing.quantity) || 0) * qty;
+          const recipeUnit = (ing.unit || mat.unit || '').trim();
+          const deductQty = convertUnit(recipeQty, recipeUnit, mat.unit);
           const ingCost = (Number(mat.unitCost) || 0) * deductQty;
           cogs += ingCost;
           materialDeductions[matId] = (materialDeductions[matId] || 0) + deductQty;
-          const targetStation = determineMaterialStation(mat, settings?.stationCategoryMapping);
+          const targetStation = mat.isProduced && mat.productionStation && mat.productionStation !== 'none'
+            ? mat.productionStation
+            : determineMaterialStation(mat, settings?.stationCategoryMapping);
           const sKey = `${matId}_${targetStation}`;
           stationDeductions[sKey] = (stationDeductions[sKey] || 0) + deductQty;
           lineIngredients.push({
@@ -777,6 +782,8 @@ const importSales = asyncHandler(async (req, res) => {
             materialName: mat.name,
             unit: mat.unit,
             quantityUsed: deductQty,
+            inputQuantity: recipeQty,
+            inputUnit: recipeUnit,
             unitCost: mat.unitCost || 0,
             totalCost: ingCost,
             deductedFromStation: targetStation,

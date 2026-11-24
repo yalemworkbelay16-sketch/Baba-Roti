@@ -556,7 +556,22 @@ const RawMaterials = () => {
         ),
       }] : []),
       { key: 'code', header: 'Code', render: (r) => <span className="font-mono text-xs text-ink-400">{r.code || '—'}</span> },
-      { key: 'name', header: 'Material' },
+      {
+        key: 'name',
+        header: 'Material',
+        render: (r) => (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-ink-900">{r.name}</span>
+            {r.isProduced && (
+              <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${
+                r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {r.productionStation === 'bar' ? '☕ Bar Produced' : '🍳 Kitchen Produced'}
+              </span>
+            )}
+          </div>
+        ),
+      },
       { key: 'category', header: 'Category' },
 
       // 🍳 Kitchen Station: Display ONLY Kitchen Working Balance (Hide Main Store, Hide Bar, Hide Total)
