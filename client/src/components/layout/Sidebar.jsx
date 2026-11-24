@@ -496,7 +496,7 @@ const Sidebar = ({
     },
     canSeeNav('rawMaterials') && canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && {
       to: '/materials?station=main',
-      label: isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store',
+      label: isAmharic ? '🏢 ዋና መጋዘን ዕቃዎች' : '🏢 Main Store Item',
       icon: StoreRoundedIcon,
     },
     canSeeNav('rawMaterials') && canSeeNav('kitchenStore') && (!isStationRestricted || userStation === 'kitchen') && {
@@ -816,7 +816,7 @@ const Sidebar = ({
                         {canSeeNav('mainStore') && (!isStationRestricted || userStation === 'main') && (
                           <SubLink
                             to="/materials?station=main"
-                            label={isAmharic ? '🏢 ዋና መጋዘን' : '🏢 Main Store'}
+                            label={isAmharic ? '🏢 ዋና መጋዘን ዕቃዎች' : '🏢 Main Store Item'}
                             icon={StoreRoundedIcon}
                             onClick={onClose}
                             isItemActive={location.pathname === '/materials' && (location.search === '?station=main' || isStationRestricted)}

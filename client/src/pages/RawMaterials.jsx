@@ -931,7 +931,7 @@ const RawMaterials = () => {
                 : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
                 }`}
             >
-              <Warehouse size={13} /> 🏢 Main Store ({stationCounts.main})
+              <Warehouse size={13} /> 🏢 Main Store Item ({stationCounts.main})
             </button>
           )}
 
@@ -985,7 +985,7 @@ const RawMaterials = () => {
               title="Select Store or Production Station"
             >
               <option value="all">🌐 All Stations ({stationCounts.all})</option>
-              <option value="main">🏢 Main Store ({stationCounts.main})</option>
+              <option value="main">🏢 Main Store Item ({stationCounts.main})</option>
               <option value="kitchen">🍳 Kitchen Store ({stationCounts.kitchen})</option>
               <option value="bar">☕ Bar Store ({stationCounts.bar})</option>
               <option value="production">🏭 Kitchen & Bar Production</option>
