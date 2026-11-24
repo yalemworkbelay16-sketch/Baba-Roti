@@ -546,7 +546,7 @@ const produceBatch = asyncHandler(async (req, res) => {
         `👨‍🍳 Produced By: ${production.producedByName}\n` +
         `📋 Ingredients Consumed: ${resolvedIngredients.map(i => `${i.material.name} (${i.baseQuantity} ${i.baseUnit})`).join(', ')}`;
       tg.sendNotification(summaryMsg);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   logActivity(req, {

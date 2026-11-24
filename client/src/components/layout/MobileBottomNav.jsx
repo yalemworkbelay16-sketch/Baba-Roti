@@ -31,8 +31,18 @@ export default function MobileBottomNav({ onOpenMenu }) {
     location.pathname.startsWith(p)
   );
 
-  // ── Waiter Mobile Phone Navigation ──────────────────────────────
-  if (isWaiter) {
+  const hasExtraNav = Boolean(
+    canSeeNav('dashboard') ||
+    canSeeNav('consumption') ||
+    canSeeNav('rawMaterials') ||
+    canSeeNav('products') ||
+    canSeeNav('stockMovements') ||
+    canSeeNav('expenses') ||
+    canSeeNav('suppliers')
+  );
+
+  // ── Waiter Mobile Phone Navigation (Only when strictly limited to Orders) ──
+  if (isWaiter && !hasExtraNav) {
     return (
       <nav
         aria-label="Waiter Mobile Navigation"
@@ -79,7 +89,20 @@ export default function MobileBottomNav({ onOpenMenu }) {
           <span className="text-[10px] tracking-tight mt-0.5">Tables & Orders</span>
         </NavLink>
 
-        {/* Waiter 3: Sign Out */}
+        {/* Waiter 3: More (Opens Mobile Sidebar Drawer) */}
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label="Open More Menu"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-purple-700 font-medium transition-all duration-200 cursor-pointer"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+            <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
+          </span>
+          <span className="text-[10px] tracking-tight mt-0.5">More</span>
+        </button>
+
+        {/* Waiter 4: Sign Out */}
         <button
           type="button"
           onClick={() => {
@@ -92,7 +115,7 @@ export default function MobileBottomNav({ onOpenMenu }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors">
             <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
           </span>
-          <span className="text-[10px] tracking-tight mt-0.5">Logout ({user?.name?.split(' ')[0] || 'Waiter'})</span>
+          <span className="text-[10px] tracking-tight mt-0.5">Logout</span>
         </button>
       </nav>
     );
@@ -149,10 +172,10 @@ export default function MobileBottomNav({ onOpenMenu }) {
         </NavLink>
       )}
 
-      {/* 3. Inventory */}
+      {/* 3. Inventory / Consumption */}
       {(canSeeNav('rawMaterials') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
         <NavLink
-          to="/materials"
+          to={canSeeNav('consumption') && !canSeeNav('rawMaterials') ? '/consumption' : '/materials'}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200 cursor-pointer ${
             isInventoryActive
               ? 'text-blue-600 font-bold scale-105'
@@ -166,7 +189,9 @@ export default function MobileBottomNav({ onOpenMenu }) {
           >
             <Inventory2RoundedIcon sx={{ fontSize: 22 }} />
           </span>
-          <span className="text-[10px] tracking-tight mt-0.5">Inventory</span>
+          <span className="text-[10px] tracking-tight mt-0.5">
+            {canSeeNav('consumption') && !canSeeNav('rawMaterials') ? 'Consumption' : 'Inventory'}
+          </span>
         </NavLink>
       )}
 

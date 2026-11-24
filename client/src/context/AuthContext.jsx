@@ -266,14 +266,6 @@ export const AuthProvider = ({ children }) => {
     }
     if (user.role === 'dev') return true;
 
-    // Waiter role is strictly restricted to POS ordering & captain table orders in subsystem
-    if (user.role === 'waiter') {
-      if (['subsystem', 'pos', 'captainOrder'].includes(navKey)) {
-        return licensedModules?.subsystem !== false;
-      }
-      return false;
-    }
-
     const nav = navVisibility ?? DEFAULT_NAV_VISIBILITY;
     if (navKey === 'subsystem') {
       const p = nav.pos?.[user.role] ?? true;
@@ -311,7 +303,11 @@ export const AuthProvider = ({ children }) => {
     if (canSeeNav('dashboard')) return '/';
 
     // Waiter landing
-    if (currentUser.role === 'waiter') return '/pos';
+    if (currentUser.role === 'waiter') {
+      if (canSeeNav('pos')) return '/pos';
+      if (canSeeNav('captainOrder')) return '/captain-order';
+      if (canSeeNav('consumption')) return '/consumption';
+    }
 
     // Inventory & Raw Materials
     if (canSeeNav('rawMaterials')) {
