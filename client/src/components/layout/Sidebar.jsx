@@ -336,7 +336,7 @@ const Sidebar = ({
   const onTransactions =
     location.pathname.startsWith('/transactions') || location.pathname === '/sales-import';
   const onReports = location.pathname.startsWith('/reports');
-  const onInventory = ['/materials', '/products', '/suppliers', '/consumption'].some((p) =>
+  const onInventory = ['/materials', '/production', '/products', '/suppliers', '/consumption'].some((p) =>
     location.pathname.startsWith(p)
   );
   const onFinance =
@@ -709,7 +709,7 @@ const Sidebar = ({
           )}
 
           {/* 3. Inventory & Items */}
-          {(canSeeNav('rawMaterials') || canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('stationMapping') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
+          {(canSeeNav('rawMaterials') || canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('stationMapping') || canSeeNav('production') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
             collapsed ? (
               <div
                 onMouseEnter={(e) =>
@@ -793,6 +793,14 @@ const Sidebar = ({
                       />
                     )}
                   </>
+                )}
+                {canSeeNav('production') && (
+                  <SubLink
+                    to="/production"
+                    label={isAmharic ? '🏭 የማምረቻ ስራ (ኩሽና/ባር)' : '🏭 Kitchen & Bar Production'}
+                    icon={LayersRoundedIcon}
+                    onClick={onClose}
+                  />
                 )}
                 {canSeeNav('products') && (
                   <SubLink to="/products" label={t('nav.products')} icon={RestaurantMenuRoundedIcon} onClick={onClose} />
