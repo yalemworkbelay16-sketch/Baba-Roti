@@ -8,6 +8,7 @@ import AiChat from '../AiChat';
 const titles = {
   '/': 'Dashboard',
   '/materials': 'Raw Materials',
+  '/production': 'Kitchen & Bar Production',
   '/products': 'Sales Products & Recipes',
   '/analytics': 'Analytics & Performance',
   '/transactions': 'Stock Movements',

@@ -60,7 +60,9 @@ function App() {
             <Route path="/captain-order" element={<ProtectedRoute module="subsystem"><CaptainOrder /></ProtectedRoute>} />
             <Route path="/cash-sales" element={<ProtectedRoute module="subsystem" roles={['admin', 'manager', 'supervisor', 'cashier', 'storekeeper', 'dev']}><CashSales /></ProtectedRoute>} />
             <Route path="/materials" element={<RawMaterials />} />
+            <Route path="/materials/*" element={<RawMaterials />} />
             <Route path="/production" element={<Production />} />
+            <Route path="/production/*" element={<Production />} />
             <Route path="/products" element={<Products />} />
             <Route path="/analytics" element={<ProtectedRoute module="finance" capability="viewReports"><Analytics /></ProtectedRoute>} />
             <Route path="/transactions" element={<StockTransactions />} />
@@ -165,6 +167,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Catch-all route to gracefully redirect unrecognized sub-paths back to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </SessionTimeoutProvider>

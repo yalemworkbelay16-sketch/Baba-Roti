@@ -136,7 +136,6 @@ const SectionLabel = ({ children, collapsed }) => {
     </div>
   );
 };
-
 /* ── Collapsible Menu Group (Compact & Proportional) ── */
 const CollapsibleNav = ({
   label,
@@ -323,12 +322,14 @@ const Sidebar = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Header click handler: redirect to dashboard if allowed, or user landing page
+  // Header click handler: expands collapsed sidebar without forcing an accidental redirect to dashboard
   const handleHeaderClick = (e) => {
     if (collapsed && onExpand) {
       onExpand();
+      return;
     }
-    navigate(canSeeNav('dashboard') ? '/' : (getDefaultLandingUrl ? getDefaultLandingUrl() : '/materials'));
+    // Clicking the header does not redirect to dashboard while working inside a page;
+    // dedicated Dashboard navigation item is provided right below in the menu.
   };
 
   // Active route helpers
@@ -578,20 +579,20 @@ const Sidebar = ({
           </div>
         )}
 
-        {/* ── TOP HEADER SECTION (COMPACT & REDIRECTS TO DASHBOARD) ── */}
+        {/* ── TOP HEADER SECTION (COMPACT BRANDING & COLLAPSE EXPANDER) ── */}
         <div
           onClick={handleHeaderClick}
-          title={canSeeNav('dashboard') ? "Baba Roti - Go to Dashboard" : "Baba Roti Café"}
-          role="button"
-          tabIndex={0}
+          title={collapsed ? "Baba Roti Café - Click to expand" : "Baba Roti Café"}
+          role={collapsed ? "button" : undefined}
+          tabIndex={collapsed ? 0 : undefined}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if (collapsed && (e.key === 'Enter' || e.key === ' ')) {
               e.preventDefault();
               handleHeaderClick(e);
             }
           }}
-          className={`relative pt-2.5 pb-2 px-2.5 ${theme.isLight ? 'border-b border-slate-200 hover:bg-slate-100/70' : 'border-b border-white/[0.07] hover:bg-white/[0.04]'
-            } cursor-pointer group transition-all duration-150 select-none`}
+          className={`relative pt-2.5 pb-2 px-2.5 ${theme.isLight ? 'border-b border-slate-200' : 'border-b border-white/[0.07]'
+            } ${collapsed ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-default'} group transition-all duration-150 select-none`}
         >
           {/* Subtle Ambient Hover Highlight */}
           <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/[0.06] transition-colors pointer-events-none" />

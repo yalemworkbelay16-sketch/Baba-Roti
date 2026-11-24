@@ -28,7 +28,10 @@ const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => 
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const currentPath = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
+    return <Navigate to="/login" replace state={{ from: currentPath }} />;
+  }
 
   // System Developer (Owner) has master bypass for all gates
   if (user.role === 'dev') {

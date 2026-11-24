@@ -295,7 +295,6 @@ export default function Purchases() {
           )}
         </div>
       </div>
-
       {importResult && (
         <div className="flex items-start justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <p className="font-medium">{importResult.message}</p>
@@ -313,8 +312,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('all')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'all'
-                ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
           >
             <span>All</span>
@@ -329,8 +328,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('draft')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'draft'
-                ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
-                : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+              ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+              : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
               }`}
           >
             <Clock size={12} className={statusFilter === 'draft' ? 'text-white' : 'text-amber-600'} />
@@ -346,8 +345,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('checked')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'checked'
-                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
-                : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
+              ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400/40'
+              : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
               }`}
           >
             <Check size={12} className={statusFilter === 'checked' ? 'text-white' : 'text-blue-600'} />
@@ -363,8 +362,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('approved')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'approved'
-                ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400/40'
-                : 'bg-violet-50 text-violet-800 border border-violet-200/80 hover:bg-violet-100'
+              ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400/40'
+              : 'bg-violet-50 text-violet-800 border border-violet-200/80 hover:bg-violet-100'
               }`}
           >
             <CheckCircle2 size={12} className={statusFilter === 'approved' ? 'text-white' : 'text-violet-600'} />
@@ -380,8 +379,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('received')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'received'
-                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
+              ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400/40'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100'
               }`}
           >
             <CheckCircle2 size={12} className={statusFilter === 'received' ? 'text-white' : 'text-emerald-600'} />
@@ -397,8 +396,8 @@ export default function Purchases() {
             type="button"
             onClick={() => setStatusFilter('cancelled')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'cancelled'
-                ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
-                : 'bg-rose-50 text-rose-800 border border-rose-200/80 hover:bg-rose-100'
+              ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
+              : 'bg-rose-50 text-rose-800 border border-rose-200/80 hover:bg-rose-100'
               }`}
           >
             <AlertCircle size={12} className={statusFilter === 'cancelled' ? 'text-white' : 'text-rose-600'} />

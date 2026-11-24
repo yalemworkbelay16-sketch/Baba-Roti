@@ -399,11 +399,10 @@ export default function Production() {
             <button
               type="button"
               onClick={() => setStationFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                stationFilter === 'all'
-                  ? 'bg-white text-ink-900 shadow-xs'
-                  : 'text-ink-600 hover:text-ink-900'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${stationFilter === 'all'
+                ? 'bg-white text-ink-900 shadow-xs'
+                : 'text-ink-600 hover:text-ink-900'
+                }`}
             >
               All Stations
             </button>
@@ -412,11 +411,10 @@ export default function Production() {
             <button
               type="button"
               onClick={() => setStationFilter('kitchen')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                stationFilter === 'kitchen'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'text-ink-600 hover:text-amber-800'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${stationFilter === 'kitchen'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'text-ink-600 hover:text-amber-800'
+                }`}
             >
               <ChefHat size={14} /> Kitchen Store
             </button>
@@ -425,18 +423,16 @@ export default function Production() {
             <button
               type="button"
               onClick={() => setStationFilter('bar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                stationFilter === 'bar'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-ink-600 hover:text-emerald-800'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${stationFilter === 'bar'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-ink-600 hover:text-emerald-800'
+                }`}
             >
               <Coffee size={14} /> Bar Store
             </button>
           )}
         </div>
       </div>
-
       {/* ── Alerts ── */}
       {successMsg && (
         <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900 shadow-2xs animate-in fade-in">
@@ -456,11 +452,10 @@ export default function Production() {
         <button
           type="button"
           onClick={() => setActiveTab('run')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-            activeTab === 'run'
-              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-              : 'border-transparent text-ink-600 hover:text-ink-900'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${activeTab === 'run'
+            ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+            : 'border-transparent text-ink-600 hover:text-ink-900'
+            }`}
         >
           <Factory size={16} /> Run Production (Batch Produce)
         </button>
@@ -468,11 +463,10 @@ export default function Production() {
         <button
           type="button"
           onClick={() => setActiveTab('recipes')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-            activeTab === 'recipes'
-              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-              : 'border-transparent text-ink-600 hover:text-ink-900'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${activeTab === 'recipes'
+            ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+            : 'border-transparent text-ink-600 hover:text-ink-900'
+            }`}
         >
           <ChefHat size={16} /> Production Recipes / BOM ({availableRecipes.length})
         </button>
@@ -480,11 +474,10 @@ export default function Production() {
         <button
           type="button"
           onClick={() => setActiveTab('stock')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-            activeTab === 'stock'
-              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-              : 'border-transparent text-ink-600 hover:text-ink-900'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${activeTab === 'stock'
+            ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+            : 'border-transparent text-ink-600 hover:text-ink-900'
+            }`}
         >
           <PackageCheck size={16} /> Prepared Production Stock
         </button>
@@ -492,11 +485,10 @@ export default function Production() {
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-            activeTab === 'history'
-              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-              : 'border-transparent text-ink-600 hover:text-ink-900'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${activeTab === 'history'
+            ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+            : 'border-transparent text-ink-600 hover:text-ink-900'
+            }`}
         >
           <History size={16} /> Production History & Logs ({filteredBatches.length})
         </button>
@@ -603,11 +595,10 @@ export default function Production() {
                           key={n}
                           type="button"
                           onClick={() => setPlannedQty(n)}
-                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${
-                            Number(plannedQty) === n
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-ink-50 hover:bg-ink-100 text-ink-700 border-ink-200'
-                          }`}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${Number(plannedQty) === n
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-ink-50 hover:bg-ink-100 text-ink-700 border-ink-200'
+                            }`}
                         >
                           {n} {activeRecipe?.yieldUnit}
                         </button>
@@ -647,11 +638,10 @@ export default function Production() {
                     type="button"
                     onClick={handleExecuteBatch}
                     disabled={submittingBatch || !calcPreview?.canProduce}
-                    className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer ${
-                      calcPreview?.canProduce
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                        : 'bg-amber-500 hover:bg-amber-600 text-white'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer ${calcPreview?.canProduce
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-amber-500 hover:bg-amber-600 text-white'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {submittingBatch ? (
                       <>
@@ -692,11 +682,10 @@ export default function Production() {
                     <RefreshCw size={12} className="animate-spin" /> Calculating…
                   </span>
                 ) : (
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1 ${
-                    calcPreview?.canProduce
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1 ${calcPreview?.canProduce
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
+                    }`}>
                     {calcPreview?.canProduce ? (
                       <><Check size={12} /> Stock Available</>
                     ) : (
@@ -741,11 +730,10 @@ export default function Production() {
                               )}
                             </td>
                             <td className="px-3.5 py-3 text-center">
-                              <span className={`font-bold ${
-                                ing.availableStationStock >= ing.requiredBaseQuantity
-                                  ? 'text-emerald-700'
-                                  : 'text-red-600'
-                              }`}>
+                              <span className={`font-bold ${ing.availableStationStock >= ing.requiredBaseQuantity
+                                ? 'text-emerald-700'
+                                : 'text-red-600'
+                                }`}>
                                 {ing.availableStationStock} {ing.baseUnit}
                               </span>
                             </td>
@@ -824,11 +812,10 @@ export default function Production() {
                     <span className="text-[10px] font-mono font-bold text-ink-400 uppercase tracking-wider">
                       {r.code}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                      r.station === 'bar'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                      }`}>
                       {r.station}
                     </span>
                   </div>
@@ -948,11 +935,10 @@ export default function Production() {
                           <span className="text-[10px] text-ink-400">{mat.category || 'Kitchen Production'}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                            mat.productionStation === 'bar'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${mat.productionStation === 'bar'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                            }`}>
                             {mat.productionStation || 'kitchen'}
                           </span>
                         </td>
@@ -1095,11 +1081,10 @@ export default function Production() {
                         {new Date(b.productionDate).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                          b.station === 'bar'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${b.station === 'bar'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                          }`}>
                           {b.station}
                         </span>
                       </td>
