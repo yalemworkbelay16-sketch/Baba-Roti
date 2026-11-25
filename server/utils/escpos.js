@@ -46,7 +46,6 @@ const OPEN_DRAWER = Buffer.from([ESC, 0x70, 0x00, 0x19, 0x78]);
 function padEnd(str, len) {
   return String(str || '').padEnd(len).slice(0, len);
 }
-
 /**
  * Build a two-column row: left text + right text aligned to `totalWidth`.
  */
@@ -67,7 +66,6 @@ function divider(char = '-', width = 42) {
 function text(str) {
   return Buffer.from(str + '\n', 'latin1');
 }
-
 /**
  * Remove "Café", "Cafe", or "CAF" from business name to cleanly display "Baba Roti"
  */
@@ -84,7 +82,6 @@ function buildKOT(order, opts = {}) {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
   const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
-
   // Filter items by target station if specified ('kitchen', 'barista', etc.)
   const targetStation = opts.targetStation || opts.station;
   const items = (order.items || []).filter((item) => {

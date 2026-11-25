@@ -960,8 +960,8 @@ const Users = () => {
                     type="button"
                     onClick={() => setTgAlertMode('role')}
                     className={`p-3 rounded-xl border text-left transition cursor-pointer ${tgAlertMode === 'role'
-                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
-                        : 'bg-white border-ink-200 hover:border-ink-300'
+                      ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
+                      : 'bg-white border-ink-200 hover:border-ink-300'
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -980,8 +980,8 @@ const Users = () => {
                     type="button"
                     onClick={() => setTgAlertMode('custom')}
                     className={`p-3 rounded-xl border text-left transition cursor-pointer ${tgAlertMode === 'custom'
-                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
-                        : 'bg-white border-ink-200 hover:border-ink-300'
+                      ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
+                      : 'bg-white border-ink-200 hover:border-ink-300'
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -1037,8 +1037,8 @@ const Users = () => {
                         <label
                           key={item.id}
                           className={`flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition ${checked
-                              ? 'bg-blue-50/70 border-blue-200'
-                              : 'bg-white border-ink-100 hover:border-ink-200'
+                            ? 'bg-blue-50/70 border-blue-200'
+                            : 'bg-white border-ink-100 hover:border-ink-200'
                             }`}
                         >
                           <input

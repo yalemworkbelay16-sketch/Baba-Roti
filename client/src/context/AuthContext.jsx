@@ -4,15 +4,15 @@ import api from '../api/axios';
 const AuthContext = createContext(null);
 
 const DEFAULT_PERMISSIONS = {
-  recordGoods:          { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  checkReview:          { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  approveGoods:         { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  postLedger:           { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  voidTransactions:     { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  transferStationStock: { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  viewReports:          { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  manageAccounts:       { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  recordGoods: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  checkReview: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  approveGoods: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  postLedger: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  voidTransactions: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  transferStationStock: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  viewReports: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  manageAccounts: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
 };
 
 // CRUD privilege defaults per module
@@ -25,32 +25,32 @@ const DEFAULT_CRUD_PERMISSIONS = Object.fromEntries(
   CRUD_MODULES.map((mod) => [
     mod,
     {
-      view:   { storekeeper: true,  cashier: mod === 'products', waiter: mod === 'products', supervisor: true,  manager: true,  admin: true },
-      edit:   { storekeeper: false, cashier: false,              waiter: false,              supervisor: !['suppliers', 'employees'].includes(mod), manager: true,  admin: true },
-      delete: { storekeeper: false, cashier: false,              waiter: false,              supervisor: false, manager: false, admin: true },
+      view: { storekeeper: true, cashier: mod === 'products', waiter: mod === 'products', supervisor: true, manager: true, admin: true },
+      edit: { storekeeper: false, cashier: false, waiter: false, supervisor: !['suppliers', 'employees'].includes(mod), manager: true, admin: true },
+      delete: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
     },
   ])
 );
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  pos:            { storekeeper: true,  cashier: true,  waiter: true,  supervisor: true,  manager: true,  admin: true },
-  captainOrder:   { storekeeper: true,  cashier: true,  waiter: true,  supervisor: true,  manager: true,  admin: true },
-  cashSales:      { storekeeper: true,  cashier: true,  waiter: false, supervisor: true,  manager: true,  admin: true },
-  rawMaterials:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  mainStore:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  kitchenStore:   { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  barStore:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  stationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  products:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  stockMovements: { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  suppliers:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  consumption:    { storekeeper: true,  cashier: false, waiter: true,  supervisor: true,  manager: true,  admin: true },
-  production:     { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  reports:        { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  expenses:       { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  analytics:      { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: true,  admin: true },
-  staffAccounts:  { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  activityLog:    { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
+  dashboard: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  pos: { storekeeper: true, cashier: true, waiter: true, supervisor: true, manager: true, admin: true },
+  captainOrder: { storekeeper: true, cashier: true, waiter: true, supervisor: true, manager: true, admin: true },
+  cashSales: { storekeeper: true, cashier: true, waiter: false, supervisor: true, manager: true, admin: true },
+  rawMaterials: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  mainStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  kitchenStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  barStore: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  products: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  stockMovements: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  suppliers: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  consumption: { storekeeper: true, cashier: false, waiter: true, supervisor: true, manager: true, admin: true },
+  production: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  reports: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  expenses: { storekeeper: true, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
+  analytics: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: true, admin: true },
+  staffAccounts: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  activityLog: { storekeeper: false, cashier: false, waiter: false, supervisor: true, manager: true, admin: true },
 };
 
 const DEFAULT_LICENSED_MODULES = {
@@ -161,7 +161,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const stored = localStorage.getItem('hotelStockAuth');
     if (stored) {
-      fetchPermissions().catch(() => {});
+      fetchPermissions().catch(() => { });
     }
   }, [fetchPermissions]);
 
@@ -169,7 +169,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
-      api.post('/auth/heartbeat').catch(() => {});
+      api.post('/auth/heartbeat').catch(() => { });
     }, 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
@@ -187,7 +187,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     // Notify server of logout asynchronously to immediately set offline
-    api.post('/auth/logout').catch(() => {});
+    api.post('/auth/logout').catch(() => { });
 
     localStorage.removeItem('hotelStockAuth');
     // Clear ALL cached settings so the next login always reads fresh server data

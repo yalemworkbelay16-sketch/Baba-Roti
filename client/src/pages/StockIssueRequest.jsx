@@ -732,8 +732,8 @@ export default function StockIssueRequest() {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1 items-start">
                         <span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border ${req.requestType === 'direct_issue'
-                            ? 'bg-violet-50 text-violet-700 border-violet-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                          ? 'bg-violet-50 text-violet-700 border-violet-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
                           }`}>
                           {req.requestType === 'direct_issue' ? 'Direct Issue' : 'Request'}
                         </span>
@@ -1049,9 +1049,9 @@ export default function StockIssueRequest() {
           >
             {/* Header */}
             <div className={`px-6 py-5 border-b border-ink-100 ${actionType === 'approve' ? 'bg-blue-600'
-                : actionType === 'issue' ? 'bg-emerald-600'
-                  : actionType === 'reject' ? 'bg-rose-600'
-                    : 'bg-ink-800'
+              : actionType === 'issue' ? 'bg-emerald-600'
+                : actionType === 'reject' ? 'bg-rose-600'
+                  : 'bg-ink-800'
               }`}>
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-black text-white">{ACTION_CONFIG[actionType]?.title}</h2>
@@ -1080,8 +1080,8 @@ export default function StockIssueRequest() {
                         <span className="font-bold text-ink-900">{item.material?.name || '—'}</span>
                         {actionType === 'issue' && (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentStock >= issueQty
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-amber-100 text-amber-800'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-800'
                             }`}>
                             {currentStock >= issueQty
                               ? `✓ ${currentStock} ${item.material?.unit} in Main Store`

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle, Calendar, RotateCcw, Eye, Filter } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
@@ -25,6 +25,11 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [search, setSearch] = useState('');
+  const [codeFilter, setCodeFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [datePreset, setDatePreset] = useState('all');
+  const [loading, setLoading] = useState(false);
   const [recipeFilter, setRecipeFilter] = useState('all'); // 'all' | 'has_recipe' | 'no_recipe'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
@@ -55,13 +60,71 @@ const Products = () => {
   const canEdit = canCrud ? canCrud('products', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('products', 'delete') : hasRole('admin');
 
-  const load = () =>
-    api.get('/products', { params: { search } }).then((r) => {
-      setProducts(Array.isArray(r.data) ? r.data : []);
-      setSelected(new Set());
-    }).catch(() => setProducts([]));
+  const applyDatePreset = (preset) => {
+    setDatePreset(preset);
+    const today = new Date();
+    const formatYMD = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
-  useEffect(() => { load(); }, [search]);
+    if (preset === 'all') {
+      setFromDate('');
+      setToDate('');
+    } else if (preset === 'today') {
+      const todayStr = formatYMD(today);
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else if (preset === 'yesterday') {
+      const y = new Date(today);
+      y.setDate(today.getDate() - 1);
+      const yStr = formatYMD(y);
+      setFromDate(yStr);
+      setToDate(yStr);
+    } else if (preset === 'this_week') {
+      const w = new Date(today);
+      w.setDate(today.getDate() - 6);
+      setFromDate(formatYMD(w));
+      setToDate(formatYMD(today));
+    } else if (preset === 'this_month') {
+      const m = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFromDate(formatYMD(m));
+      setToDate(formatYMD(today));
+    }
+  };
+
+  const handleRefresh = () => {
+    setSearch('');
+    setCodeFilter('');
+    setFromDate('');
+    setToDate('');
+    setDatePreset('all');
+    setRecipeFilter('all');
+    setCategoryFilter('all');
+  };
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const params = {};
+    if (search.trim()) params.search = search.trim();
+    if (codeFilter.trim()) params.code = codeFilter.trim();
+    if (fromDate) params.from = fromDate;
+    if (toDate) params.to = toDate;
+
+    return api.get('/products', { params })
+      .then((r) => {
+        setProducts(Array.isArray(r.data) ? r.data : []);
+        setSelected(new Set());
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, [search, codeFilter, fromDate, toDate]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
   useEffect(() => {
     api.get('/materials')
       .then((r) => setMaterials(Array.isArray(r.data) ? r.data : []))
@@ -656,6 +719,7 @@ const Products = () => {
       'Department': p.parentCategory || 'FOOD',
       'Category': p.category || 'General',
       'Unit (UOM)': p.uom || 'Pcs',
+      'Reg. Date': p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US') : '—',
       'Selling Price (ETB)': Number(p.sellingPrice || 0),
       'Ingredients Count': p.ingredients?.length || 0,
       'Has Recipe': (p.ingredients && p.ingredients.length > 0) ? 'Yes' : 'No',
@@ -668,32 +732,193 @@ const Products = () => {
     () => filteredProducts.slice((page - 1) * pageSize, page * pageSize),
     [filteredProducts, page, pageSize]
   );
-  // Reset to page 1 on search, recipe filter, or category filter
-  useEffect(() => { setPage(1); }, [search, recipeFilter, categoryFilter]);
+  // Reset to page 1 on search, code filter, date filter, recipe filter, or category filter
+  useEffect(() => { setPage(1); }, [search, codeFilter, fromDate, toDate, recipeFilter, categoryFilter]);
   const pdfColumns = [
     { header: 'Code', accessor: 'Code' },
     { header: 'Product Name', accessor: 'Product Name' },
     { header: 'Department', accessor: 'Department' },
     { header: 'Category', accessor: 'Category' },
     { header: 'Unit', accessor: 'Unit (UOM)', align: 'center' },
+    { header: 'Reg. Date', accessor: 'Reg. Date', align: 'center' },
     { header: 'Selling Price (ETB)', accessor: 'Selling Price (ETB)', align: 'right' },
     { header: 'Ingredients', accessor: 'Ingredients Count', align: 'center' },
   ];
 
   return (
     <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
-            className="w-full rounded-lg border border-ink-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
-          />
+      {/* ── ERP Article Code & Registered Date Filter Panel (Matching Reference UI) ── */}
+      <div className="rounded-xl border border-blue-200/90 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white p-3.5 shadow-2xs space-y-3">
+        {/* Header Breadcrumb & Active Filter Scope Bar */}
+        <div className="flex flex-wrap items-center justify-between text-xs gap-2 pb-2.5 border-b border-blue-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-blue-900 flex items-center gap-1">
+              <Filter size={13} className="text-blue-600" /> Documents - Products
+            </span>
+            <span className="text-ink-300">|</span>
+            <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 font-semibold text-[11px] text-blue-800">
+              Code: <strong className="font-mono">{codeFilter.trim() || (search.trim() ? search.trim() : 'All')}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded bg-indigo-100 px-2 py-0.5 font-semibold text-[11px] text-indigo-800">
+              <Calendar size={11} className="text-indigo-600" />
+              Date: <strong>{fromDate && toDate ? `${fromDate} - ${toDate}` : fromDate ? `From ${fromDate}` : toDate ? `Up to ${toDate}` : 'All Dates'}</strong>
+            </span>
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+              {filteredProducts.length} item{filteredProducts.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={openCreate}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-semibold shadow-xs transition cursor-pointer"
+                title="Add new product"
+              >
+                <Plus size={14} /> New
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-1 rounded-lg border border-blue-300 bg-white hover:bg-blue-50 text-blue-700 px-3 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
+              title="Filter and show registered products"
+            >
+              <Eye size={14} /> Show
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
+              title="Reset all filters and reload"
+            >
+              <RotateCcw size={14} /> Refresh
+            </button>
+            <ExportDropdown
+              data={exportData}
+              fileName="menu_recipes_catalog"
+              pdfTitle="Menu & Recipes Catalog"
+              pdfColumns={pdfColumns}
+              showImport={canEdit}
+              onImport={() => importRef.current?.click()}
+              importLabel="Import Excel"
+            />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+
+        {/* Filter Inputs Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+          {/* 1. Search by Name or Code */}
+          <div className="lg:col-span-4">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-ink-500 mb-1">
+              Search by Name or Code
+            </label>
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name or code (e.g. p-00189-HO, Burger)..."
+                className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pl-9 pr-7 text-xs font-medium outline-none focus:border-blue-500 shadow-2xs"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Article Code Filter */}
+          <div className="lg:col-span-3">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-ink-500 mb-1">
+              Article Code
+            </label>
+            <div className="relative">
+              <input
+                value={codeFilter}
+                onChange={(e) => setCodeFilter(e.target.value)}
+                placeholder="e.g. p-00189-HO"
+                className="w-full rounded-lg border border-ink-200 bg-white py-1.5 px-3 pr-7 text-xs font-mono font-semibold text-blue-950 outline-none focus:border-blue-500 shadow-2xs"
+              />
+              {codeFilter && (
+                <button
+                  type="button"
+                  onClick={() => setCodeFilter('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                  title="Clear code"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Registered Date Filter (By Date Registered) */}
+          <div className="lg:col-span-5">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-ink-500 flex items-center gap-1">
+                <Calendar size={12} className="text-blue-600" /> Registered Date (Menu Creation)
+              </label>
+              <div className="flex items-center gap-1 text-[10px]">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: 'this_week', label: 'This Week' },
+                  { id: 'this_month', label: 'This Month' },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyDatePreset(preset.id)}
+                    className={`px-1.5 py-0.2 rounded font-semibold transition cursor-pointer ${datePreset === preset.id ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setDatePreset('custom'); }}
+                className="flex-1 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs text-ink-800 outline-none focus:border-blue-500 shadow-2xs font-medium"
+                title="Registered From Date"
+              />
+              <span className="text-ink-400 text-xs font-bold">-</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => { setToDate(e.target.value); setDatePreset('custom'); }}
+                className="flex-1 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs text-ink-800 outline-none focus:border-blue-500 shadow-2xs font-medium"
+                title="Registered To Date"
+              />
+              {(fromDate || toDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setFromDate(''); setToDate(''); setDatePreset('all'); }}
+                  className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shadow-2xs cursor-pointer"
+                  title="Clear date filter"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Toolbar Actions (Bulk, Import, Recipe Tools) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           {/* Bulk delete — shown when items selected and user has delete privilege */}
           {canDelete && selected.size > 0 && (
             <button
@@ -703,22 +928,14 @@ const Products = () => {
               <Trash2 size={15} /> Delete {selected.size} selected
             </button>
           )}
+        </div>
 
-          {/* Export & Import (Excel, PDF, CSV, Print) */}
-          <ExportDropdown
-            data={exportData}
-            fileName="menu_recipes_catalog"
-            pdfTitle="Menu & Recipes Catalog"
-            pdfColumns={pdfColumns}
-            showImport={canEdit}
-            onImport={() => importRef.current?.click()}
-            importLabel="Import Excel"
-          />
+        <div className="flex flex-wrap items-center gap-2">
           <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
 
           {/* Import Recipes button */}
           {canEdit && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={handleDownloadRecipeTemplate}
                 title="Download recipe template (pre-filled with all products)"
@@ -1015,6 +1232,7 @@ const Products = () => {
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Product</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Category</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>UOM</th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Reg. Date</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Ingredients</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Selling Price</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Photo / Image</th>
@@ -1024,7 +1242,7 @@ const Products = () => {
             <tbody style={{ borderTop: 'none' }}>
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={(canDelete ? 1 : 0) + 7 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={(canDelete ? 1 : 0) + 8 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
                     {recipeFilter === 'has_recipe'
                       ? 'No products with recipes found.'
                       : recipeFilter === 'no_recipe'
@@ -1061,6 +1279,16 @@ const Products = () => {
                     {p.parentCategory && <span className="ml-1 text-xs text-ink-400">/ {p.parentCategory}</span>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink-500">{p.uom || 'Pcs'}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-center">
+                    {p.createdAt ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-medium font-mono border border-slate-200" title={`Registered: ${new Date(p.createdAt).toLocaleString('en-US')}`}>
+                        <Calendar size={11} className="text-blue-600" />
+                        {new Date(p.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-ink-300 font-mono">—</span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     {p.ingredients && p.ingredients.length > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
@@ -1468,7 +1696,14 @@ const Products = () => {
               <div><p className="text-xs text-ink-400">Child Category</p><p className="font-medium">{selectedProduct.category || '—'}</p></div>
               <div><p className="text-xs text-ink-400">Parent Category</p><p className="font-medium">{selectedProduct.parentCategory || '—'}</p></div>
               <div><p className="text-xs text-ink-400">Selling Price</p><p className="font-medium">ETB {selectedProduct.sellingPrice !== undefined ? Number(selectedProduct.sellingPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : '—'}</p></div>
-              <div><p className="text-xs text-ink-400">Description</p><p className="font-medium">{selectedProduct.description || '—'}</p></div>
+              <div>
+                <p className="text-xs text-ink-400">Registered Date</p>
+                <p className="font-medium text-xs text-ink-800 flex items-center gap-1.5 mt-0.5">
+                  <Calendar size={13} className="text-blue-600" />
+                  {selectedProduct.createdAt ? new Date(selectedProduct.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                </p>
+              </div>
+              <div className="col-span-2"><p className="text-xs text-ink-400">Description</p><p className="font-medium">{selectedProduct.description || '—'}</p></div>
             </div>
             <div>
               <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink-700">

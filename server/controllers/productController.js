@@ -101,15 +101,55 @@ function calcRecipeCostBreakdown(ingredients, settings = {}) {
 }
 // GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
-  const { search, pos } = req.query;
+  const { search, code, from, to, startDate, endDate, pos } = req.query;
   const filter = { isActive: true };
+  const conditions = [];
+
+  // Search across Product Name OR Product Code
   if (search && search.trim()) {
-    filter.name = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    const q = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    conditions.push({
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { code: { $regex: q, $options: 'i' } },
+      ],
+    });
   }
+
+  // Explicit Article Code filter
+  if (code && code.trim()) {
+    const c = code.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    conditions.push({
+      code: { $regex: c, $options: 'i' },
+    });
+  }
+
+  // Filter by Registered Date (createdAt)
+  const fromDate = from || startDate;
+  const toDate = to || endDate;
+  if (fromDate || toDate) {
+    const dateQuery = {};
+    if (fromDate) {
+      const d = new Date(fromDate);
+      d.setHours(0, 0, 0, 0);
+      dateQuery.$gte = d;
+    }
+    if (toDate) {
+      const d = new Date(toDate);
+      d.setHours(23, 59, 59, 999);
+      dateQuery.$lte = d;
+    }
+    conditions.push({ createdAt: dateQuery });
+  }
+
+  if (conditions.length > 0) {
+    filter.$and = conditions;
+  }
+
   // Fast POS Mode: lightweight query, no deep populate/cost calculation needed for cashier terminal
   if (pos === 'true' || pos === '1') {
     const products = await Product.find(filter)
-      .select('name code category parentCategory sellingPrice ingredients isActive uom imageUrl isAvailableOnMenu')
+      .select('name code category parentCategory sellingPrice ingredients isActive uom imageUrl isAvailableOnMenu createdAt')
       .sort({ name: 1 })
       .lean();
     return res.json(products);
