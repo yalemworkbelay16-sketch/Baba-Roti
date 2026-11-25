@@ -40,6 +40,8 @@ const userSchema = new mongoose.Schema(
     // OTP fields for 2-step login
     otpHash: { type: String, default: null },
     otpExpiry: { type: Date, default: null },
+    // Telegram granular alert overrides (if undefined, inherits system role defaults)
+    telegramAlerts: { type: [String], default: undefined },
   },
   { timestamps: true }
 );

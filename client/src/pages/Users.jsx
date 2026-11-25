@@ -73,6 +73,52 @@ const Users = () => {
   const [badgeModalOpen, setBadgeModalOpen] = useState(false);
   const [badgeStaff, setBadgeStaff] = useState(null);
   const [isNewlyCreated, setIsNewlyCreated] = useState(false);
+
+  // Telegram Individual Alerts Modal State
+  const [tgAlertModalOpen, setTgAlertModalOpen] = useState(false);
+  const [tgAlertStaff, setTgAlertStaff] = useState(null);
+  const [tgAlertMode, setTgAlertMode] = useState('role');
+  const [tgAlertSelection, setTgAlertSelection] = useState(['consumption', 'ownOrders']);
+  const [tgAlertSaving, setTgAlertSaving] = useState(false);
+  const [tgAlertSuccess, setTgAlertSuccess] = useState('');
+  const [tgAlertErr, setTgAlertErr] = useState('');
+
+  const openTgAlertsModal = (staff) => {
+    setTgAlertStaff(staff);
+    const hasCustom = Array.isArray(staff.telegramAlerts) && staff.telegramAlerts.length > 0;
+    setTgAlertMode(hasCustom ? 'custom' : 'role');
+    setTgAlertSelection(hasCustom ? staff.telegramAlerts : ['consumption', 'ownOrders']);
+    setTgAlertSuccess('');
+    setTgAlertErr('');
+    setTgAlertModalOpen(true);
+  };
+
+  const handleSaveTgAlerts = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!tgAlertStaff) return;
+    setTgAlertSaving(true);
+    setTgAlertErr('');
+    setTgAlertSuccess('');
+    try {
+      const payload = {
+        telegramAlerts: tgAlertMode === 'role' ? [] : tgAlertSelection,
+      };
+      await api.put(`/users/${tgAlertStaff._id}`, payload);
+      setTgAlertSuccess(`Telegram alert settings saved for ${tgAlertStaff.name}!`);
+      // Update local user state
+      setUsers((prev) =>
+        prev.map((u) => (u._id === tgAlertStaff._id ? { ...u, telegramAlerts: payload.telegramAlerts } : u))
+      );
+      setTimeout(() => {
+        setTgAlertModalOpen(false);
+        setTgAlertSuccess('');
+      }, 1200);
+    } catch (err) {
+      setTgAlertErr(err.response?.data?.message || 'Failed to save alert settings.');
+    } finally {
+      setTgAlertSaving(false);
+    }
+  };
   const load = () => api.get('/users')
     .then((res) => {
       let list = Array.isArray(res.data) ? res.data : [];
@@ -507,9 +553,17 @@ const Users = () => {
                           </span>
                         ) : null}
                         {u.telegramChatId ? (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-200/60 rounded px-1">
-                            <Send size={8} /> TG Subscribed
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openTgAlertsModal(u)}
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200/80 rounded px-1.5 py-0.5 cursor-pointer transition shadow-2xs"
+                            title="Configure individual Telegram alert settings"
+                          >
+                            <Send size={8} className="text-sky-600" /> TG Subscribed
+                            {Array.isArray(u.telegramAlerts) && u.telegramAlerts.length > 0 && (
+                              <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-600" title="Custom individual alert rules active"></span>
+                            )}
+                          </button>
                         ) : null}
                       </div>
                     </div>
@@ -532,6 +586,14 @@ const Users = () => {
                         title="View & Print Digital Staff ID Badge"
                       >
                         <Award size={12} /> ID Badge
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTgAlertsModal(u)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2 py-1 text-xs font-semibold text-sky-700 transition shadow-2xs cursor-pointer"
+                        title="Configure Telegram bot alerts and individual privacy"
+                      >
+                        <Send size={11} className="text-sky-600" /> Alerts
                       </button>
                       <button onClick={() => openEdit(u)}
                         className="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 px-2 py-1 text-xs font-semibold text-white transition">
@@ -831,6 +893,206 @@ const Users = () => {
         }}
         isNewlyCreated={isNewlyCreated}
       />
+
+      {/* ══ Telegram Individual Alerts Modal ══ */}
+      {tgAlertModalOpen && tgAlertStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-ink-100 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4 bg-linear-to-r from-sky-50 via-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                  <Send size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-ink-900 leading-tight">Telegram Alerts &amp; Privacy Controls</h3>
+                  <p className="text-xs text-ink-500">
+                    {tgAlertStaff.name} • <span className="font-mono text-[11px]">STAFF-{tgAlertStaff._id?.slice(-4).toUpperCase()}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTgAlertModalOpen(false)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-white/80 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTgAlerts} className="p-5 space-y-4">
+              {/* Employee Summary Card */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-ink-50/60 border border-ink-100">
+                <div className="flex items-center gap-2.5">
+                  <Badge color={roleColor[tgAlertStaff.role] || 'ink'}>
+                    {roleLabels[tgAlertStaff.role] || tgAlertStaff.role}
+                  </Badge>
+                  <span className="text-xs text-ink-600">
+                    {tgAlertStaff.department || 'General'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  {tgAlertStaff.telegramChatId ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                      ✅ Telegram Connected
+                    </span>
+                  ) : tgAlertStaff.phone ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+                      📱 Phone Linked ({tgAlertStaff.phone})
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                      ⚠️ No phone / Telegram linked
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Mode Selection: Role Defaults vs Custom */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-ink-600">
+                  Alert Permission Policy
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTgAlertMode('role')}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${tgAlertMode === 'role'
+                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
+                        : 'bg-white border-ink-200 hover:border-ink-300'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ${tgAlertMode === 'role' ? 'border-blue-600 bg-blue-600' : 'border-ink-300'
+                        }`}>
+                        {tgAlertMode === 'role' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-xs font-bold text-ink-900">Role Defaults (Auto)</span>
+                    </div>
+                    <p className="text-[11px] text-ink-500 mt-1 leading-snug">
+                      Follows standard permissions configured for <strong>{roleLabels[tgAlertStaff.role]}</strong> in Settings.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTgAlertMode('custom')}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${tgAlertMode === 'custom'
+                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
+                        : 'bg-white border-ink-200 hover:border-ink-300'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ${tgAlertMode === 'custom' ? 'border-blue-600 bg-blue-600' : 'border-ink-300'
+                        }`}>
+                        {tgAlertMode === 'custom' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-xs font-bold text-ink-900">Custom Individual</span>
+                    </div>
+                    <p className="text-[11px] text-ink-500 mt-1 leading-snug">
+                      Explicitly choose which notification streams this specific employee receives.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Checklist (Shown if Custom Mode is selected) */}
+              {tgAlertMode === 'custom' && (
+                <div className="space-y-2 pt-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block">
+                    Allowed Telegram Streams for this Staff Member
+                  </span>
+                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                    {[
+                      {
+                        id: 'consumption',
+                        label: '🍽️ Personal Staff Meal & Quota',
+                        desc: 'Direct alert when their own staff meal is ordered/approved, including remaining daily quota.'
+                      },
+                      {
+                        id: 'ownOrders',
+                        label: '🛎️ Own Orders Only (Privacy)',
+                        desc: 'Alerts only for customer tables or orders assigned directly to this waiter/employee.'
+                      },
+                      {
+                        id: 'stockAlerts',
+                        label: '📦 Stock & Store Requisitions',
+                        desc: 'Store issues, receiving GRV, and low-stock threshold warnings.'
+                      },
+                      {
+                        id: 'financials',
+                        label: '📊 Sales Digests & Financials',
+                        desc: 'Imported batch sales, daily revenue digests, and operating expenses (Management only).'
+                      },
+                      {
+                        id: 'allOrders',
+                        label: '📋 All Venue & POS Orders',
+                        desc: 'Broadcast alerts for every single order placed across all stations and registers.'
+                      }
+                    ].map((item) => {
+                      const checked = tgAlertSelection.includes(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition ${checked
+                              ? 'bg-blue-50/70 border-blue-200'
+                              : 'bg-white border-ink-100 hover:border-ink-200'
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setTgAlertSelection(prev =>
+                                checked ? prev.filter(x => x !== item.id) : [...prev, item.id]
+                              );
+                            }}
+                            className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-ink-300 cursor-pointer"
+                          />
+                          <div>
+                            <div className="text-xs font-bold text-ink-800">{item.label}</div>
+                            <div className="text-[11px] text-ink-500 leading-snug">{item.desc}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {tgAlertSuccess && (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-700 font-medium">
+                  <Check size={14} className="text-emerald-600 shrink-0" />
+                  {tgAlertSuccess}
+                </div>
+              )}
+
+              {tgAlertErr && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-600">
+                  ⚠ {tgAlertErr}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ink-100">
+                <button
+                  type="button"
+                  onClick={() => setTgAlertModalOpen(false)}
+                  className="rounded-lg border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={tgAlertSaving}
+                  className="rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white transition disabled:opacity-50 shadow-xs cursor-pointer"
+                >
+                  {tgAlertSaving ? 'Saving…' : 'Save Alert Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

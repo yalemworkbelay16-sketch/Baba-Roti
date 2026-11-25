@@ -59,6 +59,9 @@ const updateUser = asyncHandler(async (req, res) => {
   user.phone = req.body.phone ?? user.phone;
   user.telegramChatId = req.body.telegramChatId ?? user.telegramChatId;
   user.employeeId = req.body.employeeId ?? user.employeeId;
+  if (req.body.telegramAlerts !== undefined) {
+    user.telegramAlerts = Array.isArray(req.body.telegramAlerts) ? req.body.telegramAlerts : [];
+  }
   if (req.body.photoUrl !== undefined) {
     user.photoUrl = req.body.photoUrl;
     user.avatar = req.body.photoUrl;

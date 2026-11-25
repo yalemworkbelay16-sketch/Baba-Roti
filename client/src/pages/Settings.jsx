@@ -381,19 +381,27 @@ export default function Settings() {
   const [tgAddForm, setTgAddForm] = useState({ name: '', phone: '', username: '', chatId: '' });
   const [tgAddSaving, setTgAddSaving] = useState(false);
 
-  // Per-Employee subscriber permissions modal state
-  const [tgPermOpen, setTgPermOpen] = useState(false);
-  const [tgPermSub, setTgPermSub] = useState(null);
-  const [tgPermRole, setTgPermRole] = useState('waiter');
-  const [tgPermAlerts, setTgPermAlerts] = useState(['consumption', 'ownOrders']);
-  const [tgPermSaving, setTgPermSaving] = useState(false);
-
   // Daily Sales Telegram Report state
   const [tgReportEnabled, setTgReportEnabled] = useState(true);
   const [tgReportTime, setTgReportTime] = useState('12:00');
   const [tgReportSending, setTgReportSending] = useState(false);
   const [tgReportPreview, setTgReportPreview] = useState(null);
   const [tgReportLoading, setTgReportLoading] = useState(false);
+
+  // Default allowed operational roles per process
+  const DEFAULT_PROCESS_ROLES = {
+    salesImport: ['admin', 'manager'],
+    posOrders: ['admin', 'manager', 'cashier'],
+    customerQrOrders: ['admin', 'manager', 'waiter'],
+    captainOrders: ['admin', 'manager', 'supervisor', 'kitchen', 'bar', 'waiter'],
+    stockTransactions: ['admin', 'manager', 'storekeeper'],
+    stockRequests: ['admin', 'manager', 'storekeeper', 'kitchen', 'bar'],
+    consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'kitchen', 'bar', 'storekeeper'],
+    expenses: ['admin', 'manager'],
+    dailyReports: ['admin', 'manager'],
+    authLogins: ['admin'],
+    masterData: ['admin', 'manager'],
+  };
 
   // Telegram Process Settings State & Privacy Controls
   const [tgNotifSettings, setTgNotifSettings] = useState({
@@ -410,8 +418,10 @@ export default function Settings() {
     masterData: true,
     restrictFinancialToManagement: true,
     staffSeeOwnOrdersOnly: true,
+    processRoles: DEFAULT_PROCESS_ROLES,
   });
   const [tgNotifSaving, setTgNotifSaving] = useState(false);
+  const [expandedRoleProcess, setExpandedRoleProcess] = useState(null);
 
   // Sync profile when user updates
   useEffect(() => {
@@ -552,35 +562,6 @@ export default function Settings() {
       setTgError(err.response?.data?.message || 'Failed to register phone.');
     } finally {
       setTgPhoneSaving(false);
-    }
-  };
-
-  const handleOpenTgPermModal = (sub) => {
-    setTgPermSub(sub);
-    setTgPermRole(sub.role || 'waiter');
-    setTgPermAlerts(Array.isArray(sub.allowedAlerts) && sub.allowedAlerts.length ? sub.allowedAlerts : ['consumption', 'ownOrders']);
-    setTgPermOpen(true);
-  };
-
-  const handleSaveTgPerm = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!tgPermSub) return;
-    setTgPermSaving(true);
-    setTgError('');
-    try {
-      const subId = tgPermSub.id || tgPermSub.chatId;
-      await api.put(`/telegram/subscribers/${encodeURIComponent(subId)}/permissions`, {
-        role: tgPermRole,
-        allowedAlerts: tgPermAlerts,
-      });
-      setTgSuccess(`Permissions updated for ${tgPermSub.name}!`);
-      setTimeout(() => setTgSuccess(''), 4000);
-      setTgPermOpen(false);
-      loadTgSubscribers();
-    } catch (err) {
-      setTgError(err.response?.data?.message || 'Failed to update subscriber permissions.');
-    } finally {
-      setTgPermSaving(false);
     }
   };
 
@@ -2448,39 +2429,26 @@ export default function Settings() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-ink-100 shadow-xs">
-              <table className="w-full min-w-[760px] text-sm" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full min-w-[720px] text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)' }}>
                   <tr>
                     <th className="px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 w-12" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>#</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[140px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Name &amp; Role</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[100px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Username</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[180px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Phone (OTP)</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Allowed Alerts</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[140px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Subscribed At</th>
-                    <th className="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[140px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Name</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[110px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Username</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[220px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Phone (OTP)</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Subscribed At</th>
+                    <th className="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[120px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tgSubscribers.map((sub, i) => {
                     const subId = sub.id || sub.chatId || `sub_${i}`;
                     const isEditing = Boolean(tgEditPhone && tgEditPhone === subId);
-                    const subRole = sub.role || 'waiter';
 
                     return (
                       <tr key={subId} className="hover:bg-ink-50/40 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td className="px-3 py-3 text-center text-xs text-ink-400 tabular-nums">{i + 1}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-ink-900">{sub.name || '—'}</div>
-                          <span className={`inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-extrabold uppercase ${
-                            ['admin', 'dev'].includes(subRole)
-                              ? 'bg-purple-100 text-purple-800'
-                              : subRole === 'manager'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-ink-100 text-ink-700'
-                          }`}>
-                            {subRole}
-                          </span>
-                        </td>
+                        <td className="px-4 py-3 font-semibold text-ink-900">{sub.name || '—'}</td>
                         <td className="px-4 py-3 text-xs text-blue-600">
                           {sub.username ? `@${sub.username}` : '—'}
                         </td>
@@ -2536,53 +2504,18 @@ export default function Settings() {
                           )}
                         </td>
 
-                        {/* Allowed Alerts Badges */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {(!sub.allowedAlerts || sub.allowedAlerts.includes('consumption')) && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                🍽️ Meals
-                              </span>
-                            )}
-                            {(!sub.allowedAlerts || sub.allowedAlerts.includes('ownOrders')) && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                🛎️ Orders
-                              </span>
-                            )}
-                            {sub.allowedAlerts?.includes('stockAlerts') && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                📦 Stock
-                              </span>
-                            )}
-                            {sub.allowedAlerts?.includes('financials') && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                📊 Sales
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
                         <td className="px-4 py-3 text-xs text-ink-500 whitespace-nowrap">
                           {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleString() : '—'}
                         </td>
                         <td className="px-4 py-3 text-center whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={() => handleOpenTgPermModal(sub)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 transition shadow-2xs cursor-pointer mr-1.5"
-                            title="Configure alert permissions for this employee"
-                          >
-                            <ShieldCheck size={13} />
-                            <span>Alerts</span>
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => handleRemoveTgSubscriber(subId, sub.name)}
                             disabled={tgRemoving === subId}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition disabled:opacity-50 shadow-xs cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition disabled:opacity-50 shadow-xs cursor-pointer"
                           >
                             <Trash2 size={13} className="shrink-0" />
-                            <span>{tgRemoving === subId ? '…' : 'Remove'}</span>
+                            <span>{tgRemoving === subId ? 'Removing…' : 'Remove'}</span>
                           </button>
                         </td>
                       </tr>
@@ -2672,9 +2605,9 @@ export default function Settings() {
                   <ShieldCheck size={16} />
                 </span>
                 <div>
-                  <h4 className="font-bold text-sm text-ink-900">Telegram Bot Process &amp; Security Controls</h4>
+                  <h4 className="font-bold text-sm text-ink-900">Telegram Bot Process &amp; Role Security Controls</h4>
                   <p className="text-xs text-ink-500">
-                    Control which operational processes send bot alerts, and restrict financial data and orders for privacy.
+                    Control which operational processes send bot alerts, and restrict notifications by role and individual staff privacy.
                   </p>
                 </div>
               </div>
@@ -2734,12 +2667,17 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Process Event Toggles (Allow / Disallow) */}
+            {/* Process Event Toggles (Allow / Disallow & Allowed Roles) */}
             <div className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block">
-                Allowed Operational Processes (Allow / Disallow)
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block">
+                  Allowed Operational Processes &amp; Role Visibility (Allow / Disallow)
+                </span>
+                <span className="text-[11px] text-blue-600 font-semibold">
+                  Click roles below to toggle who receives alerts
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                 {[
                   { key: 'salesImport', icon: '📥', label: 'Imported Sales Orders', desc: 'Batch sales imported from POS / Excel' },
                   { key: 'posOrders', icon: '🧾', label: 'Counter POS Orders', desc: 'Orders completed at POS cashier register' },
@@ -2752,32 +2690,88 @@ export default function Settings() {
                   { key: 'dailyReports', icon: '📊', label: 'Daily Sales Digest', desc: 'Scheduled daily revenue & category breakdown' },
                   { key: 'authLogins', icon: '🔐', label: 'User Logins & Security', desc: 'Staff logins, account status & password alerts' },
                   { key: 'masterData', icon: '🏷️', label: 'Catalog & Master Changes', desc: 'Products, raw materials, supplier modifications' },
-                ].map((item) => (
-                  <div
-                    key={item.key}
-                    onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
-                      tgNotifSettings[item.key] !== false
-                        ? 'bg-white border-ink-200 hover:border-blue-400 shadow-2xs'
-                        : 'bg-ink-50/70 border-ink-100 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base select-none">{item.icon}</span>
-                      <div>
-                        <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
-                        <span className="text-[10px] text-ink-500 leading-tight block">{item.desc}</span>
+                ].map((item) => {
+                  const isProcessAllowed = tgNotifSettings[item.key] !== false;
+                  const currentRoles = tgNotifSettings.processRoles?.[item.key] || DEFAULT_PROCESS_ROLES[item.key] || ['admin', 'manager'];
+                  const availableRoles = ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'kitchen', 'bar', 'storekeeper'];
+
+                  const toggleRole = (role) => {
+                    const exists = currentRoles.includes(role);
+                    const updated = exists ? currentRoles.filter(r => r !== role) : [...currentRoles, role];
+                    setTgNotifSettings(prev => ({
+                      ...prev,
+                      processRoles: {
+                        ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                        [item.key]: updated,
+                      },
+                    }));
+                  };
+
+                  return (
+                    <div
+                      key={item.key}
+                      className={`p-3 rounded-xl border transition flex flex-col justify-between ${
+                        isProcessAllowed
+                          ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
+                          : 'bg-ink-50/70 border-ink-100 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div
+                          className="flex items-start gap-2 cursor-pointer flex-1"
+                          onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                        >
+                          <span className="text-lg select-none shrink-0">{item.icon}</span>
+                          <div>
+                            <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
+                            <span className="text-[11px] text-ink-500 leading-tight block mt-0.5">{item.desc}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${
+                            isProcessAllowed
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
+                              : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
+                          }`}
+                        >
+                          {isProcessAllowed ? 'Allowed' : 'Disabled'}
+                        </button>
                       </div>
+
+                      {/* Role selection chips */}
+                      {isProcessAllowed && (
+                        <div className="mt-2.5 pt-2 border-t border-ink-100/80">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-ink-400 mb-1 flex items-center justify-between">
+                            <span>Allowed Roles:</span>
+                            <span className="text-[9px] text-ink-400">{currentRoles.length} selected</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {availableRoles.map(r => {
+                              const active = currentRoles.includes(r);
+                              return (
+                                <button
+                                  key={r}
+                                  type="button"
+                                  onClick={() => toggleRole(r)}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition border cursor-pointer ${
+                                    active
+                                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                      : 'bg-white text-ink-500 border-ink-200 hover:bg-ink-50'
+                                  }`}
+                                  title={`${active ? 'Remove' : 'Grant'} ${r} alerts for ${item.label}`}
+                                >
+                                  {r === 'waiter' ? 'Staff' : r}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
-                      tgNotifSettings[item.key] !== false
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-ink-200 text-ink-600'
-                    }`}>
-                      {tgNotifSettings[item.key] !== false ? 'Allowed' : 'Disabled'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -94,6 +94,21 @@ async function getChatIds(options = {}) {
     const restrictFinancial = notifSettings.restrictFinancialToManagement !== false;
     const staffOwnOrdersOnly = notifSettings.staffSeeOwnOrdersOnly !== false;
 
+    // Default allowed operational roles per process
+    const DEFAULT_PROCESS_ROLES = {
+      salesImport: ['admin', 'manager', 'dev'],
+      posOrders: ['admin', 'manager', 'cashier', 'dev'],
+      customerQrOrders: ['admin', 'manager', 'waiter', 'dev'],
+      captainOrders: ['admin', 'manager', 'supervisor', 'kitchen', 'bar', 'waiter', 'dev'],
+      stockTransactions: ['admin', 'manager', 'storekeeper', 'dev'],
+      stockRequests: ['admin', 'manager', 'storekeeper', 'kitchen', 'bar', 'dev'],
+      consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'kitchen', 'bar', 'storekeeper', 'dev'],
+      expenses: ['admin', 'manager', 'dev'],
+      dailyReports: ['admin', 'manager', 'dev'],
+      authLogins: ['admin', 'dev'],
+      masterData: ['admin', 'manager', 'dev'],
+    };
+
     // Staff lookup by chatId
     const staffByChatId = new Map();
     (activeStaff || []).forEach(u => {
@@ -124,6 +139,28 @@ async function getChatIds(options = {}) {
       return false;
     };
 
+    // Helper: checks if a specific user/role is authorized for this process
+    const isUserAllowedForProcess = (role, customAlerts) => {
+      if (!processKey) return true;
+      if (MANAGEMENT_ROLES.has(role)) return true;
+
+      // 1. If user has explicit individual alert preferences configured
+      if (Array.isArray(customAlerts) && customAlerts.length > 0) {
+        if (processKey === 'consumption') return customAlerts.includes('consumption');
+        if (isOrderProcess) return customAlerts.includes('ownOrders') || customAlerts.includes('allOrders');
+        if (['stockTransactions', 'stockRequests'].includes(processKey)) return customAlerts.includes('stockAlerts');
+        if (isFinancialProcess) return customAlerts.includes('financials');
+        return customAlerts.includes('allOrders');
+      }
+
+      // 2. Fallback to Role-Based settings configured in Process Controls
+      const allowedRoles = (notifSettings.processRoles && notifSettings.processRoles[processKey]) ||
+        DEFAULT_PROCESS_ROLES[processKey] ||
+        ['admin', 'manager', 'dev'];
+
+      return allowedRoles.includes(role);
+    };
+
     const targetChatIds = new Set();
 
     // 1. Process valid subscribers
@@ -132,6 +169,14 @@ async function getChatIds(options = {}) {
       if (!cId || permanentlySuppressedChats.has(cId)) continue;
 
       const isMgmt = isManagementChat(cId, sub);
+      const staffUser = staffByChatId.get(cId);
+      const subRole = staffUser?.role || sub.role || 'waiter';
+      const customAlerts = staffUser?.telegramAlerts || sub.allowedAlerts;
+
+      // Role & Individual Process Filtering
+      if (!isMgmt && !isUserAllowedForProcess(subRole, customAlerts)) {
+        continue;
+      }
 
       // Financial security: If financial process and restricted to management, skip non-management
       if (isFinancialProcess && restrictFinancial && !isMgmt) {
@@ -140,9 +185,9 @@ async function getChatIds(options = {}) {
 
       // Order privacy: If order process and staff should only see own orders
       if (isOrderProcess && staffOwnOrdersOnly && !isMgmt) {
-        const staffUser = staffByChatId.get(cId);
         const matchesWaiter = (waiterChatId && String(waiterChatId) === cId) ||
-          (waiterUserId && staffUser && String(staffUser._id) === String(waiterUserId));
+          (waiterUserId && staffUser && String(staffUser._id) === String(waiterUserId)) ||
+          (customAlerts && customAlerts.includes('allOrders'));
         if (!matchesWaiter) {
           continue; // Waiter only sees their own orders
         }
@@ -157,6 +202,12 @@ async function getChatIds(options = {}) {
       if (!cId || blockedChatIds.has(cId) || permanentlySuppressedChats.has(cId)) continue;
 
       const isMgmt = MANAGEMENT_ROLES.has(staff.role);
+      const customAlerts = staff.telegramAlerts;
+
+      // Role & Individual Process Filtering
+      if (!isMgmt && !isUserAllowedForProcess(staff.role, customAlerts)) {
+        continue;
+      }
 
       if (isFinancialProcess && restrictFinancial && !isMgmt) {
         continue;
@@ -164,7 +215,8 @@ async function getChatIds(options = {}) {
 
       if (isOrderProcess && staffOwnOrdersOnly && !isMgmt) {
         const matchesWaiter = (waiterChatId && String(waiterChatId) === cId) ||
-          (waiterUserId && String(staff._id) === String(waiterUserId));
+          (waiterUserId && String(staff._id) === String(waiterUserId)) ||
+          (customAlerts && customAlerts.includes('allOrders'));
         if (!matchesWaiter) {
           continue;
         }
