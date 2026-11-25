@@ -546,11 +546,11 @@ export default function Settings() {
       .finally(() => setTgLoading(false));
   };
   useEffect(() => {
-    if (currentTab === 'telegram' && hasRole('admin')) {
+    if (currentTab === 'telegram' && (user?.role === 'admin' || user?.role === 'dev')) {
       loadTgSubscribers();
       loadTgReportPreview();
     }
-  }, [currentTab]);
+  }, [currentTab, user]);
 
   // Handle Telegram subscriber removal
   const handleRemoveTgSubscriber = async (chatId, name) => {
@@ -975,7 +975,7 @@ export default function Settings() {
           </button>
         )}
 
-        {hasRole('admin') && (
+        {(user?.role === 'admin' || user?.role === 'dev') && (
           <button
             onClick={() => setTab('telegram')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'telegram'
@@ -2385,8 +2385,8 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* ── Tab 5: Telegram Subscribers (Admin only) ── */}
-      {currentTab === 'telegram' && hasRole('admin') && (
+      {/* ── Tab 5: Telegram Subscribers (Admin & Developer only) ── */}
+      {currentTab === 'telegram' && (user?.role === 'admin' || user?.role === 'dev') && (
         <Card className="max-w-3xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -2631,7 +2631,12 @@ export default function Settings() {
                   <ShieldCheck size={16} />
                 </span>
                 <div>
-                  <h4 className="font-bold text-sm text-ink-900">Telegram Bot Process &amp; Role Security Controls</h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-sm text-ink-900">Telegram Bot Process &amp; Role Security Controls</h4>
+                    <span className="rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-extrabold px-2 py-0.5 border border-indigo-200">
+                      System Developer &amp; Admin Only
+                    </span>
+                  </div>
                   <p className="text-xs text-ink-500">
                     Control which operational processes send bot alerts, and restrict notifications by role and individual staff privacy.
                   </p>
@@ -2766,18 +2771,16 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={() => setTgProcessViewMode('matrix')}
-                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
-                        tgProcessViewMode === 'matrix' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
-                      }`}
+                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${tgProcessViewMode === 'matrix' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
+                        }`}
                     >
                       <span>📊 Table Matrix</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setTgProcessViewMode('cards')}
-                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
-                        tgProcessViewMode === 'cards' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
-                      }`}
+                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${tgProcessViewMode === 'cards' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
+                        }`}
                     >
                       <span>🗂️ Process Cards</span>
                     </button>
@@ -2796,9 +2799,8 @@ export default function Settings() {
                         {REGISTERED_TG_ROLES.map((r) => (
                           <th
                             key={r.key}
-                            className={`py-2.5 px-1 text-center w-14 ${
-                              r.key === 'waiter' ? 'bg-purple-50/60 text-purple-900 border-x border-purple-100' : ''
-                            }`}
+                            className={`py-2.5 px-1 text-center w-14 ${r.key === 'waiter' ? 'bg-purple-50/60 text-purple-900 border-x border-purple-100' : ''
+                              }`}
                           >
                             <div className="flex flex-col items-center">
                               <span className="text-sm select-none">{r.icon}</span>
@@ -2886,11 +2888,10 @@ export default function Settings() {
                               <button
                                 type="button"
                                 onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase transition cursor-pointer shadow-2xs ${
-                                  isProcessAllowed
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase transition cursor-pointer shadow-2xs ${isProcessAllowed
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
                                     : 'bg-ink-100 text-ink-500 border border-ink-200 hover:bg-ink-200'
-                                }`}
+                                  }`}
                                 title={`Click to ${isProcessAllowed ? 'disable' : 'allow'} this process`}
                               >
                                 {isProcessAllowed ? '✓ Allowed' : '✕ Disabled'}
@@ -2904,23 +2905,21 @@ export default function Settings() {
                               return (
                                 <td
                                   key={r.key}
-                                  className={`py-2 px-1 text-center w-14 ${
-                                    isWaiter ? 'bg-purple-50/30 border-x border-purple-100/60' : ''
-                                  }`}
+                                  className={`py-2 px-1 text-center w-14 ${isWaiter ? 'bg-purple-50/30 border-x border-purple-100/60' : ''
+                                    }`}
                                 >
                                   <button
                                     type="button"
                                     disabled={!isProcessAllowed}
                                     onClick={() => toggleRole(r.key)}
-                                    className={`inline-flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-lg border transition cursor-pointer ${
-                                      !isProcessAllowed
+                                    className={`inline-flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-lg border transition cursor-pointer ${!isProcessAllowed
                                         ? 'opacity-30 border-ink-200 bg-ink-50 cursor-not-allowed'
                                         : active
-                                        ? isWaiter
-                                          ? 'bg-purple-600 text-white border-purple-600 shadow-2xs hover:bg-purple-700'
-                                          : 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
-                                        : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
-                                    }`}
+                                          ? isWaiter
+                                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs hover:bg-purple-700'
+                                            : 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
+                                          : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
+                                      }`}
                                     title={
                                       !isProcessAllowed
                                         ? 'Process is disabled globally'
@@ -2965,11 +2964,10 @@ export default function Settings() {
                     return (
                       <div
                         key={item.key}
-                        className={`p-3.5 rounded-xl border transition ${
-                          isProcessAllowed
+                        className={`p-3.5 rounded-xl border transition ${isProcessAllowed
                             ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
                             : 'bg-ink-50/70 border-ink-100 opacity-60'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div
@@ -2985,11 +2983,10 @@ export default function Settings() {
                           <button
                             type="button"
                             onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${
-                              isProcessAllowed
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${isProcessAllowed
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
                                 : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
-                            }`}
+                              }`}
                           >
                             {isProcessAllowed ? 'Allowed' : 'Disabled'}
                           </button>
@@ -3085,11 +3082,10 @@ export default function Settings() {
                                     key={r.key}
                                     type="button"
                                     onClick={() => toggleRole(r.key)}
-                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
-                                      active
+                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${active
                                         ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
                                         : 'bg-white text-ink-600 border-ink-200 hover:bg-slate-50'
-                                    }`}
+                                      }`}
                                   >
                                     <span>{r.icon}</span>
                                     <span className="truncate">{r.label}</span>

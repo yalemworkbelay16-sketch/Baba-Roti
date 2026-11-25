@@ -275,19 +275,29 @@ const updateSettings = asyncHandler(async (req, res) => {
     settings.markModified('digitalMenuSettings');
   }
 
-  // Telegram Daily Sales Digest Settings
-  if (req.body.telegramDailyReportEnabled !== undefined) {
-    settings.telegramDailyReportEnabled = Boolean(req.body.telegramDailyReportEnabled);
-  }
-  if (req.body.telegramDailyReportTime !== undefined) {
-    const timeStr = String(req.body.telegramDailyReportTime).trim();
-    if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
-      settings.telegramDailyReportTime = timeStr.padStart(5, '0');
+  // Telegram Daily Sales Digest Settings (Restricted to Administrator & System Developer only)
+  if (req.body.telegramDailyReportEnabled !== undefined || req.body.telegramDailyReportTime !== undefined) {
+    if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+      res.status(403);
+      throw new Error('Access denied: Telegram digest settings can only be managed by Administrator or System Developer.');
+    }
+    if (req.body.telegramDailyReportEnabled !== undefined) {
+      settings.telegramDailyReportEnabled = Boolean(req.body.telegramDailyReportEnabled);
+    }
+    if (req.body.telegramDailyReportTime !== undefined) {
+      const timeStr = String(req.body.telegramDailyReportTime).trim();
+      if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
+        settings.telegramDailyReportTime = timeStr.padStart(5, '0');
+      }
     }
   }
 
-  // Telegram Process Notifications & Security Settings
+  // Telegram Process Notifications & Security Settings (Restricted to Administrator & System Developer only)
   if (req.body.telegramNotificationSettings !== undefined && typeof req.body.telegramNotificationSettings === 'object') {
+    if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+      res.status(403);
+      throw new Error('Access denied: Telegram process permissions can only be managed by Administrator or System Developer.');
+    }
     settings.telegramNotificationSettings = {
       ...(settings.telegramNotificationSettings || {}),
       ...req.body.telegramNotificationSettings,
