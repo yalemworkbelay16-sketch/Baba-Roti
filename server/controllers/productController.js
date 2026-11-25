@@ -124,22 +124,35 @@ const getProducts = asyncHandler(async (req, res) => {
     });
   }
 
-  // Filter by Registered Date (createdAt)
+  // Filter by Registered Date (createdAt or updatedAt)
   const fromDate = from || startDate;
   const toDate = to || endDate;
   if (fromDate || toDate) {
+    const parseBoundary = (str, isEnd) => {
+      const parts = String(str).trim().split(/[-/]/);
+      if (parts.length === 3 && parts[0].length === 4) {
+        const [y, m, d] = parts.map(Number);
+        return isEnd ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+      const d = new Date(str);
+      if (isEnd) d.setHours(23, 59, 59, 999);
+      else d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
     const dateQuery = {};
     if (fromDate) {
-      const d = new Date(fromDate);
-      d.setHours(0, 0, 0, 0);
-      dateQuery.$gte = d;
+      dateQuery.$gte = parseBoundary(fromDate, false);
     }
     if (toDate) {
-      const d = new Date(toDate);
-      d.setHours(23, 59, 59, 999);
-      dateQuery.$lte = d;
+      dateQuery.$lte = parseBoundary(toDate, true);
     }
-    conditions.push({ createdAt: dateQuery });
+    conditions.push({
+      $or: [
+        { createdAt: dateQuery },
+        { updatedAt: dateQuery },
+      ],
+    });
   }
 
   if (conditions.length > 0) {

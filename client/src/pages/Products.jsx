@@ -757,11 +757,11 @@ const Products = () => {
             </span>
             <span className="text-ink-300">|</span>
             <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 font-semibold text-[11px] text-blue-800">
-              Code: <strong className="font-mono">{codeFilter.trim() || (search.trim() ? search.trim() : 'All')}</strong>
+              Search / Code: <strong className="font-mono">{codeFilter.trim() || search.trim() || 'All'}</strong>
             </span>
             <span className="inline-flex items-center gap-1 rounded bg-indigo-100 px-2 py-0.5 font-semibold text-[11px] text-indigo-800">
               <Calendar size={11} className="text-indigo-600" />
-              Date: <strong>{fromDate && toDate ? `${fromDate} - ${toDate}` : fromDate ? `From ${fromDate}` : toDate ? `Up to ${toDate}` : 'All Dates'}</strong>
+              Date: <strong>{fromDate && toDate ? (fromDate === toDate ? fromDate : `${fromDate} - ${toDate}`) : fromDate ? `From ${fromDate}` : toDate ? `Up to ${toDate}` : 'All Dates'}</strong>
             </span>
             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">
               {filteredProducts.length} item{filteredProducts.length !== 1 ? 's' : ''}
@@ -769,16 +769,6 @@ const Products = () => {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {canEdit && (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-semibold shadow-xs transition cursor-pointer"
-                title="Add new product"
-              >
-                <Plus size={14} /> New
-              </button>
-            )}
             <button
               type="button"
               onClick={load}
@@ -807,19 +797,19 @@ const Products = () => {
           </div>
         </div>
 
-        {/* Filter Inputs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+        {/* Filter Inputs Grid: Unified Search & Date Presets */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
           {/* 1. Search by Name or Code */}
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-6">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-ink-500 mb-1">
-              Search by Name or Code
+              Search by Code or Name
             </label>
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or code (e.g. p-00189-HO, Burger)..."
+                placeholder="Search products by code or name (e.g. p-00189-HO, Burger)..."
                 className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pl-9 pr-7 text-xs font-medium outline-none focus:border-blue-500 shadow-2xs"
               />
               {search && (
@@ -835,36 +825,11 @@ const Products = () => {
             </div>
           </div>
 
-          {/* 2. Article Code Filter */}
-          <div className="lg:col-span-3">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-ink-500 mb-1">
-              Article Code
-            </label>
-            <div className="relative">
-              <input
-                value={codeFilter}
-                onChange={(e) => setCodeFilter(e.target.value)}
-                placeholder="e.g. p-00189-HO"
-                className="w-full rounded-lg border border-ink-200 bg-white py-1.5 px-3 pr-7 text-xs font-mono font-semibold text-blue-950 outline-none focus:border-blue-500 shadow-2xs"
-              />
-              {codeFilter && (
-                <button
-                  type="button"
-                  onClick={() => setCodeFilter('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
-                  title="Clear code"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* 3. Registered Date Filter (By Date Registered) */}
-          <div className="lg:col-span-5">
+          {/* 2. Registered Date Filter (By Date Registered / Active) */}
+          <div className="lg:col-span-6">
             <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] font-bold uppercase tracking-wider text-ink-500 flex items-center gap-1">
-                <Calendar size={12} className="text-blue-600" /> Registered Date (Menu Creation)
+                <Calendar size={12} className="text-blue-600" /> Filter by Registered Date
               </label>
               <div className="flex items-center gap-1 text-[10px]">
                 {[
@@ -878,7 +843,11 @@ const Products = () => {
                     key={preset.id}
                     type="button"
                     onClick={() => applyDatePreset(preset.id)}
-                    className={`px-1.5 py-0.2 rounded font-semibold transition cursor-pointer ${datePreset === preset.id ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                    className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                      datePreset === preset.id
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    }`}
                   >
                     {preset.label}
                   </button>
@@ -1249,7 +1218,25 @@ const Products = () => {
                         ? 'No products without recipes found.'
                         : categoryFilter !== 'all'
                           ? `No products found in category "${categoryFilter}".`
-                          : 'No products yet. Add your first product or import from Excel.'}
+                          : (fromDate || toDate || search || codeFilter)
+                            ? (
+                              <div className="space-y-2 py-4">
+                                <p className="text-sm font-semibold text-slate-700">
+                                  No registered products found matching the selected {fromDate || toDate ? 'date range' : 'search criteria'}.
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Click below to clear all filters and view all products in the catalog.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleRefresh}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs transition cursor-pointer"
+                                >
+                                  <RotateCcw size={13} /> View All Products
+                                </button>
+                              </div>
+                            )
+                            : 'No products yet. Add your first product or import from Excel.'}
                   </td>
                 </tr>
               )}
@@ -1281,10 +1268,17 @@ const Products = () => {
                   <td className="whitespace-nowrap px-4 py-3 text-ink-500">{p.uom || 'Pcs'}</td>
                   <td className="whitespace-nowrap px-3 py-3 text-center">
                     {p.createdAt ? (
-                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-medium font-mono border border-slate-200" title={`Registered: ${new Date(p.createdAt).toLocaleString('en-US')}`}>
-                        <Calendar size={11} className="text-blue-600" />
-                        {new Date(p.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
-                      </span>
+                      <div className="inline-flex flex-col items-center">
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-medium font-mono border border-slate-200" title={`Registered: ${new Date(p.createdAt).toLocaleString('en-US')}${p.updatedAt ? `\nLast Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}` : ''}`}>
+                          <Calendar size={11} className="text-blue-600" />
+                          {new Date(p.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                        </span>
+                        {p.updatedAt && new Date(p.updatedAt).toDateString() !== new Date(p.createdAt).toDateString() && (
+                          <span className="text-[10px] text-ink-400 font-mono mt-0.5" title={`Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}`}>
+                            upd {new Date(p.updatedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-ink-300 font-mono">—</span>
                     )}
