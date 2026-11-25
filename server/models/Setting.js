@@ -99,6 +99,28 @@ const settingSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+    // Granular process notifications and security controls
+    telegramNotificationSettings: {
+      type: Object,
+      default: {
+        // Process event switches (Allow / Disallow)
+        salesImport: true,       // 📥 Imported Sales Orders
+        posOrders: true,         // 🧾 POS Completed Orders
+        customerQrOrders: true,  // 🛎️ Customer QR Table Orders & Waiter Calls
+        captainOrders: true,     // 🧑‍🍳 Waiter Captain Orders & Approvals
+        stockTransactions: true, // 📦 Stock Transactions (GRV, Disposal, Adjustments)
+        stockRequests: true,     // 📋 Stock Requisitions & Issues
+        consumption: true,       // 🍽️ Staff Meals & Consumptions
+        expenses: true,          // 💸 Overhead Expenses
+        dailyReports: true,      // 📊 Daily Revenue & Sales Summary Digest
+        authLogins: true,        // 🔐 User Logins & Security Alerts
+        masterData: true,        // 🏷️ Products, Materials & Suppliers CRUD
+
+        // Privacy and confidentiality security controls
+        restrictFinancialToManagement: true, // 🛡️ Restrict sales imports, daily revenue & expenses to Management only
+        staffSeeOwnOrdersOnly: true,         // 👤 Staff/Waiters only receive Telegram alerts for their own orders
+      },
+    },
     notes: { type: String, default: 'Baba Roti  CaféHotel Management & Stock Control System' },
 
     // ── Pricing & Cost Parameters ─────────────────────────────────

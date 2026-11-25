@@ -150,6 +150,25 @@ const getSettings = asyncHandler(async (req, res) => {
       settings.markModified('stationCategoryMapping');
       modified = true;
     }
+    if (!settings.telegramNotificationSettings) {
+      settings.telegramNotificationSettings = {
+        salesImport: true,
+        posOrders: true,
+        customerQrOrders: true,
+        captainOrders: true,
+        stockTransactions: true,
+        stockRequests: true,
+        consumption: true,
+        expenses: true,
+        dailyReports: true,
+        authLogins: true,
+        masterData: true,
+        restrictFinancialToManagement: true,
+        staffSeeOwnOrdersOnly: true,
+      };
+      settings.markModified('telegramNotificationSettings');
+      modified = true;
+    }
     if (modified) await settings.save();
   }
   res.json(settings);
@@ -265,6 +284,15 @@ const updateSettings = asyncHandler(async (req, res) => {
     if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
       settings.telegramDailyReportTime = timeStr.padStart(5, '0');
     }
+  }
+
+  // Telegram Process Notifications & Security Settings
+  if (req.body.telegramNotificationSettings !== undefined && typeof req.body.telegramNotificationSettings === 'object') {
+    settings.telegramNotificationSettings = {
+      ...(settings.telegramNotificationSettings || {}),
+      ...req.body.telegramNotificationSettings,
+    };
+    settings.markModified('telegramNotificationSettings');
   }
 
   // If user requested to immediately apply price adjustment to all raw materials in database

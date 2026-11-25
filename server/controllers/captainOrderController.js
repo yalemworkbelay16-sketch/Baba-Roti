@@ -521,7 +521,8 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
           `🍴 <b>Items:</b> ${itemsList}\n` +
           `💰 <b>Total:</b> ETB ${grandTotal.toFixed(2)}\n` +
           (safeTableNotes ? `📝 <b>Note:</b> ${safeTableNotes}\n` : "") +
-          `⚠️ <b>Security Notice:</b> Please have table waiter verify physical presence and approve order in Captain Orders.`
+          `⚠️ <b>Security Notice:</b> Please have table waiter verify physical presence and approve order in Captain Orders.`,
+          { processKey: 'customerQrOrders', waiterUserId: order.waiter, waiterChatId: order.waiterChatId }
         );
       }
     } catch (_) { }
@@ -752,7 +753,8 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
           `👤 <b>Approved by Waiter:</b> ${waiterLabel}\n` +
           `🍴 <b>Items:</b> ${itemsList}\n` +
           `💰 <b>Amount:</b> ETB ${Number(order.grandTotal || 0).toFixed(2)}\n` +
-          `🍳 <i>Verified & sent to kitchen for preparation!</i>`
+          `🍳 <i>Verified & sent to kitchen for preparation!</i>`,
+          { processKey: 'captainOrders', waiterUserId: req.user?._id }
         );
       }
     } catch (_) { }
@@ -808,7 +810,8 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
           `🔢 <b>Order Code:</b> <code>#${order.orderNo}</code>\n` +
           `👤 <b>Staff:</b> ${req.user.name || "Waiter"}\n` +
           `📝 <b>Reason:</b> ${reason}\n` +
-          `⚠️ <i>Order was not sent to kitchen.</i>`
+          `⚠️ <i>Order was not sent to kitchen.</i>`,
+          { processKey: 'captainOrders', waiterUserId: req.user?._id }
         );
       }
     } catch (_) { }

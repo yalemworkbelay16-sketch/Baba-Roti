@@ -193,6 +193,10 @@ ${metrics.channelStats.imported.count > 0 ? (
  */
 async function sendDailySalesReport({ isManual = false, targetChatId = null } = {}) {
   const settings = await Setting.findOne();
+  if (!isManual && (settings?.telegramDailyReportEnabled === false || settings?.telegramNotificationSettings?.dailyReports === false)) {
+    console.log('[DailyReport] Daily sales digest is disabled in settings. Skipping broadcast.');
+    return { success: false, message: 'Daily sales report is disabled in settings.' };
+  }
   const metrics = await computeDailySalesMetrics();
   const text = formatDailyReportMessage(metrics, settings?.hotelName || 'Baba Roti Café');
 
@@ -206,7 +210,7 @@ async function sendDailySalesReport({ isManual = false, targetChatId = null } = 
     // Collect all recipient chat IDs: subscribers from DB, staff telegram chat IDs, and environment chat IDs
     let chatIds = [];
     if (tg && typeof tg.getChatIds === 'function') {
-      chatIds = await tg.getChatIds();
+      chatIds = await tg.getChatIds({ processKey: 'dailyReports' });
     }
     if (!chatIds || chatIds.length === 0) {
       chatIds = (settings?.telegramSubscribers || [])

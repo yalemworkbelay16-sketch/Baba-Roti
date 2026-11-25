@@ -40,14 +40,22 @@ function escapeHtml(str) {
 }
 
 // ── Low-level sender ─────────────────────────────────────────────
-async function getChatIds() {
+async function getChatIds(options = {}) {
   try {
+    const { processKey, waiterUserId, waiterChatId } = options;
     const User = require('../models/User');
     const [settings, inactiveUsers, activeStaff] = await Promise.all([
-      Setting.findOne().select('telegramSubscribers').lean(),
+      Setting.findOne().select('telegramSubscribers telegramNotificationSettings').lean(),
       User.find({ isActive: false }).select('telegramChatId phone email name').lean(),
-      User.find({ isActive: { $ne: false }, telegramChatId: { $exists: true, $ne: '' } }).select('telegramChatId').lean(),
+      User.find({ isActive: { $ne: false }, telegramChatId: { $exists: true, $ne: '' } }).select('telegramChatId role name _id email phone').lean(),
     ]);
+
+    const notifSettings = settings?.telegramNotificationSettings || {};
+
+    // 1. If this specific process is explicitly disallowed (false), return empty list immediately
+    if (processKey && notifSettings[processKey] === false) {
+      return [];
+    }
 
     // Build blocklists from disabled/deactivated accounts
     const blockedChatIds = new Set(
@@ -79,18 +87,101 @@ async function getChatIds() {
       return true;
     });
 
-    const dbIds = validSubscribers
-      .map(s => cleanChatId(s.chatId))
-      .filter(Boolean);
+    const MANAGEMENT_ROLES = new Set(['admin', 'manager', 'supervisor', 'dev']);
+    const isFinancialProcess = ['salesImport', 'dailyReports', 'expenses'].includes(processKey);
+    const isOrderProcess = ['posOrders', 'customerQrOrders', 'captainOrders'].includes(processKey);
 
-    // Active staff members with configured telegramChatId
-    const staffIds = (activeStaff || [])
-      .map(u => cleanChatId(u.telegramChatId))
-      .filter(id => id && !blockedChatIds.has(id));
+    const restrictFinancial = notifSettings.restrictFinancialToManagement !== false;
+    const staffOwnOrdersOnly = notifSettings.staffSeeOwnOrdersOnly !== false;
 
-    const all = [...new Set([...dbIds, ...staffIds, ...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])];
-    // Ensure no blocked or suppressed chat ID gets messages
-    return all.filter(id => id && id !== 'null' && id !== 'undefined' && !blockedChatIds.has(String(id)) && !permanentlySuppressedChats.has(String(id)));
+    // Staff lookup by chatId
+    const staffByChatId = new Map();
+    (activeStaff || []).forEach(u => {
+      const c = cleanChatId(u.telegramChatId);
+      if (c) staffByChatId.set(c, u);
+    });
+
+    const isManagementChat = (cId, sub) => {
+      if (DEFAULT_FALLBACK_CHAT_IDS.includes(String(cId)) || ENV_CHAT_IDS.includes(String(cId))) {
+        return true;
+      }
+      const staffUser = staffByChatId.get(String(cId));
+      if (staffUser && MANAGEMENT_ROLES.has(staffUser.role)) {
+        return true;
+      }
+      if (sub) {
+        const sPhone = (sub.phone || '').replace(/\D/g, '').slice(-9);
+        const sUser = (sub.username || '').toLowerCase().trim();
+        const matched = (activeStaff || []).find(u => {
+          const uPhone = (u.phone || '').replace(/\D/g, '').slice(-9);
+          const uEmail = (u.email || '').toLowerCase().trim();
+          return (sPhone && uPhone === sPhone) || (sUser && uEmail === sUser);
+        });
+        if (matched && MANAGEMENT_ROLES.has(matched.role)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const targetChatIds = new Set();
+
+    // 1. Process valid subscribers
+    for (const sub of validSubscribers) {
+      const cId = cleanChatId(sub.chatId);
+      if (!cId || permanentlySuppressedChats.has(cId)) continue;
+
+      const isMgmt = isManagementChat(cId, sub);
+
+      // Financial security: If financial process and restricted to management, skip non-management
+      if (isFinancialProcess && restrictFinancial && !isMgmt) {
+        continue;
+      }
+
+      // Order privacy: If order process and staff should only see own orders
+      if (isOrderProcess && staffOwnOrdersOnly && !isMgmt) {
+        const staffUser = staffByChatId.get(cId);
+        const matchesWaiter = (waiterChatId && String(waiterChatId) === cId) ||
+          (waiterUserId && staffUser && String(staffUser._id) === String(waiterUserId));
+        if (!matchesWaiter) {
+          continue; // Waiter only sees their own orders
+        }
+      }
+
+      targetChatIds.add(cId);
+    }
+
+    // 2. Active staff accounts with telegramChatId
+    for (const staff of (activeStaff || [])) {
+      const cId = cleanChatId(staff.telegramChatId);
+      if (!cId || blockedChatIds.has(cId) || permanentlySuppressedChats.has(cId)) continue;
+
+      const isMgmt = MANAGEMENT_ROLES.has(staff.role);
+
+      if (isFinancialProcess && restrictFinancial && !isMgmt) {
+        continue;
+      }
+
+      if (isOrderProcess && staffOwnOrdersOnly && !isMgmt) {
+        const matchesWaiter = (waiterChatId && String(waiterChatId) === cId) ||
+          (waiterUserId && String(staff._id) === String(waiterUserId));
+        if (!matchesWaiter) {
+          continue;
+        }
+      }
+
+      targetChatIds.add(cId);
+    }
+
+    // 3. Fallbacks and Env chat IDs (these represent executive admin / system owners)
+    for (const fallbackId of [...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS]) {
+      const cId = cleanChatId(fallbackId);
+      if (cId && !blockedChatIds.has(cId) && !permanentlySuppressedChats.has(cId)) {
+        targetChatIds.add(cId);
+      }
+    }
+
+    return Array.from(targetChatIds);
   } catch (err) {
     console.warn('[Telegram] Chat IDs fetch error:', err.message);
     return [...new Set([...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS])].filter(
@@ -155,10 +246,10 @@ function sendToOne(chatId, text) {
   });
 }
 
-function sendTelegram(text) {
+function sendTelegram(text, options = {}) {
   if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') return;
   // Fire-and-forget async
-  getChatIds().then(ids => {
+  getChatIds(options).then(ids => {
     if (!ids || !ids.length) return;
     ids.forEach(id => sendToOne(id, text));
   }).catch((err) => {
@@ -201,7 +292,8 @@ function notifyLogin(user) {
 📧 <b>Email:</b> ${user.email}
 🎭 <b>Role:</b>  ${user.role.toUpperCase()}
 🕐 <b>Time:</b>  ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'authLogins' }
   );
 }
 
@@ -990,7 +1082,8 @@ ${items || '  —'}
 
 👤 <b>Requested by:</b> ${user?.name || '—'} (${user?.role || ''})
 🕐 <b>Time:</b>         ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'stockRequests' }
   );
 }
 
@@ -1007,7 +1100,8 @@ function notifyStockRequestApproved(req, user) {
 
 👤 <b>Approved by:</b> ${user?.name || '—'}
 🕐 <b>Time:</b>        ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'stockRequests' }
   );
 }
 
@@ -1029,7 +1123,8 @@ ${items || '  —'}
 
 👤 <b>Issued by:</b> ${user?.name || '—'}
 🕐 <b>Time:</b>      ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'stockRequests' }
   );
 }
 
@@ -1077,7 +1172,8 @@ ${items || '  —'}
 
 👤 <b>Recorded by:</b> ${user?.name || '—'}
 🕐 <b>Time:</b>        ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'consumption' }
   );
 }
 
@@ -1097,7 +1193,8 @@ ${emoji} <b>Category:</b>    ${label}
 
 👤 <b>Approved by:</b> ${user?.name || '—'}
 🕐 <b>Time:</b>        ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'consumption' }
   );
 }
 
@@ -1116,7 +1213,8 @@ function notifyExpenseCreated(expense, user) {
 ${expense.notes ? `💬 <b>Notes:</b>      ${expense.notes}\n` : ''}
 👤 <b>Recorded by:</b> ${user?.name || '—'}
 🕐 <b>Time:</b>        ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'expenses' }
   );
 }
 
@@ -1132,7 +1230,8 @@ function notifyExpenseDeleted(expense, user) {
 
 👤 <b>Deleted by:</b>  ${user?.name || '—'}
 🕐 <b>Time:</b>        ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'expenses' }
   );
 }
 
@@ -1161,7 +1260,8 @@ function notifyCustomerOrder(order) {
     (notes ? `📝 <b>Special Instructions:</b> ${notes}\n` : '') +
     `🕐 <b>Time:</b> ${now()}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>⚡ Transmitted instantly to Kitchen & Cashier POS for settlement.</i>`
+    `<i>⚡ Transmitted instantly to Kitchen & Cashier POS for settlement.</i>`,
+    { processKey: 'customerQrOrders', waiterUserId: order.waiter || order.waiterId, waiterChatId: order.waiterChatId }
   );
 }
 
@@ -1179,7 +1279,8 @@ function notifyWaiterCall({ tableNo, action, customerName }) {
     (cust ? `👤 <b>Customer:</b> ${cust}\n` : '') +
     `⚠️ <b>Alert:</b> ${isBill ? 'Customer has requested their bill for payment.' : 'Customer has called for waiter table assistance.'}\n` +
     `🕐 <b>Time:</b> ${now()}\n` +
-    `━━━━━━━━━━━━━━━━━━━━`
+    `━━━━━━━━━━━━━━━━━━━━`,
+    { processKey: 'customerQrOrders' }
   );
 }
 
@@ -1230,7 +1331,8 @@ function notifySalesImported(record, summary, user) {
     `👤 <b>Imported By:</b> ${uName}\n` +
     `🕐 <b>Date & Time:</b> ${now()}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚡ <i>Daily live revenue & Menu Engineering updated.</i>`
+    `⚡ <i>Daily live revenue & Menu Engineering updated.</i>`,
+    { processKey: 'salesImport' }
   );
 }
 

@@ -388,6 +388,24 @@ export default function Settings() {
   const [tgReportPreview, setTgReportPreview] = useState(null);
   const [tgReportLoading, setTgReportLoading] = useState(false);
 
+  // Telegram Process Settings State & Privacy Controls
+  const [tgNotifSettings, setTgNotifSettings] = useState({
+    salesImport: true,
+    posOrders: true,
+    customerQrOrders: true,
+    captainOrders: true,
+    stockTransactions: true,
+    stockRequests: true,
+    consumption: true,
+    expenses: true,
+    dailyReports: true,
+    authLogins: true,
+    masterData: true,
+    restrictFinancialToManagement: true,
+    staffSeeOwnOrdersOnly: true,
+  });
+  const [tgNotifSaving, setTgNotifSaving] = useState(false);
+
   // Sync profile when user updates
   useEffect(() => {
     if (user) {
@@ -440,6 +458,12 @@ export default function Settings() {
                 themeCustomization: res.data.licensedModules.themeCustomization !== false,
                 materialIcons: res.data.licensedModules.materialIcons !== false,
                 sidebarTheme: res.data.licensedModules.sidebarTheme || 'navy',
+              }));
+            }
+            if (res.data.telegramNotificationSettings) {
+              setTgNotifSettings((prev) => ({
+                ...prev,
+                ...res.data.telegramNotificationSettings,
               }));
             }
           }
@@ -602,6 +626,23 @@ export default function Settings() {
       setTgError(err.response?.data?.message || 'Failed to send daily report.');
     } finally {
       setTgReportSending(false);
+    }
+  };
+
+  const handleSaveTgNotifSettings = async () => {
+    setTgNotifSaving(true);
+    setTgError('');
+    setTgSuccess('');
+    try {
+      await api.put('/settings', {
+        telegramNotificationSettings: tgNotifSettings,
+      });
+      setTgSuccess('Telegram bot process & security settings saved successfully!');
+      setTimeout(() => setTgSuccess(''), 5000);
+    } catch (err) {
+      setTgError(err.response?.data?.message || err.message || 'Failed to save Telegram settings');
+    } finally {
+      setTgNotifSaving(false);
     }
   };
 
@@ -2538,6 +2579,124 @@ export default function Settings() {
               </div>
             </div>
           )}
+
+          {/* ── Telegram Process Notification & Privacy Controls ── */}
+          <div className="mt-6 pt-6 border-t border-ink-100">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-indigo-50 p-1.5 text-indigo-600">
+                  <ShieldCheck size={16} />
+                </span>
+                <div>
+                  <h4 className="font-bold text-sm text-ink-900">Telegram Bot Process &amp; Security Controls</h4>
+                  <p className="text-xs text-ink-500">
+                    Control which operational processes send bot alerts, and restrict financial data and orders for privacy.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveTgNotifSettings}
+                disabled={tgNotifSaving}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 text-xs font-bold text-white transition disabled:opacity-50 shadow-xs cursor-pointer"
+              >
+                {tgNotifSaving ? 'Saving…' : 'Save Process Settings'}
+              </button>
+            </div>
+
+            {/* Privacy & Confidentiality Rules Box */}
+            <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 space-y-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                <Lock size={12} /> Confidentiality &amp; Access Boundaries
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Rule 1: Restrict Financials to Management */}
+                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-indigo-100/80 shadow-2xs">
+                  <input
+                    type="checkbox"
+                    id="restrictFinancial"
+                    checked={tgNotifSettings.restrictFinancialToManagement !== false}
+                    onChange={(e) => setTgNotifSettings(prev => ({ ...prev, restrictFinancialToManagement: e.target.checked }))}
+                    className="h-4 w-4 mt-0.5 accent-indigo-600 cursor-pointer"
+                  />
+                  <div>
+                    <label htmlFor="restrictFinancial" className="font-bold text-xs text-ink-900 cursor-pointer block">
+                      🛡️ Restrict Sales &amp; Financials to Management
+                    </label>
+                    <p className="text-[11px] text-ink-500 mt-0.5 leading-normal">
+                      Imported Sales Reports, Daily Revenue Digests, and Overhead Expenses are only sent to <strong>Admin, Manager, and Supervisor</strong> accounts. Waiters/cashiers never see hotel financials.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Rule 2: Staff / Waiter Order Privacy */}
+                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-indigo-100/80 shadow-2xs">
+                  <input
+                    type="checkbox"
+                    id="staffOwnOrdersOnly"
+                    checked={tgNotifSettings.staffSeeOwnOrdersOnly !== false}
+                    onChange={(e) => setTgNotifSettings(prev => ({ ...prev, staffSeeOwnOrdersOnly: e.target.checked }))}
+                    className="h-4 w-4 mt-0.5 accent-indigo-600 cursor-pointer"
+                  />
+                  <div>
+                    <label htmlFor="staffOwnOrdersOnly" className="font-bold text-xs text-ink-900 cursor-pointer block">
+                      👤 Staff / Waiter Order Privacy (Own Orders Only)
+                    </label>
+                    <p className="text-[11px] text-ink-500 mt-0.5 leading-normal">
+                      When orders are placed, non-management staff (waiters) only receive Telegram alerts for <strong>orders assigned to them</strong>, preventing waiters from seeing each other's orders.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Process Event Toggles (Allow / Disallow) */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block">
+                Allowed Operational Processes (Allow / Disallow)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  { key: 'salesImport', icon: '📥', label: 'Imported Sales Orders', desc: 'Batch sales imported from POS / Excel' },
+                  { key: 'posOrders', icon: '🧾', label: 'Counter POS Orders', desc: 'Orders completed at POS cashier register' },
+                  { key: 'customerQrOrders', icon: '🛎️', label: 'Customer QR Menu Orders', desc: 'Customer digital orders & table waiter calls' },
+                  { key: 'captainOrders', icon: '🧑‍🍳', label: 'Captain Orders & Approvals', desc: 'Waiter order approvals sent to kitchen' },
+                  { key: 'stockTransactions', icon: '📦', label: 'Stock Transactions', desc: 'GRV receiving, disposals, transfers, adjustments' },
+                  { key: 'stockRequests', icon: '📋', label: 'Stock Requisitions & Issues', desc: 'Internal requests between stores & approval alerts' },
+                  { key: 'consumption', icon: '🍽️', label: 'Staff Meal & Consumption', desc: 'Staff quota meals, approvals, entertainment' },
+                  { key: 'expenses', icon: '💸', label: 'Overhead Expenses', desc: 'Operating expenses recorded in finance' },
+                  { key: 'dailyReports', icon: '📊', label: 'Daily Sales Digest', desc: 'Scheduled daily revenue & category breakdown' },
+                  { key: 'authLogins', icon: '🔐', label: 'User Logins & Security', desc: 'Staff logins, account status & password alerts' },
+                  { key: 'masterData', icon: '🏷️', label: 'Catalog & Master Changes', desc: 'Products, raw materials, supplier modifications' },
+                ].map((item) => (
+                  <div
+                    key={item.key}
+                    onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
+                      tgNotifSettings[item.key] !== false
+                        ? 'bg-white border-ink-200 hover:border-blue-400 shadow-2xs'
+                        : 'bg-ink-50/70 border-ink-100 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base select-none">{item.icon}</span>
+                      <div>
+                        <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
+                        <span className="text-[10px] text-ink-500 leading-tight block">{item.desc}</span>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
+                      tgNotifSettings[item.key] !== false
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-ink-200 text-ink-600'
+                    }`}>
+                      {tgNotifSettings[item.key] !== false ? 'Allowed' : 'Disabled'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* ── Daily Sales Executive Digest Card ── */}
           <div className="mt-6 pt-6 border-t border-ink-100">

@@ -373,7 +373,7 @@ const createOrder = asyncHandler(async (req, res) => {
         `🍴 Type: ${orderType} | Table: ${tableNo || 'N/A'}\n` +
         `💰 Total: ETB ${grandTotal.toFixed(2)} (${paymentMethod})\n` +
         `📦 Items: ${processedItems.map(i => `${i.productName} x${i.quantity}`).join(', ')}`;
-      tg.sendNotification(summaryMsg);
+      tg.sendNotification(summaryMsg, { processKey: 'posOrders', waiterUserId: order.cashier || req.user?._id });
     } catch (_) { /* ignore notification errors */ }
   }
 
