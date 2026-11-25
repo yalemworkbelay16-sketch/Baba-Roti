@@ -142,6 +142,8 @@ async function getChatIds(options = {}) {
     // Helper: checks if a specific user/role is authorized for this process
     const isUserAllowedForProcess = (role, customAlerts) => {
       if (!processKey) return true;
+      // System Developer role has ALL access by default across every operational process
+      if (role === 'dev') return true;
       if (MANAGEMENT_ROLES.has(role)) return true;
 
       // 1. If user has explicit individual alert preferences configured

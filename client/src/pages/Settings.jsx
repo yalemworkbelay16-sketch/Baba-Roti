@@ -2700,9 +2700,14 @@ export default function Settings() {
                   <span className="text-xs font-bold uppercase tracking-wider text-ink-700 block">
                     Operational Bot Alerts &amp; Role Permissions
                   </span>
-                  <span className="text-[11px] text-ink-500">
-                    Control which operational events trigger Telegram alerts, and select which registered roles can receive them.
-                  </span>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-[11px] text-ink-500">
+                      Configure bot alert delivery for the 6 registered staff roles.
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                      <Shield size={11} className="text-amber-600" /> System Developer has all access by default
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2786,17 +2791,21 @@ export default function Settings() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-ink-100 text-[11px] font-bold text-ink-600 uppercase tracking-wider">
-                        <th className="py-3 px-4 min-w-[210px]">Operational Process</th>
-                        <th className="py-3 px-3 text-center min-w-[95px]">Bot Alert</th>
+                        <th className="py-2.5 px-3">Operational Process</th>
+                        <th className="py-2.5 px-2 text-center w-24">Bot Alert</th>
                         {REGISTERED_TG_ROLES.map((r) => (
-                          <th key={r.key} className="py-3 px-2 text-center min-w-[85px]">
+                          <th
+                            key={r.key}
+                            className={`py-2.5 px-1 text-center w-14 ${
+                              r.key === 'waiter' ? 'bg-purple-50/60 text-purple-900 border-x border-purple-100' : ''
+                            }`}
+                          >
                             <div className="flex flex-col items-center">
                               <span className="text-sm select-none">{r.icon}</span>
-                              <span className="text-[11px] font-extrabold text-ink-800 tracking-normal capitalize">{r.label}</span>
+                              <span className="text-[10px] font-extrabold tracking-normal capitalize">{r.label}</span>
                             </div>
                           </th>
                         ))}
-                        <th className="py-3 px-3 text-center min-w-[80px]">Quick</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-ink-100 text-ink-800">
@@ -2821,19 +2830,59 @@ export default function Settings() {
                             key={item.key}
                             className={`transition ${isProcessAllowed ? 'hover:bg-blue-50/25' : 'bg-slate-50/70 opacity-60'}`}
                           >
-                            {/* Process Info */}
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2.5">
-                                <span className="text-xl shrink-0 select-none">{item.icon}</span>
+                            {/* Process Info + Inline Quick Action Links */}
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-xl shrink-0 select-none mt-0.5">{item.icon}</span>
                                 <div>
-                                  <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
-                                  <span className="text-[11px] text-ink-500 block mt-0.5 leading-tight">{item.desc}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-ink-900 leading-tight">{item.label}</span>
+                                    {isProcessAllowed && (
+                                      <span className="text-[10px] text-ink-400">
+                                        (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const allRoleKeys = REGISTERED_TG_ROLES.map((r) => r.key);
+                                            setTgNotifSettings((prev) => ({
+                                              ...prev,
+                                              processRoles: {
+                                                ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                                [item.key]: allRoleKeys,
+                                              },
+                                            }));
+                                          }}
+                                          className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                                        >
+                                          All
+                                        </button>
+                                        {' • '}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setTgNotifSettings((prev) => ({
+                                              ...prev,
+                                              processRoles: {
+                                                ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                                [item.key]: ['admin', 'manager', 'supervisor'],
+                                              },
+                                            }));
+                                          }}
+                                          className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                                        >
+                                          Mgmt
+                                        </button>
+                                        )
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] text-ink-500 block leading-tight">{item.desc}</span>
                                 </div>
                               </div>
                             </td>
 
                             {/* Global Allowed / Disabled Toggle */}
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-2.5 px-2 text-center w-24">
                               <button
                                 type="button"
                                 onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
@@ -2848,20 +2897,28 @@ export default function Settings() {
                               </button>
                             </td>
 
-                            {/* 6 Registered Roles Columns */}
+                            {/* 6 Registered Roles Columns (Including Waiter - Always Visible) */}
                             {REGISTERED_TG_ROLES.map((r) => {
                               const active = currentRoles.includes(r.key);
+                              const isWaiter = r.key === 'waiter';
                               return (
-                                <td key={r.key} className="py-3 px-2 text-center">
+                                <td
+                                  key={r.key}
+                                  className={`py-2 px-1 text-center w-14 ${
+                                    isWaiter ? 'bg-purple-50/30 border-x border-purple-100/60' : ''
+                                  }`}
+                                >
                                   <button
                                     type="button"
                                     disabled={!isProcessAllowed}
                                     onClick={() => toggleRole(r.key)}
-                                    className={`inline-flex items-center justify-center h-7 w-7 rounded-lg border transition cursor-pointer ${
+                                    className={`inline-flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-lg border transition cursor-pointer ${
                                       !isProcessAllowed
                                         ? 'opacity-30 border-ink-200 bg-ink-50 cursor-not-allowed'
                                         : active
-                                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
+                                        ? isWaiter
+                                          ? 'bg-purple-600 text-white border-purple-600 shadow-2xs hover:bg-purple-700'
+                                          : 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
                                         : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
                                     }`}
                                     title={
@@ -2871,56 +2928,14 @@ export default function Settings() {
                                     }
                                   >
                                     {active ? (
-                                      <Check size={14} className="stroke-[3]" />
+                                      <Check size={13} className="stroke-[3]" />
                                     ) : (
-                                      <span className="text-xs text-ink-300 select-none font-bold">—</span>
+                                      <span className="text-[11px] text-ink-300 select-none font-bold">—</span>
                                     )}
                                   </button>
                                 </td>
                               );
                             })}
-
-                            {/* Row Quick Action Links */}
-                            <td className="py-3 px-3 text-center">
-                              {isProcessAllowed && (
-                                <div className="flex items-center justify-center gap-1.5 text-[10px]">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const allRoleKeys = REGISTERED_TG_ROLES.map((r) => r.key);
-                                      setTgNotifSettings((prev) => ({
-                                        ...prev,
-                                        processRoles: {
-                                          ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
-                                          [item.key]: allRoleKeys,
-                                        },
-                                      }));
-                                    }}
-                                    className="text-blue-600 hover:underline font-semibold cursor-pointer"
-                                    title="Grant all roles for this process"
-                                  >
-                                    All
-                                  </button>
-                                  <span className="text-ink-300">|</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setTgNotifSettings((prev) => ({
-                                        ...prev,
-                                        processRoles: {
-                                          ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
-                                          [item.key]: ['admin'],
-                                        },
-                                      }));
-                                    }}
-                                    className="text-ink-500 hover:underline font-semibold cursor-pointer"
-                                    title="Restrict to Admin only"
-                                  >
-                                    Admin
-                                  </button>
-                                </div>
-                              )}
-                            </td>
                           </tr>
                         );
                       })}
