@@ -712,9 +712,11 @@ const Users = () => {
                 onChange={e => {
                   const dept = e.target.value;
                   f('department', dept);
-                  if (dept === 'Kitchen') f('assignedStation', 'kitchen');
-                  else if (dept === 'Bar') f('assignedStation', 'bar');
-                  else if (dept === 'Main Store') f('assignedStation', 'main');
+                  if (!['admin', 'manager', 'dev'].includes(form.role)) {
+                    if (dept === 'Kitchen') f('assignedStation', 'kitchen');
+                    else if (dept === 'Bar') f('assignedStation', 'bar');
+                    else if (dept === 'Main Store') f('assignedStation', 'main');
+                  }
                 }}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
               >

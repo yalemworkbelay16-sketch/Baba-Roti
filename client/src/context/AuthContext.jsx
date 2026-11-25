@@ -300,8 +300,9 @@ export const AuthProvider = ({ children }) => {
           : currentUser?.assignedStation || 'all';
 
     // Station restricted staff go directly to their station store
-    if (userStation === 'kitchen') return '/materials?station=kitchen';
-    if (userStation === 'bar') return '/materials?station=bar';
+    const isStaffStationRestricted = userStation !== 'all' && !['admin', 'manager', 'dev'].includes(currentUser.role);
+    if (isStaffStationRestricted && userStation === 'kitchen') return '/materials?station=kitchen';
+    if (isStaffStationRestricted && userStation === 'bar') return '/materials?station=bar';
 
     // If dashboard is permitted for this role, land on dashboard
     if (canSeeNav('dashboard')) return '/';

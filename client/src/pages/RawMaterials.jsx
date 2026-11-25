@@ -86,7 +86,7 @@ const RawMaterials = () => {
       : String(user?.department || '').toLowerCase().includes('bar')
         ? 'bar'
         : user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'dev');
+  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'manager', 'dev');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const stationFromUrl = isStationRestricted ? userStation : (searchParams.get('station') || 'all');

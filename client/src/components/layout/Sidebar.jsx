@@ -489,7 +489,7 @@ const Sidebar = ({
       : String(user?.department || '').toLowerCase().includes('bar')
         ? 'bar'
         : user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !['admin', 'dev'].includes(user?.role);
+  const isStationRestricted = userStation !== 'all' && !['admin', 'manager', 'dev'].includes(user?.role);
 
   const inventoryItems = [
     !isStationRestricted && canSeeNav('rawMaterials') && {
@@ -798,7 +798,7 @@ const Sidebar = ({
                     )}
 
                     {/* ── Selection Box: Main Store, Kitchen Store, Bar Store, Production ── */}
-                    {(rawMaterialsSubOpen || !canSeeNav('rawMaterials')) && (canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('production')) && (
+                    {(rawMaterialsSubOpen || isStationRestricted || !canSeeNav('rawMaterials')) && (canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('production')) && (
                       <div
                         className={`my-1 ml-2 mr-0.5 rounded-xl p-1.5 space-y-0.5 border transition-all ${theme.isLight
                           ? 'border-blue-200/90 bg-blue-50/60 shadow-2xs'

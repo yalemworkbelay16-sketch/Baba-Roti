@@ -161,7 +161,7 @@ const getStockRequests = asyncHandler(async (req, res) => {
   const filter = { deletedAt: null };
 
   const userStation = getUserStation(req.user);
-  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(req.user.role);
 
   // Station-restricted users (bar/kitchen staff) strictly view their own department's requests
   if (isStationRestricted) {
@@ -224,7 +224,7 @@ const createStockRequest = asyncHandler(async (req, res) => {
   const { resolved, total, stockWarnings } = await resolveItemCosts(items);
 
   const userStation = getUserStation(req.user);
-  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(req.user.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
 
   if (requestType === 'direct_issue' && !isMainStoreOrAdmin) {
@@ -341,7 +341,7 @@ const updateStockRequest = asyncHandler(async (req, res) => {
 const approveStockRequest = asyncHandler(async (req, res) => {
   const userStation = getUserStation(req.user);
 
-  if (['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role)) {
+  if (['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(req.user.role)) {
     res.status(403);
     throw new Error('Access denied: Station staff cannot approve stock requests.');
   }
@@ -392,7 +392,7 @@ const approveStockRequest = asyncHandler(async (req, res) => {
 // Storekeeper / Admin physically issues stock and deducts inventory
 const issueStock = asyncHandler(async (req, res) => {
   const userStation = getUserStation(req.user);
-  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(req.user.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(req.user.role) || (req.user.role === 'storekeeper' && !isStationRestricted);
 
   if (!isMainStoreOrAdmin) {
@@ -491,7 +491,7 @@ const issueStock = asyncHandler(async (req, res) => {
 // ── POST /api/stock-requests/:id/reject ──────────────────────────
 const rejectStockRequest = asyncHandler(async (req, res) => {
   const userStation = getUserStation(req.user);
-  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(req.user.role);
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(req.user.role);
   if (isStationRestricted) {
     res.status(403);
     throw new Error('Access denied: Station staff cannot reject stock requests.');

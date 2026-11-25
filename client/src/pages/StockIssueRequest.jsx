@@ -139,7 +139,7 @@ export default function StockIssueRequest() {
     return user?.assignedStation || 'all';
   }, [user, getUserDepartment]);
 
-  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'dev'].includes(user?.role);
+  const isStationRestricted = ['kitchen', 'bar'].includes(userStation) && !['admin', 'manager', 'dev'].includes(user?.role);
   const isMainStoreOrAdmin = ['admin', 'manager', 'dev'].includes(user?.role) || (user?.role === 'storekeeper' && !isStationRestricted);
 
   const canApprove = (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'dev') && !isStationRestricted;
