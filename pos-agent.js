@@ -246,20 +246,34 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
 
     if (type === 'kot') {
       const bName = opts.businessName || printer.headerLine1 || RESTAURANT_NAME;
+      const isAddon = Boolean(order.isAddon || opts.isAddon);
+      const addonRound = order.addonRound || opts.addonRound || 2;
+
+      if (isAddon) {
+        lines.push('='.repeat(W));
+        lines.push(center('*** ADD-ON / UPDATED ORDER ***', W));
+        lines.push(center(`*** ROUND ${addonRound} - NEW ITEMS ONLY ***`, W));
+      }
       lines.push('='.repeat(W));
-      lines.push(center('** KITCHEN ORDER TICKET **', W));
+      lines.push(center(isAddon ? `** KITCHEN ADD-ON ROUND ${addonRound} **` : '** KITCHEN ORDER TICKET **', W));
       lines.push(center(bName.toUpperCase(), W));
       lines.push('='.repeat(W));
       lines.push(twoCol('Order #:', order.orderNo || '--', W));
       lines.push(twoCol('Type:', (order.orderType || 'dine_in').toUpperCase(), W));
       if (order.tableNo) lines.push(twoCol('Table:', order.tableNo, W));
       if (order.waiterName) lines.push(twoCol('Waiter:', order.waiterName, W));
+      if (isAddon) {
+        lines.push(center('>> PREPARE ADDED ITEMS ONLY <<', W));
+        lines.push(center(`>> Round ${addonRound} Add-on to Table ${order.tableNo || ''} <<`, W));
+      }
       lines.push(twoCol('Date/Time:', `${dateStr} ${timeStr}`, W));
       lines.push('-'.repeat(W));
       lines.push(padEnd('ITEM', W - 10) + padEnd('QTY', 5) + 'NOTE');
       lines.push('-'.repeat(W));
       (order.items || []).forEach(it => {
         lines.push(padEnd(it.productName || it.name, W - 10) + padEnd(`x${it.quantity || 1}`, 5) + (it.notes || ''));
+        if (it.oldQuantity) lines.push(`    >> (+${it.quantity} added, Total: ${it.newTotalQuantity})`);
+        else if (isAddon) lines.push(`    >> [NEW ADDED ITEM]`);
       });
       lines.push('='.repeat(W));
       lines.push(center('** PREPARE IMMEDIATELY **', W));
@@ -306,18 +320,48 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
 
   if (type === 'kot') {
     const bName = opts.businessName || printer.headerLine1 || RESTAURANT_NAME;
-    chunks.push(DBL_ON, txt('** KITCHEN ORDER **'), DBL_OFF, BOLD_ON, txt(bName.toUpperCase()), BOLD_OFF, ALIGN_LEFT);
+    const isAddon = Boolean(order.isAddon || opts.isAddon);
+    const addonRound = order.addonRound || opts.addonRound || 2;
+
+    if (isAddon) {
+      chunks.push(
+        BOLD_ON,
+        txt('*** ADD-ON / UPDATED ORDER ***'),
+        txt(`*** ROUND ${addonRound} - NEW ITEMS ONLY ***`),
+        BOLD_OFF
+      );
+    }
+
+    chunks.push(
+      DBL_ON,
+      txt(isAddon ? `** KITCHEN ADD-ON R${addonRound} **` : '** KITCHEN ORDER **'),
+      DBL_OFF,
+      BOLD_ON,
+      txt(bName.toUpperCase()),
+      BOLD_OFF,
+      ALIGN_LEFT
+    );
     chunks.push(txt('='.repeat(W)));
     chunks.push(txt(twoCol('Order #:', order.orderNo || '--', W)));
     chunks.push(txt(twoCol('Type:', (order.orderType || 'dine_in').toUpperCase(), W)));
     if (order.tableNo) chunks.push(txt(twoCol('Table:', order.tableNo, W)));
     if (order.waiterName) chunks.push(txt(twoCol('Waiter:', order.waiterName, W)));
+    if (isAddon) {
+      chunks.push(
+        BOLD_ON,
+        txt('>> PREPARE ADDED ITEMS ONLY <<'),
+        txt(`>> Round ${addonRound} Add-on to Table ${order.tableNo || ''} <<`),
+        BOLD_OFF
+      );
+    }
     chunks.push(txt(twoCol('Time:', timeStr, W)));
     chunks.push(txt('-'.repeat(W)));
     chunks.push(BOLD_ON, txt(padEnd('ITEM', W - 10) + padEnd('QTY', 5) + 'NOTE'), BOLD_OFF);
     chunks.push(txt('-'.repeat(W)));
     (order.items || []).forEach(it => {
       chunks.push(BOLD_ON, txt(padEnd(it.productName || it.name, W - 10) + padEnd(`x${it.quantity || 1}`, 5) + (it.notes || '')), BOLD_OFF);
+      if (it.oldQuantity) chunks.push(txt(`  >> (+${it.quantity} added, Total: ${it.newTotalQuantity})`));
+      else if (isAddon) chunks.push(txt(`  >> [NEW ADDED ITEM]`));
       if (it.notes) chunks.push(txt(`  >> ${it.notes}`));
     });
     chunks.push(txt('='.repeat(W)), ALIGN_CENTER, BOLD_ON, txt('** PREPARE IMMEDIATELY **'), BOLD_OFF, ALIGN_LEFT);

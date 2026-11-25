@@ -184,8 +184,13 @@ export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', addr
 /**
  * Print Kitchen Order Ticket (KOT) or Barista Ticket
  */
-export function printStationTicket(order, targetStation = 'kitchen', { isReprint = false, businessName = 'Baba Roti Café' } = {}) {
-  const stationTitle = targetStation === 'barista' ? 'BARISTA DRINK TICKET' : 'KITCHEN ORDER TICKET';
+export function printStationTicket(order, targetStation = 'kitchen', { isReprint = false, isAddon = false, addonRound = 2, businessName = 'Baba Roti Café' } = {}) {
+  const isAddonOrder = Boolean(isAddon || order.isAddon);
+  const roundNo = addonRound || order.addonRound || 2;
+  const stationTitle = isAddonOrder
+    ? (targetStation === 'barista' ? `BARISTA ADD-ON (ROUND ${roundNo})` : `KITCHEN ADD-ON (ROUND ${roundNo})`)
+    : (targetStation === 'barista' ? 'BARISTA DRINK TICKET' : 'KITCHEN ORDER TICKET');
+
   const orderNumber = order.orderNo || order.saleNo || order.reference || `ORD-${Date.now().toString().slice(-4)}`;
 
   const allItems = order.items || [];
@@ -233,6 +238,17 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
       text-align: center;
       letter-spacing: 1px;
     }
+    .addon-banner {
+      border: 3px double #000;
+      font-weight: 900;
+      font-size: 15px;
+      padding: 6px 4px;
+      margin-bottom: 8px;
+      text-align: center;
+      letter-spacing: 0.5px;
+      background: #fff;
+      line-height: 1.3;
+    }
     .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; }
     .header h1 { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
     .order-meta { margin: 6px 0; font-size: 12px; }
@@ -252,7 +268,12 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
   </style>
 </head>
 <body>
-  ${isReprint ? '<div class="reprint-banner">*** REPRINT / DUPLICATE ***</div>' : ''}
+  ${isAddonOrder ? `
+    <div class="addon-banner">
+      ★★★ ADD-ON / UPDATED ORDER ★★★<br>
+      <span style="font-size: 13px; font-weight: 900;">ROUND ${roundNo} — PREPARE NEW ITEMS ONLY</span>
+    </div>
+  ` : isReprint ? '<div class="reprint-banner">*** REPRINT / DUPLICATE ***</div>' : ''}
   <div class="header">
     <h1>*** ${stationTitle} ***</h1>
     <p style="font-size: 12px; margin-top: 2px; font-weight: bold;">${businessName}</p>
@@ -271,6 +292,14 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
     <tr>
       <td colspan="2">Customer: <strong>${order.customerName}</strong></td>
     </tr>` : ''}
+    ${isAddonOrder ? `
+    <tr>
+      <td colspan="2" style="padding-top: 4px;">
+        <div style="font-weight: 900; font-size: 11.5px; background: #f1f5f9; border-left: 3px solid #000; padding: 3px 6px;">
+          ⚡ INSTRUCTION: Prepare and deliver ONLY the added items below. (Previous items already fired to kitchen).
+        </div>
+      </td>
+    </tr>` : ''}
   </table>
 
   <table class="items-table">
@@ -286,6 +315,15 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
           <td class="qty-cell">${it.quantity || 1}X</td>
           <td class="name-cell">
             ${it.productName || 'Item'}
+            ${it.oldQuantity ? `
+              <div class="item-notes" style="background:#e0f2fe; color:#0369a1; font-weight: 800;">
+                +${it.quantity} ADDED (Table Total: ${it.newTotalQuantity})
+              </div>
+            ` : isAddonOrder ? `
+              <div class="item-notes" style="background:#dcfce7; color:#15803d; font-weight: 800;">
+                ★ NEW ADDED ITEM (Round ${roundNo})
+              </div>
+            ` : ''}
             ${it.notes ? `<div class="item-notes">⚠ NOTE: ${it.notes}</div>` : ''}
           </td>
         </tr>
@@ -294,7 +332,8 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
   </table>
 
   <div class="footer">
-    <p class="bold">TOTAL ITEMS: ${itemsToPrint.reduce((s, i) => s + (Number(i.quantity) || 1), 0)}</p>
+    <p class="bold">${isAddonOrder ? `TOTAL ADDED ITEMS: ${itemsToPrint.reduce((s, i) => s + (Number(i.quantity) || 1), 0)} (ROUND ${roundNo})` : `TOTAL ITEMS: ${itemsToPrint.reduce((s, i) => s + (Number(i.quantity) || 1), 0)}`}</p>
+    ${isAddonOrder ? '<p style="font-size: 11px; font-weight: 800; margin-top: 3px;">** DELIVER TO SAME TABLE **</p>' : ''}
   </div>
 </body>
 </html>`;

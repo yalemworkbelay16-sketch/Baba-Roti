@@ -177,6 +177,7 @@ export default function POS() {
   const [heldOrderId, setHeldOrderId] = useState(null);
   const [heldOrderNo, setHeldOrderNo] = useState("");
   const [heldOrdersList, setHeldOrdersList] = useState([]);
+  const [heldOrderOriginalItems, setHeldOrderOriginalItems] = useState([]);
   const [pendingApprovalOrders, setPendingApprovalOrders] = useState([]);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRefModal, setShowRefModal] = useState(false);
@@ -625,6 +626,22 @@ export default function POS() {
     setNoteText("");
   };
 
+  // Count added items when modifying a retrieved held order
+  const addedItemsCount = useMemo(() => {
+    if (!heldOrderId || !heldOrderOriginalItems.length) return 0;
+    let count = 0;
+    items.forEach((it) => {
+      const orig = heldOrderOriginalItems.find(
+        (o) => String(o.product) === String(it.product) || o.productName === it.productName
+      );
+      const origQty = orig ? Number(orig.quantity) || 0 : 0;
+      if (it.quantity > origQty) {
+        count += Math.round((it.quantity - origQty) * 1000) / 1000;
+      }
+    });
+    return count;
+  }, [heldOrderId, heldOrderOriginalItems, items]);
+
   // ── RETRIEVE AN ORDER INTO THE SIDEBAR CART ──────────────────────
   const retrieveOrderToSidebar = (order) => {
     setHeldOrderId(order._id);
@@ -651,6 +668,16 @@ export default function POS() {
       notes: it.notes || "",
     }));
 
+    // Record snapshot of original items and quantities so newly added items are easily identified
+    setHeldOrderOriginalItems(
+      (order.items || []).map((it) => ({
+        product: it.product,
+        productName: it.productName,
+        quantity: Number(it.quantity) || 1,
+        addedRound: it.addedRound || 1,
+      }))
+    );
+
     setItems(retrievedItems);
     setShowRefModal(false);
     showToast(`Order #${order.orderNo} (${order.tableNo || "Table"}) retrieved to cart!`);
@@ -660,6 +687,7 @@ export default function POS() {
   const releaseRetrievedOrder = () => {
     setHeldOrderId(null);
     setHeldOrderNo("");
+    setHeldOrderOriginalItems([]);
     setItems([]);
     setSelectedTable("");
     setSelectedWaiter(null);
@@ -714,10 +742,23 @@ export default function POS() {
       };
 
       let savedOrder;
+      let addedItems = [];
+      let isAddon = false;
+      let addonRound = 1;
+
       if (heldOrderId) {
         const res = await api.patch(`/captain-orders/${heldOrderId}`, payload);
         savedOrder = res.data.order;
         showToast(`Order #${savedOrder.orderNo} updated & held for ${selectedTable || "Counter"}!`);
+        addedItems = res.data.addedItems || [];
+        isAddon = Boolean(res.data.isAddon && addedItems.length > 0);
+        addonRound = res.data.addonRound || 2;
+
+        if (isAddon) {
+          showToast(`Order #${savedOrder.orderNo} updated! +${addedItems.length} added item(s) sent to kitchen.`);
+        } else {
+          showToast(`Order #${savedOrder.orderNo} updated & held for ${selectedTable || "Counter"}!`);
+        }
       } else {
         const res = await api.post("/captain-orders", payload);
         savedOrder = res.data.order;
@@ -726,10 +767,30 @@ export default function POS() {
 
       // Auto-fire KOT to thermal printer (silent) with browser fallback if offline
       firePrinter('kot', savedOrder, { businessName: "Baba Roti Café" });
+      if (isAddon && addedItems.length > 0) {
+        // ONLY print newly added / incremented items for the kitchen, clearly referencing the captain order code
+        const addonTicket = {
+          ...savedOrder,
+          items: addedItems, // ONLY the newly added items
+          isAddon: true,
+          addonRound,
+          orderNo: savedOrder.orderNo, // Same Captain Order code
+          tableNo: savedOrder.tableNo,
+          waiterName: savedOrder.waiterName,
+        };
+        firePrinter("kot", addonTicket, {
+          businessName: "Baba Roti Café",
+          isAddon: true,
+          addonRound,
+        });
+      } else {
+        firePrinter("kot", savedOrder, { businessName: "Baba Roti Café" });
+      }
 
       // Reset cart
       setHeldOrderId(null);
       setHeldOrderNo("");
+      setHeldOrderOriginalItems([]);
       setItems([]);
       setDiscountPct(0);
       setServiceChargePct(0);
@@ -1642,6 +1703,69 @@ export default function POS() {
                       <p style={{ fontSize: 11, color: "#64748b", marginTop: 2, margin: 0 }}>
                         {ETB(item.unitPrice)} / unit
                       </p>
+                      {/* Visual status indicators for retrieved held orders */}
+                      {heldOrderId && (
+                        (() => {
+                          const origItem = heldOrderOriginalItems.find(
+                            (o) => String(o.product) === String(item.product) || o.productName === item.productName
+                          );
+                          const origQty = origItem ? Number(origItem.quantity) || 0 : 0;
+                          if (!origItem) {
+                            return (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: "#15803d",
+                                  background: "#dcfce7",
+                                  border: "1px solid #bbf7d0",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  display: "inline-block",
+                                  marginTop: 3,
+                                }}
+                              >
+                                ★ NEW ADD-ON (+{item.quantity})
+                              </span>
+                            );
+                          }
+                          if (item.quantity > origQty) {
+                            return (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: "#0369a1",
+                                  background: "#e0f2fe",
+                                  border: "1px solid #bae6fd",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  display: "inline-block",
+                                  marginTop: 3,
+                                }}
+                              >
+                                ★ +{item.quantity - origQty} ADDED (Was {origQty})
+                              </span>
+                            );
+                          }
+                          return (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "#64748b",
+                                background: "#f1f5f9",
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                                display: "inline-block",
+                                marginTop: 3,
+                              }}
+                            >
+                              ✓ Sent to Kitchen (x{origQty})
+                            </span>
+                          );
+                        })()
+                      )}
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontWeight: 800, fontSize: 14, color: "#0284c7" }}>
@@ -1976,7 +2100,11 @@ export default function POS() {
                 }}
               >
                 <UtensilsCrossed size={16} />
-                {heldOrderId ? (isAmharic ? "አድስ" : "Update") : (isAmharic ? "🍽 ትዕዛዝ (Order)" : "🍽 Order")}
+                {heldOrderId
+                  ? (addedItemsCount > 0
+                    ? (isAmharic ? `አድስ (+${addedItemsCount} አዲስ)` : `Update (+${addedItemsCount} to Kitchen)`)
+                    : (isAmharic ? "አድስ" : "Update Order"))
+                  : (isAmharic ? "🍽 ትዕዛዝ (Order)" : "🍽 Order")}
               </button>
 
               <button
@@ -2484,7 +2612,11 @@ export default function POS() {
                   }}
                 >
                   <UtensilsCrossed size={14} />
-                  <span>Send</span>
+                  <span>
+                    {heldOrderId
+                      ? (addedItemsCount > 0 ? `+${addedItemsCount} Add-on` : "Update")
+                      : "Send"}
+                  </span>
                 </button>
               )}
             </div>

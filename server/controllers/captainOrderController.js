@@ -179,7 +179,7 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
         itemsCount: processedItems.length,
       },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.status(201).json({ success: true, order, message: `Captain Order #${orderNo} created!` });
 });
@@ -246,11 +246,26 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
     res.status(400); throw new Error(`Cannot edit an order with status: ${order.status}`);
   }
 
+  let addedItems = [];
+  let isAddon = false;
+  let addonRound = 1;
+
   if (items && items.length > 0) {
+    // 1. Build map of existing items and their quantities before update
+    const existingMap = new Map();
+    (order.items || []).forEach(it => {
+      const key = String(it.product || it.productName);
+      existingMap.set(key, (existingMap.get(key) || 0) + Number(it.quantity || 0));
+    });
+
+    const currentMaxRound = Math.max(1, ...(order.items || []).map(i => Number(i.addedRound) || 1));
+    addonRound = currentMaxRound + 1;
+
     const settings = await Setting.findOne().lean();
     const taxRate = Number(settings?.taxRate ?? 15);
     let subtotal = 0;
     const processedItems = [];
+
     for (const item of items) {
       const qty = Math.max(0.001, Number(item.quantity) || 1);
       const product = await Product.findById(item.product).lean();
@@ -258,15 +273,67 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
       const unitPrice = Math.max(0, Number(item.unitPrice !== undefined ? item.unitPrice : product.sellingPrice) || 0);
       const lineTotal = Math.round(unitPrice * qty * 100) / 100;
       subtotal += lineTotal;
+
+      const key = String(product._id);
+      const keyName = String(product.name);
+      const existingQty = existingMap.get(key) ?? existingMap.get(keyName) ?? 0;
+      const isNew = existingQty === 0;
+      const isIncremented = qty > existingQty;
+      const itemRound = (isNew || isIncremented) ? addonRound : (item.addedRound || 1);
+
+      if (isNew) {
+        addedItems.push({
+          product: product._id,
+          productName: product.name,
+          productCode: product.code || "",
+          category: product.category || "General",
+          parentCategory: product.parentCategory || "FOOD",
+          quantity: qty,
+          oldQuantity: 0,
+          newTotalQuantity: qty,
+          unitPrice,
+          totalPrice: lineTotal,
+          notes: (item.notes || "").trim(),
+          station: determineStation(product.category, product.parentCategory, product.name),
+          addedRound: addonRound,
+          isAddon: true,
+        });
+      } else if (isIncremented) {
+        const addedQty = Math.round((qty - existingQty) * 1000) / 1000;
+        addedItems.push({
+          product: product._id,
+          productName: product.name,
+          productCode: product.code || "",
+          category: product.category || "General",
+          parentCategory: product.parentCategory || "FOOD",
+          quantity: addedQty,
+          oldQuantity: existingQty,
+          newTotalQuantity: qty,
+          unitPrice,
+          totalPrice: Math.round(unitPrice * addedQty * 100) / 100,
+          notes: (item.notes || "").trim(),
+          station: determineStation(product.category, product.parentCategory, product.name),
+          addedRound: addonRound,
+          isAddon: true,
+        });
+      }
+
       processedItems.push({
-        product: product._id, productName: product.name, productCode: product.code || "",
-        category: product.category || "General", parentCategory: product.parentCategory || "FOOD",
-        quantity: qty, unitPrice, totalPrice: lineTotal,
+        product: product._id,
+        productName: product.name,
+        productCode: product.code || "",
+        category: product.category || "General",
+        parentCategory: product.parentCategory || "FOOD",
+        quantity: qty,
+        unitPrice,
+        totalPrice: lineTotal,
         notes: (item.notes || "").trim(),
         station: determineStation(product.category, product.parentCategory, product.name),
-        addedRound: item.addedRound || 1,
+        addedRound: itemRound,
       });
     }
+
+    isAddon = addedItems.length > 0;
     const dp = Math.min(100, Math.max(0, Number(discountPercent !== undefined ? discountPercent : order.discountPercent) || 0));
     const scPct = Math.min(100, Math.max(0, Number(serviceChargePercent !== undefined ? serviceChargePercent : order.serviceChargePercent) || 0));
     const finalDiscount = dp > 0 ? Math.round(subtotal * dp / 100 * 100) / 100 : 0;
@@ -304,7 +371,34 @@ const updateCaptainOrder = asyncHandler(async (req, res) => {
   }
 
   await order.save();
-  res.json({ success: true, order, message: "Order updated successfully" });
+
+  if (isAddon && addedItems.length > 0) {
+    broadcastOrderEvent("captain_order_addon", { order, addedItems, addonRound });
+    try {
+      const tg = require("../utils/telegramNotifier");
+      const summary = addedItems.map(i => `${i.productName} (x${i.quantity})`).join(', ');
+      tg.sendAlert && tg.sendAlert(
+        `🍽️ <b>Captain Order Updated (Add-on)</b>\n` +
+        `<b>Order #:</b> ${order.orderNo}\n` +
+        `<b>Table:</b> ${order.tableNo || 'Counter'} (Round ${addonRound})\n` +
+        `<b>Waiter:</b> ${order.waiterName || 'Staff'}\n` +
+        `<b>➕ Added Items:</b>\n${summary}\n` +
+        `<b>Table Total:</b> ETB ${order.grandTotal.toFixed(2)}`,
+        { processKey: 'captainOrders', waiterUserId: order.waiter }
+      );
+    } catch (_) { }
+  }
+
+  res.json({
+    success: true,
+    order,
+    addedItems,
+    isAddon,
+    addonRound,
+    message: isAddon
+      ? `Order #${order.orderNo} updated with ${addedItems.length} additional item(s)`
+      : "Order updated successfully"
+  });
 });
 
 // @route POST /api/captain-orders/:id/send-to-kitchen
@@ -339,7 +433,7 @@ const voidCaptainOrder = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ success: true, order, message: `Captain Order #${order.orderNo} voided.` });
 });
@@ -505,7 +599,7 @@ const createCustomerOrder = asyncHandler(async (req, res) => {
       link: "/captain-order",
       severity: "warning",
     });
-  } catch (_) {}
+  } catch (_) { }
 
   const tg = require("../utils/telegramNotifier");
   if (tg) {
@@ -736,7 +830,7 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   // Telegram alert
   const tg = require("../utils/telegramNotifier");
@@ -796,7 +890,7 @@ const rejectCustomerOrder = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   // Telegram alert
   const tg = require("../utils/telegramNotifier");

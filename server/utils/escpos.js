@@ -101,12 +101,23 @@ function buildKOT(order, opts = {}) {
     return item.station !== 'barista' && item.station !== 'bar';
   });
 
+  const isAddon = Boolean(order.isAddon || opts.isAddon);
+  const addonRound = order.addonRound || opts.addonRound || 2;
+
   const chunks = [
     INIT,
     ALIGN_CENTER,
   ];
 
-  if (opts.isReprint) {
+  if (isAddon) {
+    chunks.push(
+      BOLD_ON,
+      text('*** ADD-ON / UPDATED ORDER ***'),
+      text(`*** ROUND ${addonRound} - NEW ITEMS ONLY ***`),
+      BOLD_OFF,
+      LINE_FEED
+    );
+  } else if (opts.isReprint) {
     chunks.push(
       BOLD_ON,
       text('*** DUPLICATE REPRINT ***'),
@@ -117,7 +128,9 @@ function buildKOT(order, opts = {}) {
 
   chunks.push(
     DOUBLE_SIZE_ON,
-    text(targetStation === 'barista' ? '** BARISTA DRINKS **' : '** KITCHEN ORDER **'),
+    text(isAddon
+      ? (targetStation === 'barista' ? `** BARISTA ADD-ON R${addonRound} **` : `** KITCHEN ADD-ON R${addonRound} **`)
+      : (targetStation === 'barista' ? '** BARISTA DRINKS **' : '** KITCHEN ORDER **')),
     DOUBLE_SIZE_OFF,
     BOLD_ON,
     text(businessName.toUpperCase()),
@@ -137,6 +150,14 @@ function buildKOT(order, opts = {}) {
   }
   if (order.customerName && order.customerName !== 'Walk-in Guest') {
     chunks.push(text(twoCol('Customer:', order.customerName, W)));
+  }
+  if (isAddon) {
+    chunks.push(
+      BOLD_ON,
+      text('>> PREPARE ADDED ITEMS ONLY <<'),
+      text(`>> Round ${addonRound} Add-on to Table ${order.tableNo || ''} <<`),
+      BOLD_OFF,
+    );
   }
 
   chunks.push(
@@ -158,6 +179,11 @@ function buildKOT(order, opts = {}) {
       text(padEnd(name, W - 12) + padEnd(`x${qty}`, 5) + note),
       BOLD_OFF,
     );
+    if (item.oldQuantity) {
+      chunks.push(text(`  >> (+${item.quantity} added, Total: ${item.newTotalQuantity})`));
+    } else if (isAddon) {
+      chunks.push(text(`  >> [NEW ADDED ITEM]`));
+    }
     if (item.notes) {
       chunks.push(text(`  >> ${item.notes}`));
     }
@@ -317,12 +343,21 @@ function buildKOT_plain(order, opts = {}) {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
   const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
+  const isAddon = Boolean(order.isAddon || opts.isAddon);
+  const addonRound = order.addonRound || opts.addonRound || 2;
 
   const lines = [];
   lines.push(PCL_RESET + PCL_SETUP);
   lines.push('');
+  if (isAddon) {
+    lines.push('='.repeat(W));
+    lines.push(center('*** ADD-ON / UPDATED ORDER ***', W));
+    lines.push(center(`*** ROUND ${addonRound} - NEW ITEMS ONLY ***`, W));
+  } else if (opts.isReprint) {
+    lines.push(center('*** DUPLICATE REPRINT ***', W));
+  }
   lines.push('='.repeat(W));
-  lines.push(center('** KITCHEN ORDER TICKET **', W));
+  lines.push(center(isAddon ? `** KITCHEN ADD-ON ROUND ${addonRound} **` : '** KITCHEN ORDER TICKET **', W));
   lines.push(center(businessName.toUpperCase(), W));
   lines.push('='.repeat(W));
   lines.push(twoCol('Order #:', order.orderNo || '--', W));
@@ -331,6 +366,10 @@ function buildKOT_plain(order, opts = {}) {
   if (order.waiterName) lines.push(twoCol('Waiter:', order.waiterName, W));
   if (order.customerName && order.customerName !== 'Walk-in Guest')
     lines.push(twoCol('Customer:', order.customerName, W));
+  if (isAddon) {
+    lines.push(center('>> PREPARE ADDED ITEMS ONLY <<', W));
+    lines.push(center(`>> Round ${addonRound} Add-on to Table ${order.tableNo || ''} <<`, W));
+  }
   lines.push(twoCol('Date:', dateStr, W));
   lines.push(twoCol('Time:', timeStr, W));
   lines.push('-'.repeat(W));
@@ -342,7 +381,12 @@ function buildKOT_plain(order, opts = {}) {
     const qty  = `x${item.quantity || 1}`;
     const note = String(item.notes || '');
     lines.push(padEnd(name, W - 14) + padEnd(qty, 6) + note);
-    if (item.notes) lines.push(`    >> ${item.notes}`);
+    if (item.oldQuantity) {
+      lines.push(`    >> (+${item.quantity} added, Total: ${item.newTotalQuantity})`);
+    } else if (isAddon) {
+      lines.push(`    >> [NEW ADDED ITEM]`);
+    }
+    if (item.notes) lines.push(`    >> NOTE: ${item.notes}`);
   });
 
   lines.push('='.repeat(W));
