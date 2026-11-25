@@ -1336,6 +1336,80 @@ function notifySalesImported(record, summary, user) {
   );
 }
 
+// ── Direct personal alert to the employee who ordered/received their staff meal ──
+async function notifyPersonalStaffConsumption(record, performerUser) {
+  try {
+    const User = require('../models/User');
+    const Setting = require('../models/Setting');
+    const settings = await Setting.findOne().select('telegramNotificationSettings telegramSubscribers').lean();
+
+    if (settings?.telegramNotificationSettings?.consumption === false) return;
+
+    let targetChatId = null;
+    let staffName = record.beneficiary || record.employee?.firstName || performerUser?.name || 'Staff';
+
+    if (performerUser?.telegramChatId) {
+      targetChatId = cleanChatId(performerUser.telegramChatId);
+    }
+
+    if (!targetChatId) {
+      const empPhone = record.employee?.phone;
+      const benName = (record.beneficiary || '').trim();
+
+      const staff = await User.findOne({
+        isActive: true,
+        $or: [
+          ...(empPhone ? [{ phone: empPhone }] : []),
+          ...(benName ? [{ name: { $regex: `^${benName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }] : []),
+        ],
+      }).select('telegramChatId name dailyMealLimit').lean();
+
+      if (staff?.telegramChatId) {
+        targetChatId = cleanChatId(staff.telegramChatId);
+        if (staff.name) staffName = staff.name;
+      }
+    }
+
+    if (!targetChatId && settings?.telegramSubscribers) {
+      const empPhone = record.employee?.phone;
+      const benName = (record.beneficiary || '').trim().toLowerCase();
+      const sub = settings.telegramSubscribers.find(s =>
+        (empPhone && s.phone && s.phone.includes(empPhone.slice(-9))) ||
+        (benName && s.name && s.name.toLowerCase() === benName)
+      );
+      if (sub?.chatId) {
+        targetChatId = cleanChatId(sub.chatId);
+      }
+    }
+
+    if (!targetChatId) return;
+
+    const itemsList = (record.items || []).map(i =>
+      `  • <b>${i.product?.name || 'Meal Item'}</b> × <b>${i.quantity}</b> portion(s)`
+    ).join('\n');
+
+    const totalQty = (record.items || []).reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
+    const limit = record.employee?.dailyMealLimit || 1;
+
+    const text =
+      `🏨 <b>Baba Roti Café</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🍽️ <b>YOUR STAFF MEAL ORDER RECORDED</b>\n\n` +
+      `🔖 <b>Voucher No:</b> <code>${record.voucherNo || '—'}</code>\n` +
+      `👤 <b>Staff:</b> <b>${staffName}</b>\n` +
+      `📋 <b>Items Ordered:</b>\n${itemsList || '  • (Meal details)'}\n` +
+      `⚡ <b>Status:</b> <b>${(record.status || 'APPROVED').toUpperCase()}</b>\n` +
+      `📊 <b>Today's Portions:</b> ${totalQty} ordered (Daily Limit: ${limit})\n` +
+      `🕐 <b>Time:</b> ${now()}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `<i>💡 Tip: Send /myconsumption to this bot anytime to check your remaining quota.</i>`;
+
+    await sendToOne(targetChatId, text);
+  } catch (err) {
+    console.warn('[Telegram] Personal staff consumption notify error:', err.message);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────
 module.exports = {
   HOTEL,
@@ -1344,6 +1418,7 @@ module.exports = {
   sendTelegram,
   sendNotification: sendTelegram,
   getChatIds,
+  notifyPersonalStaffConsumption,
   notifyCustomerOrder,
   notifyWaiterCall,
   notifyLogin,

@@ -368,16 +368,7 @@ const requestOtp = asyncHandler(async (req, res) => {
     ? { chatId: DEV_CHAT_ID, phone: DEV_PHONE, name: 'Mequannent Gashaw' }
     : subscribers.find(s => s.phone && normalize(s.phone) === normalize(normalized));
 
-  if (!matchedSub) {
-    res.status(403);
-    throw new Error('This phone number is not registered or not authorized. Contact your administrator.');
-  }
-
-  // ── Find the system user whose phone matches (optional) ─────────
-  // If no system user has this phone, we still send the OTP to Telegram.
-  // The OTP proves the person owns the registered Telegram — the login
-  // form will verify their system credentials (email + password).
-  // We store the OTP hash on the admin account as a temporary token.
+  // ── Find the system user whose phone matches ─────────────────────
   let user = null;
   for (const v of phoneVariants) {
     user = await User.findOne({ isActive: true, phone: v });
@@ -388,8 +379,20 @@ const requestOtp = asyncHandler(async (req, res) => {
     user = await User.findOne({ isActive: true, phone: { $regex: escaped, $options: 'i' } });
   }
 
-  // If no user found by phone, use any admin account to store the OTP token
-  // (the OTP is a gate — actual credentials verified at login step)
+  // Determine recipient Telegram Chat ID (from subscriber list OR User account)
+  const recipientChatId = matchedSub?.chatId || user?.telegramChatId;
+
+  if (!matchedSub && !user) {
+    res.status(403);
+    throw new Error('This phone number is not registered to any staff account. Contact your administrator.');
+  }
+
+  if (!recipientChatId) {
+    res.status(400);
+    throw new Error(`Staff account found for ${user?.name || 'you'}, but Telegram is not linked yet. Please open @BabarotiBot on Telegram and send /subscribe to link your account.`);
+  }
+
+  // If no user found by phone, use any admin account to store the temporary OTP token
   if (!user) {
     user = await User.findOne({ isActive: true, role: 'admin' });
   }
@@ -408,13 +411,15 @@ const requestOtp = asyncHandler(async (req, res) => {
   user.otpExpiry = expiry;
   await user.save();
 
-  // ── Send OTP to the subscriber's exact Telegram chat ────────────
-  sendTelegramDirect(matchedSub.chatId,
-    `🏨 <b>Baba Roti  CaféHotel</b>
+  // ── Send OTP to the staff member's exact Telegram chat ───────────
+  const staffDisplayName = user?.name || matchedSub?.name || 'Staff Member';
+  sendTelegramDirect(recipientChatId,
+    `🏨 <b>Baba Roti Café</b>
 ━━━━━━━━━━━━━━━━━━━━
-🔐 <b>Login OTP Code</b>
+🔐 <b>Staff Login OTP Code</b>
 
-Your one-time password is:
+Hello <b>${staffDisplayName}</b>,
+Your one-time login verification code is:
 
 <b>🔢 ${otp}</b>
 
@@ -425,9 +430,7 @@ Do not share this code with anyone.
 
   res.json({
     message: 'OTP sent to your Telegram.',
-    maskedName: matchedSub.name
-      ? matchedSub.name.split(' ')[0] + ' ' + (matchedSub.name.split(' ')[1]?.[0] || '') + '.'
-      : 'User',
+    maskedName: staffDisplayName,
     userId: user._id,
   });
 });

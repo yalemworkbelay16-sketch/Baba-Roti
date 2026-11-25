@@ -381,6 +381,13 @@ export default function Settings() {
   const [tgAddForm, setTgAddForm] = useState({ name: '', phone: '', username: '', chatId: '' });
   const [tgAddSaving, setTgAddSaving] = useState(false);
 
+  // Per-Employee subscriber permissions modal state
+  const [tgPermOpen, setTgPermOpen] = useState(false);
+  const [tgPermSub, setTgPermSub] = useState(null);
+  const [tgPermRole, setTgPermRole] = useState('waiter');
+  const [tgPermAlerts, setTgPermAlerts] = useState(['consumption', 'ownOrders']);
+  const [tgPermSaving, setTgPermSaving] = useState(false);
+
   // Daily Sales Telegram Report state
   const [tgReportEnabled, setTgReportEnabled] = useState(true);
   const [tgReportTime, setTgReportTime] = useState('12:00');
@@ -545,6 +552,35 @@ export default function Settings() {
       setTgError(err.response?.data?.message || 'Failed to register phone.');
     } finally {
       setTgPhoneSaving(false);
+    }
+  };
+
+  const handleOpenTgPermModal = (sub) => {
+    setTgPermSub(sub);
+    setTgPermRole(sub.role || 'waiter');
+    setTgPermAlerts(Array.isArray(sub.allowedAlerts) && sub.allowedAlerts.length ? sub.allowedAlerts : ['consumption', 'ownOrders']);
+    setTgPermOpen(true);
+  };
+
+  const handleSaveTgPerm = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!tgPermSub) return;
+    setTgPermSaving(true);
+    setTgError('');
+    try {
+      const subId = tgPermSub.id || tgPermSub.chatId;
+      await api.put(`/telegram/subscribers/${encodeURIComponent(subId)}/permissions`, {
+        role: tgPermRole,
+        allowedAlerts: tgPermAlerts,
+      });
+      setTgSuccess(`Permissions updated for ${tgPermSub.name}!`);
+      setTimeout(() => setTgSuccess(''), 4000);
+      setTgPermOpen(false);
+      loadTgSubscribers();
+    } catch (err) {
+      setTgError(err.response?.data?.message || 'Failed to update subscriber permissions.');
+    } finally {
+      setTgPermSaving(false);
     }
   };
 
@@ -2412,26 +2448,39 @@ export default function Settings() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-ink-100 shadow-xs">
-              <table className="w-full min-w-[720px] text-sm" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full min-w-[760px] text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)' }}>
                   <tr>
                     <th className="px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 w-12" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>#</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[130px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Name</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[110px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Username</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[220px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Phone (OTP)</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Subscribed At</th>
-                    <th className="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[120px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[140px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Name &amp; Role</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[100px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Username</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[180px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Phone (OTP)</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Allowed Alerts</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[140px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Subscribed At</th>
+                    <th className="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100 min-w-[160px]" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tgSubscribers.map((sub, i) => {
                     const subId = sub.id || sub.chatId || `sub_${i}`;
                     const isEditing = Boolean(tgEditPhone && tgEditPhone === subId);
+                    const subRole = sub.role || 'waiter';
 
                     return (
                       <tr key={subId} className="hover:bg-ink-50/40 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td className="px-3 py-3 text-center text-xs text-ink-400 tabular-nums">{i + 1}</td>
-                        <td className="px-4 py-3 font-semibold text-ink-800">{sub.name || '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-ink-900">{sub.name || '—'}</div>
+                          <span className={`inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-extrabold uppercase ${
+                            ['admin', 'dev'].includes(subRole)
+                              ? 'bg-purple-100 text-purple-800'
+                              : subRole === 'manager'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-ink-100 text-ink-700'
+                          }`}>
+                            {subRole}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-xs text-blue-600">
                           {sub.username ? `@${sub.username}` : '—'}
                         </td>
@@ -2487,18 +2536,53 @@ export default function Settings() {
                           )}
                         </td>
 
+                        {/* Allowed Alerts Badges */}
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(!sub.allowedAlerts || sub.allowedAlerts.includes('consumption')) && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                🍽️ Meals
+                              </span>
+                            )}
+                            {(!sub.allowedAlerts || sub.allowedAlerts.includes('ownOrders')) && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                🛎️ Orders
+                              </span>
+                            )}
+                            {sub.allowedAlerts?.includes('stockAlerts') && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                📦 Stock
+                              </span>
+                            )}
+                            {sub.allowedAlerts?.includes('financials') && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                📊 Sales
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
                         <td className="px-4 py-3 text-xs text-ink-500 whitespace-nowrap">
                           {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleString() : '—'}
                         </td>
                         <td className="px-4 py-3 text-center whitespace-nowrap">
                           <button
                             type="button"
+                            onClick={() => handleOpenTgPermModal(sub)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 transition shadow-2xs cursor-pointer mr-1.5"
+                            title="Configure alert permissions for this employee"
+                          >
+                            <ShieldCheck size={13} />
+                            <span>Alerts</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleRemoveTgSubscriber(subId, sub.name)}
                             disabled={tgRemoving === subId}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition disabled:opacity-50 shadow-xs cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition disabled:opacity-50 shadow-xs cursor-pointer"
                           >
                             <Trash2 size={13} className="shrink-0" />
-                            <span>{tgRemoving === subId ? 'Removing…' : 'Remove'}</span>
+                            <span>{tgRemoving === subId ? '…' : 'Remove'}</span>
                           </button>
                         </td>
                       </tr>

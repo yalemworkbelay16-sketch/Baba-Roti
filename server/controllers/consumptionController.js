@@ -315,6 +315,10 @@ const createConsumption = asyncHandler(async (req, res) => {
   if (shouldAutoApprove) {
     tg.notifyConsumptionApproved(populated, req.user);
   }
+  // Personal notification sent privately to the employee who received this staff meal
+  if (typeof tg.notifyPersonalStaffConsumption === 'function') {
+    tg.notifyPersonalStaffConsumption(populated, req.user);
+  }
   notify.push({
     type: 'consumption',
     title: shouldAutoApprove ? 'Staff Meal Ordered & Approved' : 'New Consumption Record',

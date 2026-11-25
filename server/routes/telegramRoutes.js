@@ -5,6 +5,7 @@ const {
   getSubscribers,
   addSubscriber,
   updateSubscriberPhone,
+  updateSubscriberPermissions,
   removeSubscriber,
   getDailyReportPreview,
   sendManualDailyReport,
@@ -17,8 +18,9 @@ router.post('/webhook', handleWebhook);
 // Admin / Developer management
 router.get('/subscribers',                   protect, authorize('admin'), getSubscribers);
 router.post('/subscribers',                  protect, authorize('admin'), addSubscriber);
-router.put('/subscribers/:chatId/phone',     protect, authorize('admin'), updateSubscriberPhone);
-router.delete('/subscribers/:chatId',        protect, authorize('admin'), removeSubscriber);
+router.put('/subscribers/:chatId/phone',       protect, authorize('admin'), updateSubscriberPhone);
+router.put('/subscribers/:chatId/permissions', protect, authorize('admin'), updateSubscriberPermissions);
+router.delete('/subscribers/:chatId',          protect, authorize('admin'), removeSubscriber);
 
 // Daily Sales Report to Telegram (Admin / Developer)
 router.get('/daily-report-preview',          protect, authorize('admin'), getDailyReportPreview);

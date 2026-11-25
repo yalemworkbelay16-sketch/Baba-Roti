@@ -75,6 +75,25 @@ const handleWebhook = asyncHandler(async (req, res) => {
       (username && s.username && s.username.toLowerCase() === username.toLowerCase())
     );
 
+    // Link subscriber to User account if username or phone matches
+    try {
+      const User = require('../models/User');
+      const cleanUser = (username || '').toLowerCase().trim();
+      const staffUser = await User.findOne({
+        isActive: true,
+        $or: [
+          ...(cleanUser ? [{ email: cleanUser }] : []),
+          { telegramChatId: String(chatId) },
+        ],
+      });
+      if (staffUser) {
+        staffUser.telegramChatId = String(chatId);
+        await staffUser.save();
+      }
+    } catch (e) {
+      console.warn('[TelegramWebhook] User link error:', e.message);
+    }
+
     if (existingIdx !== -1) {
       subscribers[existingIdx].chatId = String(chatId);
       if (name) subscribers[existingIdx].name = name;
@@ -84,7 +103,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
       await settings.save();
 
       await reply(chatId,
-        `✅ <b>Subscribed successfully!</b>\n\nYou are receiving Baba Roti Café notifications.\n\nTo unsubscribe, send /unsubscribe`
+        `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>Subscribed successfully!</b>\n\nWelcome back, <b>${name}</b>.\n\nAvailable commands:\n• /myconsumption — Check your staff meal orders & remaining quota\n• /myorders — Check your recent orders\n• /status — View account info\n• /unsubscribe — Stop alerts\n━━━━━━━━━━━━━━━━━━━━`
       );
       return;
     }
@@ -100,24 +119,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
     await settings.save();
 
     await reply(chatId,
-      `🏨 <b>Baba Roti  CaféHotel</b>
-━━━━━━━━━━━━━━━━━━━━
-✅ <b>Subscribed successfully!</b>
-
-Welcome, <b>${name}</b>!
-
-You will now receive real-time alerts for:
-🔐 User logins
-📦 Stock transactions (GRV, Disposal, etc.)
-✅ Voucher approvals & workflow steps
-🧱 Raw material changes
-🚚 Supplier changes
-🍽️ Product changes
-⚙️ System settings changes
-🗑️ Recycle bin actions
-
-To stop notifications, send /unsubscribe
-━━━━━━━━━━━━━━━━━━━━`
+      `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>Subscribed successfully!</b>\n\nWelcome, <b>${name}</b>!\n\nYour Telegram account is now connected.\n\n📱 <b>Commands:</b>\n• /myconsumption — View your staff meal orders & quota\n• /myorders — View your recent orders\n• /status — Check your account details\n• /unsubscribe — Stop alerts\n━━━━━━━━━━━━━━━━━━━━`
     );
     return;
   }
@@ -125,7 +127,7 @@ To stop notifications, send /unsubscribe
   // ── /unsubscribe ──────────────────────────────────────────────
   if (text.startsWith('/unsubscribe')) {
     if (!alreadySubscribed) {
-      await reply(chatId, '❌ You are not currently subscribed to Baba Roti  Cafénotifications.');
+      await reply(chatId, '❌ You are not currently subscribed to Baba Roti Café notifications.');
       return;
     }
 
@@ -134,35 +136,162 @@ To stop notifications, send /unsubscribe
     await settings.save();
 
     await reply(chatId,
-      `🏨 <b>Baba Roti  CaféHotel</b>
-━━━━━━━━━━━━━━━━━━━━
-🔕 <b>Unsubscribed</b>
-
-You will no longer receive notifications.
-Send /subscribe anytime to re-subscribe.
-━━━━━━━━━━━━━━━━━━━━`
+      `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n🔕 <b>Unsubscribed</b>\n\nYou will no longer receive notifications.\nSend /subscribe anytime to re-subscribe.\n━━━━━━━━━━━━━━━━━━━━`
     );
     return;
   }
 
+  // ── /consumption or /myconsumption or /quota ───────────────────
+  if (text === '/consumption' || text === '/myconsumption' || text === '/quota') {
+    try {
+      const User = require('../models/User');
+      const Consumption = require('../models/Consumption');
+
+      // Find user by chatId or subscriber phone
+      const sub = subscribers.find(s => String(s.chatId) === String(chatId));
+      let user = await User.findOne({ isActive: true, telegramChatId: String(chatId) });
+      if (!user && sub?.phone) {
+        user = await User.findOne({ isActive: true, phone: sub.phone });
+      }
+
+      if (!user) {
+        await reply(chatId,
+          `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\nℹ️ <b>NO LINKED STAFF ACCOUNT</b>\n\nYour Telegram is subscribed, but not linked to a specific staff profile.\n\nAsk your administrator to register your phone number or enter your Telegram Chat ID: <code>${chatId}</code> in Staff Accounts.\n━━━━━━━━━━━━━━━━━━━━`
+        );
+        return;
+      }
+
+      // Query today's consumption records
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const records = await Consumption.find({
+        $or: [
+          { performedBy: user._id },
+          { beneficiary: user.name },
+        ],
+        date: { $gte: todayStart, $lte: todayEnd },
+        status: { $ne: 'voided' },
+      }).populate('items.product', 'name code').lean();
+
+      const dailyLimit = user.dailyMealLimit || 1;
+      let totalPortions = 0;
+      records.forEach(r => {
+        (r.items || []).forEach(i => {
+          totalPortions += Number(i.quantity) || 1;
+        });
+      });
+
+      const remaining = Math.max(0, dailyLimit - totalPortions);
+
+      const itemsList = records.length
+        ? records.map(r => {
+          const names = (r.items || []).map(i => `${i.product?.name || 'Meal'} × ${i.quantity}`).join(', ');
+          const time = new Date(r.date || r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return `  • <b>${names}</b> [${(r.status || '').toUpperCase()}] at ${time}`;
+        }).join('\n')
+        : '  • <i>No staff meals ordered yet today.</i>';
+
+      await reply(chatId,
+        `🏨 <b>Baba Roti Café — My Staff Meals</b>\n━━━━━━━━━━━━━━━━━━━━\n👤 <b>Staff:</b> ${user.name} (${user.role.toUpperCase()})\n📊 <b>Daily Quota:</b> <b>${totalPortions} of ${dailyLimit}</b> portion(s) ordered today\n${remaining > 0 ? `🟢 <b>${remaining} portion(s) remaining today</b>` : '🔴 <b>Daily quota reached</b>'}\n\n📋 <b>Today's Orders:</b>\n${itemsList}\n━━━━━━━━━━━━━━━━━━━━`
+      );
+      return;
+    } catch (err) {
+      console.warn('[TelegramWebhook] Consumption query error:', err.message);
+      await reply(chatId, '⚠️ Error checking your consumption records. Please try again.');
+      return;
+    }
+  }
+
+  // ── /myorders or /orders ───────────────────────────────────────
+  if (text === '/myorders' || text === '/orders') {
+    try {
+      const User = require('../models/User');
+      const POSOrder = require('../models/POSOrder');
+      const CaptainOrder = require('../models/CaptainOrder');
+
+      let user = await User.findOne({ isActive: true, telegramChatId: String(chatId) });
+      if (!user) {
+        const sub = subscribers.find(s => String(s.chatId) === String(chatId));
+        if (sub?.phone) user = await User.findOne({ isActive: true, phone: sub.phone });
+      }
+
+      if (!user) {
+        await reply(chatId, 'ℹ️ No staff account linked to this Telegram chat. Ask your administrator to link your account.');
+        return;
+      }
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [recentPos, recentCap] = await Promise.all([
+        POSOrder.find({
+          createdAt: { $gte: todayStart },
+          $or: [{ cashier: user._id }, { cashierName: user.name }],
+        }).sort({ createdAt: -1 }).limit(3).lean(),
+        CaptainOrder.find({
+          createdAt: { $gte: todayStart },
+          $or: [{ waiter: user._id }, { waiterName: user.name }],
+        }).sort({ createdAt: -1 }).limit(3).lean(),
+      ]);
+
+      const formatBirr = (n) => Number(n || 0).toFixed(2) + ' ETB';
+
+      let msg = `🏨 <b>Baba Roti Café — My Orders Today</b>\n━━━━━━━━━━━━━━━━━━━━\n👤 <b>Staff:</b> ${user.name}\n\n`;
+
+      if (recentPos.length > 0) {
+        msg += `🧾 <b>Recent POS Orders:</b>\n`;
+        recentPos.forEach(o => {
+          msg += `  • #${o.orderNo} | Table: ${o.tableNo || 'N/A'} | ${formatBirr(o.grandTotal)} (${o.paymentStatus})\n`;
+        });
+      }
+
+      if (recentCap.length > 0) {
+        msg += `🧑‍🍳 <b>Recent Captain Orders:</b>\n`;
+        recentCap.forEach(o => {
+          msg += `  • #${o.orderNo} | Table: ${o.tableNo} | ${formatBirr(o.grandTotal)} [${o.status}]\n`;
+        });
+      }
+
+      if (recentPos.length === 0 && recentCap.length === 0) {
+        msg += `<i>No orders recorded for you yet today.</i>\n`;
+      }
+
+      msg += `━━━━━━━━━━━━━━━━━━━━`;
+      await reply(chatId, msg);
+      return;
+    } catch (err) {
+      console.warn('[TelegramWebhook] Orders query error:', err.message);
+      await reply(chatId, '⚠️ Error checking your orders. Please try again.');
+      return;
+    }
+  }
+
   // ── /status ───────────────────────────────────────────────────
   if (text === '/status') {
-    await reply(chatId,
-      alreadySubscribed
-        ? `✅ You are <b>subscribed</b> to Baba Roti  CaféHotel notifications.\n\nSend /unsubscribe to stop.`
-        : `❌ You are <b>not subscribed</b>.\n\nSend /subscribe to start receiving notifications.`
-    );
+    const User = require('../models/User');
+    const user = await User.findOne({ isActive: true, telegramChatId: String(chatId) });
+    const sub = subscribers.find(s => String(s.chatId) === String(chatId));
+
+    if (user) {
+      await reply(chatId,
+        `🏨 <b>Baba Roti Café</b>\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>Connected Staff Account</b>\n\n👤 <b>Name:</b> ${user.name}\n🎭 <b>Role:</b> ${user.role.toUpperCase()}\n📞 <b>Phone:</b> ${user.phone || sub?.phone || 'Not linked'}\n🆔 <b>Chat ID:</b> <code>${chatId}</code>\n🍽️ <b>Daily Meal Limit:</b> ${user.dailyMealLimit || 1} portion(s)\n\nSend /myconsumption to check today's meals.\n━━━━━━━━━━━━━━━━━━━━`
+      );
+    } else {
+      await reply(chatId,
+        alreadySubscribed
+          ? `✅ You are <b>subscribed</b> to Baba Roti Café notifications.\nChat ID: <code>${chatId}</code>\n\nSend /myconsumption or /orders to check your orders.`
+          : `❌ You are <b>not subscribed</b>.\n\nSend /subscribe to start receiving notifications.`
+      );
+    }
     return;
   }
 
   // ── Unknown command ───────────────────────────────────────────
   await reply(chatId,
-    `🏨 <b>Baba Roti  CaféHotel Bot</b>
-
-Available commands:
-/subscribe   — Start receiving notifications
-/unsubscribe — Stop receiving notifications
-/status      — Check your subscription status`
+    `🏨 <b>Baba Roti Café Bot</b>\n\nAvailable commands:\n• /myconsumption — View your staff meal orders and remaining daily quota\n• /myorders — View your orders today\n• /status — Check your account & connection details\n• /subscribe — Connect to bot notifications\n• /unsubscribe — Stop receiving notifications`
   );
 });
 
@@ -359,11 +488,45 @@ const sendManualDailyReport = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+// ── PUT /api/telegram/subscribers/:chatId/permissions (admin/dev only) ──
+const updateSubscriberPermissions = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Roles below Administrator cannot modify subscriber permissions.');
+  }
+  const { allowedAlerts, role } = req.body;
+  const settings = await Setting.findOne();
+  if (!settings) { res.status(404); throw new Error('Settings not found'); }
+
+  const subscribers = settings.telegramSubscribers || [];
+  const target = String(req.params.chatId).trim();
+
+  const idx = subscribers.findIndex(s =>
+    (s.id && String(s.id) === target) ||
+    (s.chatId && String(s.chatId) === target) ||
+    (s._id && String(s._id) === target)
+  );
+
+  if (idx === -1) { res.status(404); throw new Error('Subscriber not found'); }
+
+  subscribers[idx] = {
+    ...subscribers[idx],
+    allowedAlerts: Array.isArray(allowedAlerts) ? allowedAlerts : subscribers[idx].allowedAlerts || [],
+    role: role || subscribers[idx].role || '',
+  };
+  settings.telegramSubscribers = subscribers;
+  settings.markModified('telegramSubscribers');
+  await settings.save();
+
+  res.json({ message: 'Subscriber permissions updated.', subscriber: subscribers[idx] });
+});
+
 module.exports = {
   handleWebhook,
   getSubscribers,
   addSubscriber,
   updateSubscriberPhone,
+  updateSubscriberPermissions,
   removeSubscriber,
   getDailyReportPreview,
   sendManualDailyReport,
