@@ -388,17 +388,42 @@ export default function Settings() {
   const [tgReportPreview, setTgReportPreview] = useState(null);
   const [tgReportLoading, setTgReportLoading] = useState(false);
 
-  // Default allowed operational roles per process
+  // Operational processes monitored by Telegram bot
+  const OPERATIONAL_PROCESSES = [
+    { key: 'salesImport', icon: '📥', label: 'Imported Sales Orders', desc: 'Batch sales imported from POS / Excel' },
+    { key: 'posOrders', icon: '🧾', label: 'Counter POS Orders', desc: 'Orders completed at POS cashier register' },
+    { key: 'customerQrOrders', icon: '🛎️', label: 'Customer QR Menu Orders', desc: 'Customer digital orders & table waiter calls' },
+    { key: 'captainOrders', icon: '🧑‍🍳', label: 'Captain Orders & Approvals', desc: 'Waiter order approvals sent to kitchen' },
+    { key: 'stockTransactions', icon: '📦', label: 'Stock Transactions', desc: 'GRV receiving, disposals, transfers, adjustments' },
+    { key: 'stockRequests', icon: '📋', label: 'Stock Requisitions & Issues', desc: 'Internal requests between stores & approval alerts' },
+    { key: 'consumption', icon: '🍽️', label: 'Staff Meal & Consumption', desc: 'Staff quota meals, approvals, entertainment' },
+    { key: 'expenses', icon: '💸', label: 'Overhead Expenses', desc: 'Operating expenses recorded in finance' },
+    { key: 'dailyReports', icon: '📊', label: 'Daily Sales Digest', desc: 'Scheduled daily revenue & category breakdown' },
+    { key: 'authLogins', icon: '🔐', label: 'User Logins & Security', desc: 'Staff logins, account status & password alerts' },
+    { key: 'masterData', icon: '🏷️', label: 'Catalog & Master Changes', desc: 'Products, raw materials, supplier modifications' },
+  ];
+
+  // System registered roles eligible for Telegram alert subscriptions
+  const REGISTERED_TG_ROLES = [
+    { key: 'admin', label: 'Admin', icon: '👑', color: 'brass' },
+    { key: 'manager', label: 'Manager', icon: '👔', color: 'green' },
+    { key: 'supervisor', label: 'Supervisor', icon: '📋', color: 'blue' },
+    { key: 'storekeeper', label: 'Storekeeper', icon: '📦', color: 'ink' },
+    { key: 'cashier', label: 'Cashier', icon: '💳', color: 'emerald' },
+    { key: 'waiter', label: 'Waiter', icon: '🍽️', color: 'purple' },
+  ];
+
+  // Default allowed operational roles per process (Registered roles only)
   const DEFAULT_PROCESS_ROLES = {
     salesImport: ['admin', 'manager'],
     posOrders: ['admin', 'manager', 'cashier'],
-    customerQrOrders: ['admin', 'manager', 'waiter'],
-    captainOrders: ['admin', 'manager', 'supervisor', 'kitchen', 'bar', 'waiter'],
-    stockTransactions: ['admin', 'manager', 'storekeeper'],
-    stockRequests: ['admin', 'manager', 'storekeeper', 'kitchen', 'bar'],
-    consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'kitchen', 'bar', 'storekeeper'],
-    expenses: ['admin', 'manager'],
-    dailyReports: ['admin', 'manager'],
+    customerQrOrders: ['admin', 'manager', 'supervisor', 'waiter'],
+    captainOrders: ['admin', 'manager', 'supervisor', 'cashier', 'waiter'],
+    stockTransactions: ['admin', 'manager', 'supervisor', 'storekeeper'],
+    stockRequests: ['admin', 'manager', 'supervisor', 'storekeeper'],
+    consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'storekeeper'],
+    expenses: ['admin', 'manager', 'supervisor'],
+    dailyReports: ['admin', 'manager', 'supervisor'],
     authLogins: ['admin'],
     masterData: ['admin', 'manager'],
   };
@@ -421,6 +446,7 @@ export default function Settings() {
     processRoles: DEFAULT_PROCESS_ROLES,
   });
   const [tgNotifSaving, setTgNotifSaving] = useState(false);
+  const [tgProcessViewMode, setTgProcessViewMode] = useState('matrix'); // 'matrix' (default) | 'cards'
   const [expandedRoleProcess, setExpandedRoleProcess] = useState(null);
 
   // Sync profile when user updates
@@ -2667,112 +2693,403 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Process Event Toggles (Allow / Disallow & Allowed Roles) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block">
-                  Allowed Operational Processes &amp; Role Visibility (Allow / Disallow)
-                </span>
-                <span className="text-[11px] text-blue-600 font-semibold">
-                  Click roles below to toggle who receives alerts
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                {[
-                  { key: 'salesImport', icon: '📥', label: 'Imported Sales Orders', desc: 'Batch sales imported from POS / Excel' },
-                  { key: 'posOrders', icon: '🧾', label: 'Counter POS Orders', desc: 'Orders completed at POS cashier register' },
-                  { key: 'customerQrOrders', icon: '🛎️', label: 'Customer QR Menu Orders', desc: 'Customer digital orders & table waiter calls' },
-                  { key: 'captainOrders', icon: '🧑‍🍳', label: 'Captain Orders & Approvals', desc: 'Waiter order approvals sent to kitchen' },
-                  { key: 'stockTransactions', icon: '📦', label: 'Stock Transactions', desc: 'GRV receiving, disposals, transfers, adjustments' },
-                  { key: 'stockRequests', icon: '📋', label: 'Stock Requisitions & Issues', desc: 'Internal requests between stores & approval alerts' },
-                  { key: 'consumption', icon: '🍽️', label: 'Staff Meal & Consumption', desc: 'Staff quota meals, approvals, entertainment' },
-                  { key: 'expenses', icon: '💸', label: 'Overhead Expenses', desc: 'Operating expenses recorded in finance' },
-                  { key: 'dailyReports', icon: '📊', label: 'Daily Sales Digest', desc: 'Scheduled daily revenue & category breakdown' },
-                  { key: 'authLogins', icon: '🔐', label: 'User Logins & Security', desc: 'Staff logins, account status & password alerts' },
-                  { key: 'masterData', icon: '🏷️', label: 'Catalog & Master Changes', desc: 'Products, raw materials, supplier modifications' },
-                ].map((item) => {
-                  const isProcessAllowed = tgNotifSettings[item.key] !== false;
-                  const currentRoles = tgNotifSettings.processRoles?.[item.key] || DEFAULT_PROCESS_ROLES[item.key] || ['admin', 'manager'];
-                  const availableRoles = ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'kitchen', 'bar', 'storekeeper'];
+            {/* ── Operational Processes & Role Permissions ── */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1 border-b border-ink-100">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-700 block">
+                    Operational Bot Alerts &amp; Role Permissions
+                  </span>
+                  <span className="text-[11px] text-ink-500">
+                    Control which operational events trigger Telegram alerts, and select which registered roles can receive them.
+                  </span>
+                </div>
 
-                  const toggleRole = (role) => {
-                    const exists = currentRoles.includes(role);
-                    const updated = exists ? currentRoles.filter(r => r !== role) : [...currentRoles, role];
-                    setTgNotifSettings(prev => ({
-                      ...prev,
-                      processRoles: {
-                        ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
-                        [item.key]: updated,
-                      },
-                    }));
-                  };
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Quick Presets */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTgNotifSettings((prev) => {
+                          const currentRoles = { ...(prev.processRoles || DEFAULT_PROCESS_ROLES) };
+                          OPERATIONAL_PROCESSES.forEach((p) => {
+                            currentRoles[p.key] = ['admin', 'manager', 'supervisor'];
+                          });
+                          return { ...prev, processRoles: currentRoles };
+                        });
+                      }}
+                      className="px-2 py-1 rounded font-semibold text-slate-700 hover:bg-white hover:shadow-2xs transition cursor-pointer"
+                      title="Restrict all processes to Admin, Manager, and Supervisor"
+                    >
+                      🛡️ Mgmt Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTgNotifSettings((prev) => {
+                          const currentRoles = { ...(prev.processRoles || DEFAULT_PROCESS_ROLES) };
+                          const allRoleKeys = REGISTERED_TG_ROLES.map((r) => r.key);
+                          OPERATIONAL_PROCESSES.forEach((p) => {
+                            currentRoles[p.key] = [...allRoleKeys];
+                          });
+                          return { ...prev, processRoles: currentRoles };
+                        });
+                      }}
+                      className="px-2 py-1 rounded font-semibold text-slate-700 hover:bg-white hover:shadow-2xs transition cursor-pointer"
+                      title="Allow all registered roles across processes"
+                    >
+                      👥 Grant All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTgNotifSettings((prev) => ({
+                          ...prev,
+                          processRoles: { ...DEFAULT_PROCESS_ROLES },
+                        }));
+                      }}
+                      className="px-2 py-1 rounded font-semibold text-slate-700 hover:bg-white hover:shadow-2xs transition cursor-pointer"
+                      title="Restore recommended default role permissions"
+                    >
+                      🔄 Defaults
+                    </button>
+                  </div>
 
-                  return (
-                    <div
-                      key={item.key}
-                      className={`p-3 rounded-xl border transition flex flex-col justify-between ${
-                        isProcessAllowed
-                          ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
-                          : 'bg-ink-50/70 border-ink-100 opacity-60'
+                  {/* View Mode Switcher */}
+                  <div className="flex items-center bg-indigo-50 border border-indigo-200 rounded-lg p-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setTgProcessViewMode('matrix')}
+                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                        tgProcessViewMode === 'matrix' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className="flex items-start gap-2 cursor-pointer flex-1"
-                          onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
-                        >
-                          <span className="text-lg select-none shrink-0">{item.icon}</span>
-                          <div>
-                            <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
-                            <span className="text-[11px] text-ink-500 leading-tight block mt-0.5">{item.desc}</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setTgNotifSettings(prev => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${
-                            isProcessAllowed
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
-                              : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
-                          }`}
-                        >
-                          {isProcessAllowed ? 'Allowed' : 'Disabled'}
-                        </button>
-                      </div>
+                      <span>📊 Table Matrix</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTgProcessViewMode('cards')}
+                      className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                        tgProcessViewMode === 'cards' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-white/70'
+                      }`}
+                    >
+                      <span>🗂️ Process Cards</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                      {/* Role selection chips */}
-                      {isProcessAllowed && (
-                        <div className="mt-2.5 pt-2 border-t border-ink-100/80">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-ink-400 mb-1 flex items-center justify-between">
-                            <span>Allowed Roles:</span>
-                            <span className="text-[9px] text-ink-400">{currentRoles.length} selected</span>
-                          </div>
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {availableRoles.map(r => {
-                              const active = currentRoles.includes(r);
+              {/* ── VIEW 1: ROLE PERMISSION MATRIX TABLE ── */}
+              {tgProcessViewMode === 'matrix' ? (
+                <div className="overflow-x-auto rounded-xl border border-ink-200/80 bg-white shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-ink-100 text-[11px] font-bold text-ink-600 uppercase tracking-wider">
+                        <th className="py-3 px-4 min-w-[210px]">Operational Process</th>
+                        <th className="py-3 px-3 text-center min-w-[95px]">Bot Alert</th>
+                        {REGISTERED_TG_ROLES.map((r) => (
+                          <th key={r.key} className="py-3 px-2 text-center min-w-[85px]">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm select-none">{r.icon}</span>
+                              <span className="text-[11px] font-extrabold text-ink-800 tracking-normal capitalize">{r.label}</span>
+                            </div>
+                          </th>
+                        ))}
+                        <th className="py-3 px-3 text-center min-w-[80px]">Quick</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink-100 text-ink-800">
+                      {OPERATIONAL_PROCESSES.map((item) => {
+                        const isProcessAllowed = tgNotifSettings[item.key] !== false;
+                        const currentRoles = tgNotifSettings.processRoles?.[item.key] || DEFAULT_PROCESS_ROLES[item.key] || ['admin', 'manager'];
+
+                        const toggleRole = (role) => {
+                          const exists = currentRoles.includes(role);
+                          const updated = exists ? currentRoles.filter((r) => r !== role) : [...currentRoles, role];
+                          setTgNotifSettings((prev) => ({
+                            ...prev,
+                            processRoles: {
+                              ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                              [item.key]: updated,
+                            },
+                          }));
+                        };
+
+                        return (
+                          <tr
+                            key={item.key}
+                            className={`transition ${isProcessAllowed ? 'hover:bg-blue-50/25' : 'bg-slate-50/70 opacity-60'}`}
+                          >
+                            {/* Process Info */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-xl shrink-0 select-none">{item.icon}</span>
+                                <div>
+                                  <span className="font-bold text-ink-900 block leading-tight">{item.label}</span>
+                                  <span className="text-[11px] text-ink-500 block mt-0.5 leading-tight">{item.desc}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Global Allowed / Disabled Toggle */}
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase transition cursor-pointer shadow-2xs ${
+                                  isProcessAllowed
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                    : 'bg-ink-100 text-ink-500 border border-ink-200 hover:bg-ink-200'
+                                }`}
+                                title={`Click to ${isProcessAllowed ? 'disable' : 'allow'} this process`}
+                              >
+                                {isProcessAllowed ? '✓ Allowed' : '✕ Disabled'}
+                              </button>
+                            </td>
+
+                            {/* 6 Registered Roles Columns */}
+                            {REGISTERED_TG_ROLES.map((r) => {
+                              const active = currentRoles.includes(r.key);
                               return (
-                                <button
-                                  key={r}
-                                  type="button"
-                                  onClick={() => toggleRole(r)}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition border cursor-pointer ${
-                                    active
-                                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                                      : 'bg-white text-ink-500 border-ink-200 hover:bg-ink-50'
-                                  }`}
-                                  title={`${active ? 'Remove' : 'Grant'} ${r} alerts for ${item.label}`}
-                                >
-                                  {r === 'waiter' ? 'Staff' : r}
-                                </button>
+                                <td key={r.key} className="py-3 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    disabled={!isProcessAllowed}
+                                    onClick={() => toggleRole(r.key)}
+                                    className={`inline-flex items-center justify-center h-7 w-7 rounded-lg border transition cursor-pointer ${
+                                      !isProcessAllowed
+                                        ? 'opacity-30 border-ink-200 bg-ink-50 cursor-not-allowed'
+                                        : active
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
+                                        : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
+                                    }`}
+                                    title={
+                                      !isProcessAllowed
+                                        ? 'Process is disabled globally'
+                                        : `${active ? 'Remove' : 'Grant'} ${r.label} alert access for ${item.label}`
+                                    }
+                                  >
+                                    {active ? (
+                                      <Check size={14} className="stroke-[3]" />
+                                    ) : (
+                                      <span className="text-xs text-ink-300 select-none font-bold">—</span>
+                                    )}
+                                  </button>
+                                </td>
                               );
                             })}
+
+                            {/* Row Quick Action Links */}
+                            <td className="py-3 px-3 text-center">
+                              {isProcessAllowed && (
+                                <div className="flex items-center justify-center gap-1.5 text-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const allRoleKeys = REGISTERED_TG_ROLES.map((r) => r.key);
+                                      setTgNotifSettings((prev) => ({
+                                        ...prev,
+                                        processRoles: {
+                                          ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                          [item.key]: allRoleKeys,
+                                        },
+                                      }));
+                                    }}
+                                    className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                                    title="Grant all roles for this process"
+                                  >
+                                    All
+                                  </button>
+                                  <span className="text-ink-300">|</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTgNotifSettings((prev) => ({
+                                        ...prev,
+                                        processRoles: {
+                                          ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                          [item.key]: ['admin'],
+                                        },
+                                      }));
+                                    }}
+                                    className="text-ink-500 hover:underline font-semibold cursor-pointer"
+                                    title="Restrict to Admin only"
+                                  >
+                                    Admin
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* ── VIEW 2: CLEAN PROCESS CARDS (UNCLUTTERED) ── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {OPERATIONAL_PROCESSES.map((item) => {
+                    const isProcessAllowed = tgNotifSettings[item.key] !== false;
+                    const currentRoles = tgNotifSettings.processRoles?.[item.key] || DEFAULT_PROCESS_ROLES[item.key] || ['admin', 'manager'];
+                    const isExpanded = expandedRoleProcess === item.key;
+
+                    const toggleRole = (role) => {
+                      const exists = currentRoles.includes(role);
+                      const updated = exists ? currentRoles.filter((r) => r !== role) : [...currentRoles, role];
+                      setTgNotifSettings((prev) => ({
+                        ...prev,
+                        processRoles: {
+                          ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                          [item.key]: updated,
+                        },
+                      }));
+                    };
+
+                    return (
+                      <div
+                        key={item.key}
+                        className={`p-3.5 rounded-xl border transition ${
+                          isProcessAllowed
+                            ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
+                            : 'bg-ink-50/70 border-ink-100 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div
+                            className="flex items-start gap-2.5 cursor-pointer flex-1"
+                            onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                          >
+                            <span className="text-2xl select-none shrink-0">{item.icon}</span>
+                            <div>
+                              <span className="font-bold text-ink-900 block leading-tight text-sm">{item.label}</span>
+                              <span className="text-[11px] text-ink-500 leading-tight block mt-0.5">{item.desc}</span>
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${
+                              isProcessAllowed
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
+                                : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
+                            }`}
+                          >
+                            {isProcessAllowed ? 'Allowed' : 'Disabled'}
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+
+                        {/* Clean Role Badges Line & Configure Button */}
+                        {isProcessAllowed && (
+                          <div className="mt-3 pt-2.5 border-t border-ink-100 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1 flex-wrap flex-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400 mr-1">
+                                Roles:
+                              </span>
+                              {currentRoles.length === REGISTERED_TG_ROLES.length ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  🌐 All Roles ({currentRoles.length})
+                                </span>
+                              ) : currentRoles.length === 0 ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  ⚠️ None Selected
+                                </span>
+                              ) : (
+                                currentRoles.map((rKey) => {
+                                  const rObj = REGISTERED_TG_ROLES.find((r) => r.key === rKey);
+                                  return (
+                                    <span
+                                      key={rKey}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                                    >
+                                      {rObj?.label || rKey}
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setExpandedRoleProcess(isExpanded ? null : item.key)}
+                              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline shrink-0 cursor-pointer"
+                            >
+                              {isExpanded ? 'Done' : '⚙ Edit Roles'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Smooth Expandable Role Checkboxes for this card only */}
+                        {isProcessAllowed && isExpanded && (
+                          <div className="mt-2.5 pt-2.5 border-t border-dashed border-blue-200 bg-blue-50/40 -mx-3.5 -mb-3.5 p-3 rounded-b-xl">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-extrabold uppercase text-blue-900">
+                                Select Authorized Roles:
+                              </span>
+                              <div className="flex items-center gap-2 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allKeys = REGISTERED_TG_ROLES.map((r) => r.key);
+                                    setTgNotifSettings((prev) => ({
+                                      ...prev,
+                                      processRoles: {
+                                        ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                        [item.key]: allKeys,
+                                      },
+                                    }));
+                                  }}
+                                  className="text-blue-600 hover:underline font-bold cursor-pointer"
+                                >
+                                  All
+                                </button>
+                                <span className="text-ink-300">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTgNotifSettings((prev) => ({
+                                      ...prev,
+                                      processRoles: {
+                                        ...(prev.processRoles || DEFAULT_PROCESS_ROLES),
+                                        [item.key]: ['admin', 'manager', 'supervisor'],
+                                      },
+                                    }));
+                                  }}
+                                  className="text-blue-600 hover:underline font-bold cursor-pointer"
+                                >
+                                  Mgmt Only
+                                </button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                              {REGISTERED_TG_ROLES.map((r) => {
+                                const active = currentRoles.includes(r.key);
+                                return (
+                                  <button
+                                    key={r.key}
+                                    type="button"
+                                    onClick={() => toggleRole(r.key)}
+                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
+                                      active
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                        : 'bg-white text-ink-600 border-ink-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <span>{r.icon}</span>
+                                    <span className="truncate">{r.label}</span>
+                                    {active && <Check size={12} className="ml-auto stroke-[3]" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -3149,7 +3466,6 @@ export default function Settings() {
               <p className="text-ink-400 text-[11px]">This account is invisible to hotel admins and staff.</p>
             </div>
           </div>
-
           {/* Actions */}
           {devSuccess && (
             <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-700">
@@ -3172,7 +3488,6 @@ export default function Settings() {
           </div>
         </Card>
       )}
-
       {/* ── Tab: Order Printers ── */}
       {currentTab === 'printers' && (() => {
         // loadPrinters is defined at component scope above
@@ -3183,7 +3498,6 @@ export default function Settings() {
           setPrinterSuccess('');
           setShowPrinterForm(true);
         };
-
         const openEdit = (p) => {
           setPrinterForm({ ...blankPrinter, ...p });
           setEditingPrinterId(p._id);
@@ -3191,7 +3505,6 @@ export default function Settings() {
           setPrinterSuccess('');
           setShowPrinterForm(true);
         };
-
         const savePrinter = async (e) => {
           e.preventDefault();
           if (!printerForm.name.trim()) { setPrinterError('Printer name is required'); return; }
@@ -3216,7 +3529,6 @@ export default function Settings() {
             setPrinterSaving(false);
           }
         };
-
         const deletePrinter = async (id) => {
           if (!window.confirm('Delete this printer configuration?')) return;
           try {
@@ -3228,7 +3540,6 @@ export default function Settings() {
             setPrinterError(err.response?.data?.message || 'Failed to delete');
           }
         };
-
         const printSystemReceipt = (printerOrForm) => {
           posPrint.printReceipt({
             orderNo: 'TEST-001',
