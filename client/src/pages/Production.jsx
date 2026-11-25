@@ -4,7 +4,7 @@ import {
   AlertCircle, Calendar, User, DollarSign, Layers, Scale, History,
   RefreshCw, Pencil, ArrowRight, Clock, UtensilsCrossed, Check,
   PackageCheck, Sparkles, AlertTriangle, ShieldCheck, FileSpreadsheet,
-  FileText, CornerDownRight, Filter
+  FileText, CornerDownRight, Filter, LayoutGrid, List
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -79,9 +79,15 @@ export default function Production() {
   const [calcLoading, setCalcLoading] = useState(false);
   const [submittingBatch, setSubmittingBatch] = useState(false);
 
-  // ── Recipe Modal State ──
+  // ── Recipe Modal & View States ──
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
   const [editingRecipeId, setEditingRecipeId] = useState(null);
+  const [recipeViewMode, setRecipeViewMode] = useState('table'); // 'table' | 'grid'
+  const [recipeSearch, setRecipeSearch] = useState('');
+  const [recipeStationTab, setRecipeStationTab] = useState('all'); // 'all' | 'kitchen' | 'bar'
+  const [recipeToDelete, setRecipeToDelete] = useState(null);
+  const [deleteRecipeModalOpen, setDeleteRecipeModalOpen] = useState(false);
+  const [deletingRecipe, setDeletingRecipe] = useState(false);
   const [recipeForm, setRecipeForm] = useState({
     name: '',
     code: '',
@@ -190,6 +196,48 @@ export default function Production() {
       return true;
     });
   }, [recipes, stationFilter]);
+
+  // Filtered recipes for Tab 2 (Recipe Management)
+  const recipesForTab = useMemo(() => {
+    return availableRecipes.filter(r => {
+      if (recipeStationTab !== 'all' && r.station !== recipeStationTab) return false;
+      if (recipeSearch.trim()) {
+        const q = recipeSearch.trim().toLowerCase();
+        const matchName = String(r.name || '').toLowerCase().includes(q);
+        const matchCode = String(r.code || '').toLowerCase().includes(q);
+        const matchTarget = String(r.targetMaterial?.name || '').toLowerCase().includes(q);
+        const matchIngs = (r.ingredients || []).some(ing =>
+          String(ing.material?.name || '').toLowerCase().includes(q)
+        );
+        if (!matchName && !matchCode && !matchTarget && !matchIngs) return false;
+      }
+      return true;
+    });
+  }, [availableRecipes, recipeStationTab, recipeSearch]);
+
+  const handleOpenDeleteRecipeModal = (recipe) => {
+    setRecipeToDelete(recipe);
+    setDeleteRecipeModalOpen(true);
+  };
+
+  const handleConfirmDeleteRecipe = async () => {
+    if (!recipeToDelete) return;
+    setDeletingRecipe(true);
+    try {
+      const res = await api.delete(`/production/recipes/${recipeToDelete._id}`);
+      showSuccess(res.data?.message || `Recipe "${recipeToDelete.name}" removed successfully`);
+      setDeleteRecipeModalOpen(false);
+      setRecipeToDelete(null);
+      if (selectedRecipeId === recipeToDelete._id) {
+        setSelectedRecipeId('');
+      }
+      await loadData();
+    } catch (err) {
+      showError(err.response?.data?.message || err.message || 'Failed to remove recipe');
+    } finally {
+      setDeletingRecipe(false);
+    }
+  };
 
   // ── Execute Batch Production ──
   const handleExecuteBatch = async (e) => {
@@ -810,100 +858,355 @@ export default function Production() {
       ──────────────────────────────────────────────────────────────── */}
       {activeTab === 'recipes' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Header & Main Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-ink-100 shadow-2xs">
             <div>
-              <h3 className="text-sm font-bold text-ink-900">
-                Production Recipes (Bills of Materials)
-              </h3>
-              <p className="text-xs text-ink-500">
-                Define standard preparation formulas for items manufactured inside Kitchen and Bar.
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-ink-900">
+                  Production Recipes (Bills of Materials)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                  {recipesForTab.length} of {availableRecipes.length} {availableRecipes.length === 1 ? 'Formula' : 'Formulas'}
+                </span>
+              </div>
+              <p className="text-xs text-ink-500 mt-0.5">
+                Define standard preparation formulas and raw material bills for items prepared in Kitchen and Bar.
               </p>
             </div>
-            {isManagerOrAdmin && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleOpenRecipeModal()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition cursor-pointer self-start sm:self-auto"
+                onClick={loadData}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-ink-200 bg-white text-ink-700 text-xs font-bold hover:bg-ink-50 shadow-2xs transition cursor-pointer"
+                title="Refresh recipe list"
               >
-                <Plus size={14} /> Create Production Recipe
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
-            )}
+              {isManagerOrAdmin && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenRecipeModal()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                >
+                  <Plus size={14} /> Create Production Recipe
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableRecipes.map(r => (
-              <div key={r._id} className="rounded-2xl border border-ink-100 bg-white p-4 shadow-xs hover:border-ink-200 transition space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-ink-400 uppercase tracking-wider">
-                      {r.code}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
-                      }`}>
-                      {r.station}
-                    </span>
-                  </div>
+          {/* Controls & Filter Bar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-ink-100 shadow-2xs">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[220px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+              <input
+                type="text"
+                value={recipeSearch}
+                onChange={(e) => setRecipeSearch(e.target.value)}
+                placeholder="Search recipe name, code, produced item, or ingredient..."
+                className="w-full rounded-xl border border-ink-200 pl-8 pr-8 py-1.5 text-xs text-ink-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              {recipeSearch && (
+                <button
+                  type="button"
+                  onClick={() => setRecipeSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600 p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
 
-                  <div>
-                    <h4 className="font-bold text-sm text-ink-900">{r.name}</h4>
-                    <p className="text-xs text-ink-500 flex items-center gap-1">
-                      Produces: <strong className="text-ink-800">{r.targetMaterial?.name}</strong>
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-ink-50/70 border border-ink-100/80 text-[11px] grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-ink-500 block">Std Yield:</span>
-                      <strong>{formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}</strong>
-                    </div>
-                    <div>
-                      <span className="text-ink-500 block">Unit Cost:</span>
-                      <strong className="text-emerald-700">{etb(r.estimatedUnitCost)}</strong>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400 block">
-                      Ingredients Formula ({r.ingredients?.length || 0})
-                    </span>
-                    <ul className="text-xs text-ink-600 space-y-0.5 max-h-24 overflow-y-auto pr-1">
-                      {(r.ingredients || []).map((ing, idx) => (
-                        <li key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-ink-50 last:border-0">
-                          <span>{ing.material?.name || 'Item'}</span>
-                          <span className="font-bold text-ink-800">{formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-ink-100 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRecipeId(r._id);
-                      setActiveTab('run');
-                    }}
-                    className="flex-1 py-1.5 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition"
-                  >
-                    <Factory size={13} /> Produce
-                  </button>
-                  {isManagerOrAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenRecipeModal(r)}
-                      className="p-1.5 rounded-xl border border-ink-200 text-ink-600 hover:text-ink-900 hover:bg-ink-50 transition cursor-pointer"
-                      title="Edit Recipe"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  )}
-                </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Station Filter Pills */}
+              <div className="flex items-center gap-1 bg-ink-50 p-1 rounded-xl border border-ink-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRecipeStationTab('all')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'all'
+                      ? 'bg-white text-ink-900 shadow-2xs'
+                      : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipeStationTab('kitchen')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'kitchen'
+                      ? 'bg-white text-amber-900 shadow-2xs'
+                      : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                >
+                  🍳 Kitchen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipeStationTab('bar')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'bar'
+                      ? 'bg-white text-emerald-900 shadow-2xs'
+                      : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                >
+                  ☕ Bar
+                </button>
               </div>
-            ))}
+
+              {/* View Mode Switcher: Table vs Cards */}
+              <div className="flex items-center gap-1 bg-ink-50 p-1 rounded-xl border border-ink-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRecipeViewMode('table')}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeViewMode === 'table'
+                      ? 'bg-white text-blue-700 shadow-2xs'
+                      : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                  title="Compact Table View"
+                >
+                  <List size={13} />
+                  <span>Table View</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipeViewMode('grid')}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeViewMode === 'grid'
+                      ? 'bg-white text-blue-700 shadow-2xs'
+                      : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                  title="Card Grid View"
+                >
+                  <LayoutGrid size={13} />
+                  <span>Cards</span>
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* VIEW: TABLE VIEW (COMPACT & MODERN) */}
+          {recipeViewMode === 'table' ? (
+            <div className="overflow-x-auto rounded-2xl border border-ink-100 bg-white shadow-2xs">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-ink-50/80 text-[11px] font-bold uppercase tracking-wider text-ink-600 border-b border-ink-100">
+                  <tr>
+                    <th className="px-4 py-3">Formula Code</th>
+                    <th className="px-4 py-3">Recipe / Produced Item</th>
+                    <th className="px-4 py-3 text-center">Station</th>
+                    <th className="px-4 py-3 text-center">Standard Yield</th>
+                    <th className="px-4 py-3 text-right">Est. Unit Cost</th>
+                    <th className="px-4 py-3">Ingredients Formula</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100 font-medium">
+                  {recipesForTab.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-xs text-ink-400">
+                        {recipeSearch || recipeStationTab !== 'all'
+                          ? 'No recipes match your search/filter criteria.'
+                          : 'No production recipes defined yet. Click "Create Production Recipe" above to add one.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    recipesForTab.map((r) => (
+                      <tr key={r._id} className="hover:bg-ink-50/50 transition">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span className="font-mono font-bold text-[11px] text-ink-700 bg-ink-100 px-2 py-0.5 rounded-md">
+                            {r.code || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-bold text-ink-900 text-sm">{r.name}</div>
+                          <div className="text-[11px] text-ink-500 flex items-center gap-1 mt-0.5">
+                            <span>Produces:</span>
+                            <strong className="text-ink-800 font-semibold">{r.targetMaterial?.name || '—'}</strong>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}>
+                            {r.station}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-lg border border-ink-100">
+                            {formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                          <span className="font-bold text-emerald-700 text-xs">
+                            {etb(r.estimatedUnitCost)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="space-y-1">
+                            <span className="inline-block text-[10px] font-bold text-ink-500 uppercase tracking-wider">
+                              {r.ingredients?.length || 0} {r.ingredients?.length === 1 ? 'Ingredient' : 'Ingredients'}
+                            </span>
+                            <div className="flex flex-wrap gap-1 max-w-sm">
+                              {(r.ingredients || []).slice(0, 3).map((ing, idx) => (
+                                <span key={idx} className="text-[10px] bg-ink-50 text-ink-700 border border-ink-100 px-1.5 py-0.5 rounded">
+                                  {ing.material?.name || 'Item'} ({formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit})
+                                </span>
+                              ))}
+                              {(r.ingredients?.length || 0) > 3 && (
+                                <span className="text-[10px] text-ink-400 font-bold self-center">
+                                  +{(r.ingredients?.length || 0) - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRecipeId(r._id);
+                                setActiveTab('run');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs transition cursor-pointer"
+                              title="Produce this recipe"
+                            >
+                              <Factory size={12} /> Produce
+                            </button>
+                            {isManagerOrAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRecipeModal(r)}
+                                className="p-1.5 rounded-lg border border-ink-200 text-ink-600 hover:text-ink-900 hover:bg-ink-100 transition cursor-pointer"
+                                title="Edit Recipe"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            )}
+                            {isManagerOrAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDeleteRecipeModal(r)}
+                                className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                                title="Delete / Remove Recipe"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* VIEW: STREAMLINED GRID CARDS */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recipesForTab.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-xs text-ink-400 bg-white rounded-2xl border border-ink-100">
+                  {recipeSearch || recipeStationTab !== 'all'
+                    ? 'No recipes match your search/filter criteria.'
+                    : 'No production recipes defined yet.'}
+                </div>
+              ) : (
+                recipesForTab.map((r) => (
+                  <div key={r._id} className="rounded-2xl border border-ink-100 bg-white p-4 shadow-xs hover:border-ink-200 hover:shadow-md transition space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold text-ink-500 uppercase tracking-wider bg-ink-100 px-2 py-0.5 rounded">
+                          {r.code || '—'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                            }`}>
+                            {r.station}
+                          </span>
+                          {isManagerOrAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDeleteRecipeModal(r)}
+                              className="text-ink-400 hover:text-red-600 hover:bg-red-50 p-1 rounded-md transition cursor-pointer"
+                              title="Delete Recipe"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-sm text-ink-900">{r.name}</h4>
+                        <p className="text-xs text-ink-500 flex items-center gap-1 mt-0.5">
+                          Produces: <strong className="text-ink-800">{r.targetMaterial?.name || '—'}</strong>
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-ink-50/70 border border-ink-100/80 text-[11px] grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-ink-500 block">Std Yield:</span>
+                          <strong className="text-ink-900">{formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}</strong>
+                        </div>
+                        <div>
+                          <span className="text-ink-500 block">Unit Cost:</span>
+                          <strong className="text-emerald-700">{etb(r.estimatedUnitCost)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400 block">
+                          Ingredients Formula ({r.ingredients?.length || 0})
+                        </span>
+                        <ul className="text-xs text-ink-600 space-y-0.5 max-h-24 overflow-y-auto pr-1">
+                          {(r.ingredients || []).map((ing, idx) => (
+                            <li key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-ink-50 last:border-0">
+                              <span className="truncate max-w-[170px]">{ing.material?.name || 'Item'}</span>
+                              <span className="font-bold text-ink-800 shrink-0">{formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-ink-100 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecipeId(r._id);
+                          setActiveTab('run');
+                        }}
+                        className="flex-1 py-1.5 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition"
+                      >
+                        <Factory size={13} /> Produce
+                      </button>
+                      {isManagerOrAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRecipeModal(r)}
+                          className="p-1.5 rounded-xl border border-ink-200 text-ink-600 hover:text-ink-900 hover:bg-ink-50 transition cursor-pointer"
+                          title="Edit Recipe"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {isManagerOrAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDeleteRecipeModal(r)}
+                          className="p-1.5 rounded-xl border border-red-200 text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                          title="Delete Recipe"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1558,6 +1861,80 @@ export default function Production() {
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {voiding ? 'Voiding Batch…' : 'Confirm & Reverse Stock'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ────────────────────────────────────────────────────────────────
+          MODAL: DELETE / REMOVE PRODUCTION RECIPE
+      ──────────────────────────────────────────────────────────────── */}
+      {deleteRecipeModalOpen && recipeToDelete && (
+        <Modal
+          title="Delete Production Recipe"
+          onClose={() => !deletingRecipe && setDeleteRecipeModalOpen(false)}
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-start gap-3">
+              <div className="p-2 bg-red-100 text-red-700 rounded-xl shrink-0 mt-0.5">
+                <AlertTriangle size={18} />
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold text-sm">Remove this recipe formula?</p>
+                <p className="text-xs text-red-800 leading-relaxed">
+                  Are you sure you want to remove <strong>"{recipeToDelete.name}"</strong> ({recipeToDelete.code || 'No Code'})?
+                </p>
+                <p className="text-[11px] text-red-700 mt-1">
+                  If no production batches were ever recorded with this recipe, it will be completely deleted from the database. If batches exist, it will be deactivated to keep batch logs intact.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-ink-50 border border-ink-100 space-y-1.5 text-ink-700">
+              <div className="flex justify-between">
+                <span className="text-ink-500">Formula Code:</span>
+                <span className="font-mono font-bold text-ink-900">{recipeToDelete.code || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">Station:</span>
+                <span className="font-bold uppercase text-ink-900">{recipeToDelete.station}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">Produces Item:</span>
+                <span className="font-bold text-ink-900">{recipeToDelete.targetMaterial?.name || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">Ingredients Count:</span>
+                <span className="font-bold text-ink-900">{recipeToDelete.ingredients?.length || 0} items</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-ink-100">
+              <button
+                type="button"
+                disabled={deletingRecipe}
+                onClick={() => setDeleteRecipeModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-ink-200 text-xs font-bold text-ink-700 hover:bg-ink-50 cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingRecipe}
+                onClick={handleConfirmDeleteRecipe}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {deletingRecipe ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" /> Removing…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={13} /> Yes, Remove Recipe
+                  </>
+                )}
               </button>
             </div>
           </div>

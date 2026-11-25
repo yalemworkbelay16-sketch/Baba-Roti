@@ -29,6 +29,8 @@ const getProductionRecipes = asyncHandler(async (req, res) => {
   }
   if (isActive !== undefined) {
     filter.isActive = isActive === 'true';
+  } else {
+    filter.isActive = { $ne: false };
   }
   if (search && search.trim()) {
     const q = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -222,17 +224,25 @@ const deleteProductionRecipe = asyncHandler(async (req, res) => {
     throw new Error('Production recipe not found');
   }
 
-  recipe.isActive = false;
-  await recipe.save();
+  // Check if any production batches reference this recipe
+  const batchCount = await Production.countDocuments({ recipe: recipe._id });
+  if (batchCount > 0) {
+    // Soft delete to protect audit history of already produced batches
+    recipe.isActive = false;
+    await recipe.save();
+  } else {
+    // Unused or duplicate recipe: permanently delete to cleanly remove clutter
+    await ProductionRecipe.findByIdAndDelete(recipe._id);
+  }
 
   logActivity(req, {
-    action: 'DEACTIVATE_PRODUCTION_RECIPE',
+    action: 'DELETE_PRODUCTION_RECIPE',
     module: 'PRODUCTION',
-    description: `Deactivated production recipe "${recipe.name}"`,
-    details: { recipeId: recipe._id },
+    description: `Removed production recipe "${recipe.name}" (${recipe.code || ''})`,
+    details: { recipeId: recipe._id, name: recipe.name, code: recipe.code, batchesProduced: batchCount },
   });
 
-  res.json({ success: true, message: 'Production recipe deactivated successfully' });
+  res.json({ success: true, message: `Production recipe "${recipe.name}" removed successfully` });
 });
 
 // ── POST /api/production/calculate-requirements ───────────────────────
