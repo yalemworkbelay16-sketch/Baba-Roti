@@ -334,7 +334,7 @@ export default function Settings() {
     paperWidth: '80mm', connectionType: 'network',
     ipAddress: '', port: 9100, enabled: true,
     printOnOrder: true, printOnCheckout: true, copies: 1,
-    headerLine1: 'Baba Roti Café', headerLine2: '', footerLine: 'Thank you! Come again.',
+    headerLine1: 'Baba Roti', headerLine2: '', footerLine: 'Thank you! Come again.',
     charWidth: 42,
   };
 
@@ -3566,7 +3566,7 @@ export default function Settings() {
             amountPaid: 100,
             taxRate: 15,
           }, {
-            hotelName: printerOrForm?.headerLine1 || 'Baba Roti Café',
+            hotelName: printerOrForm?.headerLine1 || 'Baba Roti',
             footerLine: printerOrForm?.footerLine || 'Thank you! Come again.',
           });
         };

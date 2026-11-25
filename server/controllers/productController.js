@@ -784,7 +784,7 @@ const getPublicMenu = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     isLicensed: settings?.licensedModules?.digitalMenu !== false,
-    cafeName: settings?.hotelName || 'Baba Roti Café',
+    cafeName: (settings?.hotelName || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti',
     tagline: 'Good Food • Good Mood',
     currency: settings?.currency || 'ETB',
     taxRate: Number(settings?.taxRate ?? 15),

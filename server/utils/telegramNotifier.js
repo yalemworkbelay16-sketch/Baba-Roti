@@ -19,7 +19,7 @@ const ENV_CHAT_IDS = (process.env.TELEGRAM_CHAT_ID || '7951472080')
   .split(',')
   .map(id => id.trim())
   .filter(id => id && id !== 'your_chat_id_here' && id !== 'null' && id !== 'undefined' && id !== '1286578760');
-const HOTEL = 'Baba Roti Café';
+const HOTEL = 'Baba Roti';
 
 // In-memory blacklist for chats that blocked the bot or are invalid, preventing socket leaks & log spam
 const permanentlySuppressedChats = new Set(['1286578760']);

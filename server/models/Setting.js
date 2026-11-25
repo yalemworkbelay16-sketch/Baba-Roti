@@ -33,8 +33,8 @@ const DEFAULT_CRUD_PERMISSIONS = {
 
 const settingSchema = new mongoose.Schema(
   {
-    hotelName: { type: String, default: 'Baba Roti  Café' },
-    systemEmail: { type: String, default: 'info@Baba Roti  Café.com' },
+    hotelName: { type: String, default: 'Baba Roti' },
+    systemEmail: { type: String, default: 'info@babaroti.com' },
     phone: { type: String, default: '+251 911 000 111' },
     address: { type: String, default: 'Addis Ababa, Ethiopia' },
     currency: { type: String, default: 'ETB' },

@@ -766,7 +766,6 @@ export default function POS() {
       }
 
       // Auto-fire KOT to thermal printer (silent) with browser fallback if offline
-      firePrinter('kot', savedOrder, { businessName: "Baba Roti Café" });
       if (isAddon && addedItems.length > 0) {
         // ONLY print newly added / incremented items for the kitchen, clearly referencing the captain order code
         const addonTicket = {
@@ -779,12 +778,12 @@ export default function POS() {
           waiterName: savedOrder.waiterName,
         };
         firePrinter("kot", addonTicket, {
-          businessName: "Baba Roti Café",
+          businessName: "Baba Roti",
           isAddon: true,
           addonRound,
         });
       } else {
-        firePrinter("kot", savedOrder, { businessName: "Baba Roti Café" });
+        firePrinter("kot", savedOrder, { businessName: "Baba Roti" });
       }
 
       // Reset cart
@@ -860,7 +859,7 @@ export default function POS() {
 
       // Auto-fire receipt to thermal printer (silent) with browser fallback if offline
       firePrinter('receipt', savedSale, {
-        hotelName: "Baba Roti Café",
+        hotelName: "Baba Roti",
         taxRate: settings.taxRate,
         currency: "ETB",
       });
@@ -2145,11 +2144,11 @@ export default function POS() {
                   type="button"
                   onClick={() => {
                     posPrint.printReceipt(lastOrder, {
-                      hotelName: "Baba Roti Café",
+                      hotelName: "Baba Roti",
                       taxRate: settings.taxRate,
                     });
                     firePrinter('receipt', lastOrder, {
-                      hotelName: "Baba Roti Café",
+                      hotelName: "Baba Roti",
                       taxRate: settings.taxRate,
                       isReprint: true,
                     });
@@ -2176,8 +2175,8 @@ export default function POS() {
                 <button
                   type="button"
                   onClick={() => {
-                    posPrint.printKOT(lastOrder, { businessName: "Baba Roti Café" });
-                    firePrinter('kot', lastOrder, { businessName: "Baba Roti Café", isReprint: true });
+                    posPrint.printKOT(lastOrder, { businessName: "Baba Roti" });
+                    firePrinter('kot', lastOrder, { businessName: "Baba Roti", isReprint: true });
                   }}
                   style={{
                     flex: 1,

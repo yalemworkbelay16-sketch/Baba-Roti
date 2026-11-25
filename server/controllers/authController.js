@@ -414,7 +414,7 @@ const requestOtp = asyncHandler(async (req, res) => {
   // ── Send OTP to the staff member's exact Telegram chat ───────────
   const staffDisplayName = user?.name || matchedSub?.name || 'Staff Member';
   sendTelegramDirect(recipientChatId,
-    `🏨 <b>Baba Roti Café</b>
+    `🏨 <b>Baba Roti</b>
 ━━━━━━━━━━━━━━━━━━━━
 🔐 <b>Staff Login OTP Code</b>
 

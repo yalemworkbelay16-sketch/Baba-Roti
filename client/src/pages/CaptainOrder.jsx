@@ -79,15 +79,15 @@ export default function CaptainOrder() {
     setReprintingKOT(true);
     showToast(`Dispatching KOT reprint for #${order.orderNo}...`, "info");
     try {
-      const res = await dispatchPrint('kot', order, { businessName: "Baba Roti Café", isReprint: true });
+      const res = await dispatchPrint('kot', order, { businessName: "Baba Roti", isReprint: true });
       if (res?.ok) {
         showToast(`KOT #${order.orderNo} sent to printer!`);
       } else {
-        posPrint.printKOT(order, { businessName: "Baba Roti Café", isReprint: true });
+        posPrint.printKOT(order, { businessName: "Baba Roti", isReprint: true });
         showToast(`KOT #${order.orderNo} opened in browser print dialog`);
       }
     } catch (_) {
-      posPrint.printKOT(order, { businessName: "Baba Roti Café", isReprint: true });
+      posPrint.printKOT(order, { businessName: "Baba Roti", isReprint: true });
       showToast(`KOT #${order.orderNo} opened in browser print dialog`);
     } finally {
       setReprintingKOT(false);
@@ -250,7 +250,7 @@ export default function CaptainOrder() {
   const handleSendToKitchen = async (orderId) => {
     try {
       const res = await api.post(`/captain-orders/${orderId}/send-to-kitchen`);
-      dispatchPrint('kot', res.data.order, { businessName: "Baba Roti Café" });
+      dispatchPrint('kot', res.data.order, { businessName: "Baba Roti" });
       showToast("Order sent to Kitchen & KOT printed!");
       loadOrders();
       if (refOrder?._id === orderId) {
@@ -393,7 +393,7 @@ export default function CaptainOrder() {
       title: `Captain Orders Report (${dateVal || "All Dates"})`,
       columns,
       data: filteredOrders,
-      hotelName: "Baba Roti Café",
+      hotelName: "Baba Roti",
       summary: [
         { label: "Total Orders", value: filteredOrders.length },
         { label: "Total Revenue", value: ETB(totalValue) },

@@ -297,7 +297,7 @@ const printTestPageEndpoint = asyncHandler(async (req, res) => {
       brand: brand || 'Generic',
       model: model || '',
       enabled: true,
-      headerLine1: 'Baba Roti Café',
+      headerLine1: 'Baba Roti',
       footerLine: 'Test Print Successful!',
       copies: 1,
     };
@@ -323,14 +323,14 @@ const printTestPageEndpoint = asyncHandler(async (req, res) => {
 
   try {
     await printReceipt(printer, sampleOrder, {
-      hotelName: 'Baba Roti Café - Test Print',
+      hotelName: 'Baba Roti - Test Print',
       footerLine: `Print Test Passed • ${printer.brand || ''} ${printer.model || ''}`.trim(),
     });
     res.json({ ok: true, message: `Test page sent to ${printer.ipAddress}:${printer.port || 9100}` });
   } catch (err) {
     // If direct TCP fails, queue test job to relay agent
     const job = queueRelayJob('receipt', printer, sampleOrder, {
-      hotelName: 'Baba Roti Café - Test Print',
+      hotelName: 'Baba Roti - Test Print',
       footerLine: `Print Test Passed • ${printer.brand || ''} ${printer.model || ''}`.trim(),
     });
     const agentOnline = isRelayAgentOnline();

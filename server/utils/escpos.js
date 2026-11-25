@@ -8,25 +8,20 @@
  *   Citizen CT-E351, CT-S310
  *   Bixolon SRP-350
  *   Generic 80mm/58mm POS printers
- *
  * Also supports HP LaserJet & PCL laser printers via plain-text mode:
  *   HP LaserJet M402dne, M404dn, Pro M404n, Pro M118dw, M428fdw
  *   Any PCL/plain-text printer accessible over TCP port 9100
- *
  * All ESC/POS printers use TCP port 9100 (raw socket).
  * HP LaserJet printers also use TCP port 9100 in RAW mode.
  */
-
 const ESC = 0x1b;
 const GS = 0x1d;
 const LF = 0x0a;
 const CR = 0x0d;
-
 // ── Text alignment constants ────────────────────────────────────────────────
 const ALIGN_LEFT = Buffer.from([ESC, 0x61, 0x00]);
 const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
 const ALIGN_RIGHT = Buffer.from([ESC, 0x61, 0x02]);
-
 // ── Text style constants ────────────────────────────────────────────────────
 const BOLD_ON = Buffer.from([ESC, 0x45, 0x01]);
 const BOLD_OFF = Buffer.from([ESC, 0x45, 0x00]);
@@ -60,7 +55,6 @@ function twoCol(left, right, totalWidth = 42) {
   const leftWidth = totalWidth - rightStr.length;
   return padEnd(String(left || ''), leftWidth) + rightStr;
 }
-
 /**
  * Divider line of dashes.
  */
@@ -73,13 +67,20 @@ function divider(char = '-', width = 42) {
 function text(str) {
   return Buffer.from(str + '\n', 'latin1');
 }
+
+/**
+ * Remove "Café", "Cafe", or "CAF" from business name to cleanly display "Baba Roti"
+ */
+function cleanHeaderName(name) {
+  return String(name || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // KOT – Kitchen Order Ticket
 // Sent to KITCHEN / BAR printer when order is placed.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildKOT(order, opts = {}) {
   const W = opts.charWidth || 42;
-  const businessName = opts.businessName || 'KITCHEN ORDER';
+  const businessName = cleanHeaderName(opts.businessName || 'Baba Roti');
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
   const dateStr = now.toLocaleDateString('en-ET', { timeZone: process.env.TIMEZONE || 'Africa/Addis_Ababa' });
@@ -187,14 +188,13 @@ function buildKOT(order, opts = {}) {
   );
   return Buffer.concat(chunks);
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // RECEIPT – Customer receipt ticket
 // Sent to RECEIPT printer on checkout/payment.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildReceipt(order, opts = {}) {
   const W = opts.charWidth || 42;
-  const hotelName = opts.hotelName || 'Baba Roti Café';
+  const hotelName = cleanHeaderName(opts.hotelName || 'Baba Roti');
   const headerLine2 = opts.headerLine2 || '';
   const footerLine = opts.footerLine || 'Thank you! Come again.';
   const taxRate = opts.taxRate || 15;
@@ -220,11 +220,9 @@ function buildReceipt(order, opts = {}) {
     text(hotelName.toUpperCase()),
     DOUBLE_SIZE_OFF,
   ];
-
   if (headerLine2) {
     chunks.push(text(headerLine2));
   }
-
   chunks.push(
     LINE_FEED,
     text('* RECEIPT *'),
@@ -341,7 +339,7 @@ function buildKOT_plain(order, opts = {}) {
   }
   lines.push('='.repeat(W));
   lines.push(center(isAddon ? `** KITCHEN ADD-ON ROUND ${addonRound} **` : '** KITCHEN ORDER TICKET **', W));
-  lines.push(center(businessName.toUpperCase(), W));
+  lines.push(center(cleanHeaderName(businessName).toUpperCase(), W));
   lines.push('='.repeat(W));
   lines.push(twoCol('Order #:', order.orderNo || '--', W));
   lines.push(twoCol('Type:', (order.orderType || 'dine_in').replace('_', ' ').toUpperCase(), W));
@@ -386,7 +384,7 @@ function buildKOT_plain(order, opts = {}) {
  */
 function buildReceipt_plain(order, opts = {}) {
   const W = 60;
-  const hotelName = opts.hotelName || 'Baba Roti Café';
+  const hotelName = cleanHeaderName(opts.hotelName || 'Baba Roti');
   const footerLine = opts.footerLine || 'Thank you! Come again.';
   const taxRate = opts.taxRate ?? 15;
   const currency = opts.currency || 'ETB';

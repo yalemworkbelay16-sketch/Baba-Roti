@@ -169,6 +169,10 @@ const getSettings = asyncHandler(async (req, res) => {
       settings.markModified('telegramNotificationSettings');
       modified = true;
     }
+    if (settings.hotelName && /\bcaf[eé]?\b/i.test(settings.hotelName)) {
+      settings.hotelName = settings.hotelName.replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
+      modified = true;
+    }
     if (modified) await settings.save();
   }
   res.json(settings);
@@ -199,7 +203,9 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined) {
-      if (field === 'serviceChargeRate') {
+      if (field === 'hotelName') {
+        settings.hotelName = String(req.body.hotelName || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
+      } else if (field === 'serviceChargeRate') {
         settings.serviceChargeRate = Math.min(100, Math.max(0, Number(req.body.serviceChargeRate) || 0));
       } else if (field === 'serviceChargePresets' && Array.isArray(req.body.serviceChargePresets)) {
         settings.serviceChargePresets = req.body.serviceChargePresets

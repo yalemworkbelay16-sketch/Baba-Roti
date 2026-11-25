@@ -4,7 +4,8 @@
  * Works seamlessly across cloud (Aletcloud) and local environments.
  */
 
-export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', address = 'Addis Ababa, Ethiopia', phone = '+251 911 000 111', isReprint = false } = {}) {
+export function printThermalReceipt(order, { hotelName = 'Baba Roti', address = 'Addis Ababa, Ethiopia', phone = '+251 911 000 111', isReprint = false } = {}) {
+  const displayHotelName = String(hotelName || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
   const dateStr = new Date(order.createdAt || Date.now()).toLocaleString('en-US', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -75,7 +76,7 @@ export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', addr
 <body>
   ${isReprint ? '<div class="reprint-banner">*** DUPLICATE REPRINT ***</div>' : ''}
   <div class="header text-center">
-    <h2>${hotelName}</h2>
+    <h2>${displayHotelName}</h2>
     <p>Bakery, Coffee & Restaurant</p>
     <p>${address}</p>
     <p>Tel: ${phone}</p>
@@ -184,7 +185,8 @@ export function printThermalReceipt(order, { hotelName = 'Baba Roti Café', addr
 /**
  * Print Kitchen Order Ticket (KOT) or Barista Ticket
  */
-export function printStationTicket(order, targetStation = 'kitchen', { isReprint = false, isAddon = false, addonRound = 2, businessName = 'Baba Roti Café' } = {}) {
+export function printStationTicket(order, targetStation = 'kitchen', { isReprint = false, isAddon = false, addonRound = 2, businessName = 'Baba Roti' } = {}) {
+  const displayBusinessName = String(businessName || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
   const isAddonOrder = Boolean(isAddon || order.isAddon);
   const roundNo = addonRound || order.addonRound || 2;
   const stationTitle = isAddonOrder
@@ -276,7 +278,7 @@ export function printStationTicket(order, targetStation = 'kitchen', { isReprint
   ` : isReprint ? '<div class="reprint-banner">*** REPRINT / DUPLICATE ***</div>' : ''}
   <div class="header">
     <h1>*** ${stationTitle} ***</h1>
-    <p style="font-size: 12px; margin-top: 2px; font-weight: bold;">${businessName}</p>
+    <p style="font-size: 12px; margin-top: 2px; font-weight: bold;">${displayBusinessName}</p>
   </div>
 
   <table class="order-meta" style="width: 100%;">

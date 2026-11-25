@@ -75,7 +75,7 @@ export default function CashSales() {
     showToast(`Dispatching receipt reprint for #${order.orderNo}...`, "info");
     try {
       const res = await dispatchPrint('receipt', order, {
-        hotelName: "Baba Roti Café",
+        hotelName: "Baba Roti",
         taxRate: order.taxPercent || 15,
         isReprint: true,
       });
@@ -83,7 +83,7 @@ export default function CashSales() {
         showToast(`Receipt #${order.orderNo} printed successfully!`);
       } else {
         posPrint.printReceipt(order, {
-          hotelName: "Baba Roti Café",
+          hotelName: "Baba Roti",
           taxRate: order.taxPercent || 15,
           isReprint: true,
         });
@@ -91,7 +91,7 @@ export default function CashSales() {
       }
     } catch (_) {
       posPrint.printReceipt(order, {
-        hotelName: "Baba Roti Café",
+        hotelName: "Baba Roti",
         taxRate: order.taxPercent || 15,
         isReprint: true,
       });
@@ -197,7 +197,7 @@ export default function CashSales() {
 
       // Print thermal receipt via network dispatcher + browser fallback
       dispatchPrint('receipt', posOrder, {
-        hotelName: "Baba Roti Café",
+        hotelName: "Baba Roti",
         taxRate: 15,
       });
 
@@ -301,7 +301,7 @@ export default function CashSales() {
       title: `Cash Sales & Revenue Report (${dateVal || "All Dates"})`,
       columns,
       data: filteredSales,
-      hotelName: "Baba Roti Café",
+      hotelName: "Baba Roti",
       summary: [
         { label: "Total Paid Sales", value: filteredSales.length },
         { label: "Total Revenue", value: ETB(totalRevenue) },
@@ -1107,7 +1107,7 @@ export default function CashSales() {
                                 type="button"
                                 onClick={() =>
                                   dispatchPrint('receipt', s, {
-                                    hotelName: "Baba Roti Café",
+                                    hotelName: "Baba Roti",
                                     taxRate: s.taxPercent || 15,
                                     isReprint: true,
                                   })

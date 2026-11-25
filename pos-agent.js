@@ -50,7 +50,11 @@ try {
   console.warn('[CONFIG] Failed to read agent-config.json, using defaults:', e.message);
 }
 
-const RESTAURANT_NAME = fileConfig.restaurantName || process.env.RESTAURANT_NAME || 'Baba Roti Café';
+const RESTAURANT_NAME = cleanHeaderName(fileConfig.restaurantName || process.env.RESTAURANT_NAME || 'Baba Roti');
+
+function cleanHeaderName(name) {
+  return String(name || 'Baba Roti').replace(/\s*caf[eé]?\b/gi, '').trim() || 'Baba Roti';
+}
 const CLOUD_URL = (
   process.argv[2] ||
   process.env.CLOUD_BACKEND_URL ||
@@ -245,7 +249,7 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
     const lines = [PCL_RESET + PCL_SETUP, ''];
 
     if (type === 'kot') {
-      const bName = opts.businessName || printer.headerLine1 || RESTAURANT_NAME;
+      const bName = cleanHeaderName(opts.businessName || printer.headerLine1 || RESTAURANT_NAME);
       const isAddon = Boolean(order.isAddon || opts.isAddon);
       const addonRound = order.addonRound || opts.addonRound || 2;
 
@@ -278,7 +282,7 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
       lines.push('='.repeat(W));
       lines.push(center('** PREPARE IMMEDIATELY **', W));
     } else {
-      const hName = opts.hotelName || printer.headerLine1 || RESTAURANT_NAME;
+      const hName = cleanHeaderName(opts.hotelName || printer.headerLine1 || RESTAURANT_NAME);
       const subtotal = (order.items || []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
       const grandTotal = order.grandTotal || subtotal;
       lines.push(center('='.repeat(W), W));
@@ -319,7 +323,7 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
   const chunks = [INIT, ALIGN_CENTER];
 
   if (type === 'kot') {
-    const bName = opts.businessName || printer.headerLine1 || RESTAURANT_NAME;
+    const bName = cleanHeaderName(opts.businessName || printer.headerLine1 || RESTAURANT_NAME);
     const isAddon = Boolean(order.isAddon || opts.isAddon);
     const addonRound = order.addonRound || opts.addonRound || 2;
 
@@ -366,7 +370,7 @@ function generatePrintBuffer(type, printer, order = {}, opts = {}) {
     });
     chunks.push(txt('='.repeat(W)), ALIGN_CENTER, BOLD_ON, txt('** PREPARE IMMEDIATELY **'), BOLD_OFF, ALIGN_LEFT);
   } else {
-    const hName = opts.hotelName || printer.headerLine1 || RESTAURANT_NAME;
+    const hName = cleanHeaderName(opts.hotelName || printer.headerLine1 || RESTAURANT_NAME);
     const subtotal = (order.items || []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
     const grandTotal = order.grandTotal || subtotal;
     chunks.push(DBL_ON, txt(hName.toUpperCase()), DBL_OFF, txt('* RECEIPT *'), ALIGN_LEFT);
