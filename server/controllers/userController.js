@@ -181,6 +181,14 @@ const updateUser = asyncHandler(async (req, res) => {
     details: { targetUserId: updated._id, name: updated.name, role: updated.role },
   });
 
+  // Sync changes directly into the Employee directory
+  try {
+    const { syncUserToEmployee } = require('../utils/employeeSync');
+    await syncUserToEmployee(updated);
+  } catch (syncErr) {
+    console.warn('[UpdateUser] Could not sync user to employee directory:', syncErr.message);
+  }
+
   res.json({
     _id: updated._id,
     name: updated.name,
@@ -246,6 +254,35 @@ const deleteUser = asyncHandler(async (req, res) => {
     description: `${req.user.name} deleted user account for ${user.name} (${user.email})`,
     details: { deletedUserId: user._id, name: user.name, role: user.role, email: user.email },
   });
+
+  // Deactivate corresponding Employee record in Employee directory
+  try {
+    const Employee = require('../models/Employee');
+    const { splitFullName } = require('../utils/employeeSync');
+    const { firstName, lastName } = splitFullName(user.name);
+    await Employee.updateMany(
+      {
+        $or: [
+          ...(user.email ? [{ email: user.email.toLowerCase().trim() }] : []),
+          ...(user.employeeId ? [{ employeeId: user.employeeId.trim() }] : []),
+          {
+            firstName: new RegExp(`^${firstName}$`, 'i'),
+            lastName: new RegExp(`^${lastName}$`, 'i'),
+          },
+        ],
+        deletedAt: null,
+      },
+      {
+        $set: {
+          deletedAt: new Date(),
+          deletedBy: req.user?.name || 'Administrator',
+          status: 'inactive',
+        },
+      }
+    );
+  } catch (syncErr) {
+    console.warn('[DeleteUser] Could not sync user deletion to employee directory:', syncErr.message);
+  }
 
   await user.deleteOne();
   res.json({ message: 'User removed and Telegram notifications stopped.' });

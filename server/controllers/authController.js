@@ -64,6 +64,14 @@ const registerUser = asyncHandler(async (req, res) => {
 
   tg.notifyUserCreated(user, req.user);
 
+  // Directly sync into Employee Directory
+  try {
+    const { syncUserToEmployee } = require('../utils/employeeSync');
+    await syncUserToEmployee(user);
+  } catch (syncErr) {
+    console.warn('[Register] Could not sync user to employee directory:', syncErr.message);
+  }
+
   logActivity(req, {
     action: 'REGISTER_USER',
     module: 'Users',
