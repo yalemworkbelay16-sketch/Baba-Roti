@@ -56,7 +56,7 @@ const posOrderSchema = new mongoose.Schema(
     grandTotal:      { type: Number, required: true, default: 0 },
     totalCOGS:       { type: Number, default: 0 },
 
-    paymentMethod:   { type: String, enum: ['Cash', 'Telebirr', 'Card', 'Credit', 'Other'], default: 'Cash' },
+    paymentMethod:   { type: String, enum: ['Cash', 'Telebirr', 'Payo', 'Card', 'Credit', 'Other'], default: 'Cash' },
     amountPaid:      { type: Number, default: 0 },
     changeDue:       { type: Number, default: 0 },
     paymentStatus:   { type: String, enum: ['paid', 'pending', 'voided'], default: 'paid' },

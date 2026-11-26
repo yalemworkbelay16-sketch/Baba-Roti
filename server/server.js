@@ -112,7 +112,12 @@ app.use(cors({
   origin: true, // Allow all valid web clients and origins safely
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
@@ -160,6 +165,7 @@ app.use('/api/activity-log', require('./routes/activityLogRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/pos', require('./routes/posRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/production', require('./routes/productionRoutes'));
 app.use('/api/captain-orders', require('./routes/captainOrderRoutes'));
 app.use('/api/printers', require('./routes/printerRoutes'));

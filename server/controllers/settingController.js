@@ -183,7 +183,55 @@ function buildSettingsDiff(before, after, body = {}) {
     }
   }
 
+  if (body.payoSettings !== undefined) {
+    const oPayo = before?.payoSettings || {};
+    const nPayo = after?.payoSettings || {};
+    const payoLabels = {
+      enabled: 'Payo Gateway Enabled',
+      enableInPos: 'Payo in POS Ordering',
+      enableInDigitalMenu: 'Payo in Digital Menu',
+      apiBaseUrl: 'Payo API Base URL',
+    };
+    for (const [k, label] of Object.entries(payoLabels)) {
+      if (JSON.stringify(oPayo[k]) !== JSON.stringify(nPayo[k])) {
+        changes.push({
+          label,
+          from: fmtSettingVal(oPayo[k]),
+          to: fmtSettingVal(nPayo[k]),
+        });
+      }
+    }
+    if ((oPayo.apiKey || '') !== (nPayo.apiKey || '')) {
+      changes.push({ label: 'Payo API Key', summary: 'Updated (hidden for security)' });
+    }
+    if ((oPayo.webhookSecret || '') !== (nPayo.webhookSecret || '')) {
+      changes.push({ label: 'Payo Webhook Secret', summary: 'Updated (hidden for security)' });
+    }
+  }
+
   return changes;
+}
+
+function sanitizeSettingsResponse(settingsDoc) {
+  const obj = settingsDoc?.toJSON ? settingsDoc.toJSON() : { ...(settingsDoc || {}) };
+  const payo = obj.payoSettings || {};
+  const rawKey = String(payo.apiKey || '').trim();
+  const envKey = String(process.env.PAYO_API_KEY || '').trim();
+  const effectiveKey = rawKey || envKey;
+  const rawSecret = String(payo.webhookSecret || '').trim();
+  obj.payoSettings = {
+    enabled: Boolean(payo.enabled),
+    enableInPos: payo.enableInPos !== false,
+    enableInDigitalMenu: payo.enableInDigitalMenu !== false,
+    apiBaseUrl: payo.apiBaseUrl || 'https://checkout.payment.et',
+    apiKeyConfigured: Boolean(effectiveKey),
+    apiKeySource: rawKey ? 'settings' : (envKey ? 'env' : 'none'),
+    apiKeyMasked: rawKey ? `${rawKey.slice(0, 8)}...${rawKey.slice(-4)}` : (envKey ? 'Configured via ENV' : ''),
+    webhookSecretConfigured: Boolean(rawSecret),
+    apiKey: '',
+    webhookSecret: '',
+  };
+  return obj;
 }
 
 const DEFAULT_NAV_VISIBILITY = {
@@ -394,7 +442,7 @@ const getSettings = asyncHandler(async (req, res) => {
     }
     if (modified) await settings.save();
   }
-  res.json(settings);
+  res.json(sanitizeSettingsResponse(settings));
 });
 
 // @desc   Update system settings
@@ -518,6 +566,38 @@ const updateSettings = asyncHandler(async (req, res) => {
     }
   }
 
+  // Payo (payment.et) Payment Gateway Configuration (Admin & System Developer only)
+  if (req.body.payoSettings !== undefined && typeof req.body.payoSettings === 'object') {
+    if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+      res.status(403);
+      throw new Error('Access denied: Payment gateway credentials can only be managed by Administrator or System Developer.');
+    }
+    const existingPayo = settings.payoSettings || {};
+    const incoming = req.body.payoSettings || {};
+    const nextPayo = {
+      enabled: incoming.enabled !== undefined ? Boolean(incoming.enabled) : Boolean(existingPayo.enabled),
+      enableInPos: incoming.enableInPos !== undefined ? Boolean(incoming.enableInPos) : (existingPayo.enableInPos !== false),
+      enableInDigitalMenu: incoming.enableInDigitalMenu !== undefined ? Boolean(incoming.enableInDigitalMenu) : (existingPayo.enableInDigitalMenu !== false),
+      apiBaseUrl: String(incoming.apiBaseUrl || existingPayo.apiBaseUrl || 'https://checkout.payment.et').trim().replace(/\/+$/, ''),
+      apiKey: existingPayo.apiKey || '',
+      webhookSecret: existingPayo.webhookSecret || '',
+    };
+    const submittedKey = String(incoming.apiKey || '').trim();
+    if (submittedKey && !submittedKey.includes('...')) {
+      nextPayo.apiKey = submittedKey;
+    } else if (incoming.clearApiKey === true) {
+      nextPayo.apiKey = '';
+    }
+    const submittedSecret = String(incoming.webhookSecret || '').trim();
+    if (submittedSecret && !submittedSecret.includes('...')) {
+      nextPayo.webhookSecret = submittedSecret;
+    } else if (incoming.clearWebhookSecret === true) {
+      nextPayo.webhookSecret = '';
+    }
+    settings.payoSettings = nextPayo;
+    settings.markModified('payoSettings');
+  }
+
   // Telegram Process Notifications & Security Settings (Restricted to Administrator & System Developer only)
   if (req.body.telegramNotificationSettings !== undefined && typeof req.body.telegramNotificationSettings === 'object') {
     if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
@@ -594,7 +674,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     });
   } catch (_) { }
 
-  res.json({ ...updated.toJSON(), rawMaterialsUpdated });
+  res.json({ ...sanitizeSettingsResponse(updated), rawMaterialsUpdated });
 });
 
 // @desc   Apply bulk % increase to ALL product selling prices

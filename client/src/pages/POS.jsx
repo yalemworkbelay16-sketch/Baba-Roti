@@ -128,12 +128,12 @@ export default function POS() {
       });
     }
   }, [user, selectedWaiter]);
-const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
-  if (!cfg?.enableServiceCharge) return 0;
-  if (cfg.autoApplyServiceChargeDineIn && type !== 'dine_in') return 0;
-  const rate = Number(cfg.serviceChargeRate);
-  return !isNaN(rate) && rate >= 0 ? rate : 10;
-};
+  const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
+    if (!cfg?.enableServiceCharge) return 0;
+    if (cfg.autoApplyServiceChargeDineIn && type !== 'dine_in') return 0;
+    const rate = Number(cfg.serviceChargeRate);
+    return !isNaN(rate) && rate >= 0 ? rate : 10;
+  };
 
   const [refreshingWaiters, setRefreshingWaiters] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -176,6 +176,39 @@ const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
 
   const [serviceChargePct, setServiceChargePct] = useState(() => getDefaultServiceChargePct(settings, orderType));
   const [serviceCharge, setServiceCharge] = useState(0);
+  const [payoSession, setPayoSession] = useState(null); // { reference, checkoutUrl, amount, orderNo, posOrderId, status }
+  const [payoChecking, setPayoChecking] = useState(false);
+
+  // Auto-poll active Payo POS checkout every 3.5s until verified by webhook/gateway
+  useEffect(() => {
+    if (!payoSession?.reference || payoSession.status === "approved") return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const r = await api.get(`/payments/payo/status/${encodeURIComponent(payoSession.reference)}`);
+        if (!cancelled && r.data?.status === "approved") {
+          showToast(`Payo payment verified for #${payoSession.orderNo}! Stock deducted.`);
+          setPayoSession(null);
+          setShowPayModal(false);
+          setItems([]);
+          setHeldOrderId(null);
+          setHeldOrderNo("");
+          setDiscountPct(0);
+          setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
+          setServiceCharge(0);
+          setCustomerName("");
+          setAmountPaid("");
+          setMobileCartOpen(false);
+          loadHeldOrders();
+        }
+      } catch (_) { }
+    };
+    const timer = setInterval(poll, 3500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [payoSession?.reference, payoSession?.status]);
   const [editingNoteIdx, setEditingNoteIdx] = useState(null);
   const [noteText, setNoteText] = useState("");
 
@@ -373,6 +406,7 @@ const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
             ? settRes.data.serviceChargePresets
             : [5, 10, 15],
           autoApplyServiceChargeDineIn: Boolean(settRes.data?.autoApplyServiceChargeDineIn),
+          payoEnabled: Boolean(settRes.data?.payoSettings?.enabled && settRes.data?.payoSettings?.enableInPos !== false && settRes.data?.payoSettings?.apiKeyConfigured),
         };
         setSettings(newSettings);
         try {
@@ -853,6 +887,23 @@ const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
         amountPaid: Number(amountPaid) || grandTotal,
         paymentStatus: "paid",
       };
+
+      if (payMethod === "Payo") {
+        const payoRes = await api.post("/payments/payo/pos-initiate", payload);
+        setPayoSession({
+          reference: payoRes.data.reference,
+          checkoutUrl: payoRes.data.checkoutUrl,
+          amount: payoRes.data.amount,
+          orderNo: payoRes.data.orderNo,
+          posOrderId: payoRes.data.posOrderId,
+          status: "pending",
+        });
+        showToast("Payo payment link generated! Waiting for transfer confirmation.", "info");
+        if (payoRes.data.checkoutUrl) {
+          window.open(payoRes.data.checkoutUrl, "_blank", "noopener,noreferrer");
+        }
+        return;
+      }
 
       const res = await api.post("/pos/orders", payload);
       const savedSale = res.data.order;
@@ -3068,14 +3119,15 @@ const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
             </div>
 
             {/* Payment Methods */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: settings.payoEnabled ? "repeat(4,1fr)" : "repeat(3,1fr)", gap: 8, marginBottom: 18 }}>
               {[
                 ["Cash", Banknote, "#059669"],
                 ["Telebirr", Smartphone, "#2563eb"],
+                ...(settings.payoEnabled ? [["Payo", Globe, "#7c3aed"]] : []),
                 ["Card", CreditCard, "#d97706"],
               ].map(([m, Icon, clr]) => {
                 const active = payMethod === m;
-                const localizedMethod = m === "Cash" ? t('pos.cash') : m === "Telebirr" ? t('pos.telebirr') : t('pos.card');
+                const localizedMethod = m === "Cash" ? t('pos.cash') : m === "Telebirr" ? t('pos.telebirr') : m === "Payo" ? "Payo" : t('pos.card');
                 return (
                   <button
                     key={m}
@@ -3150,28 +3202,118 @@ const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
               </div>
             )}
 
+            {/* Payo Active Payment Link Session */}
+            {payMethod === "Payo" && payoSession && (
+              <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "#f5f3ff", border: "1.5px solid #c4b5fd" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#5b21b6" }}>
+                    Payo Checkout #{payoSession.orderNo}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 99, background: "#ede9fe", color: "#6d28d9" }}>
+                    {payoSession.status === "approved" ? "PAID ✓" : "WAITING PAYMENT…"}
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: "#4c1d95", margin: "0 0 10px" }}>
+                  Ask guest to transfer <strong>{ETB(payoSession.amount)}</strong> via Payo link or scan on screen. Checking automatically…
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {payoSession.checkoutUrl && (
+                    <a
+                      href={payoSession.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ flex: 1, textAlign: "center", padding: "8px 10px", borderRadius: 8, background: "#7c3aed", color: "#fff", fontSize: 11, fontWeight: 800, textDecoration: "none" }}
+                    >
+                      Open Payo Checkout
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    disabled={payoChecking}
+                    onClick={async () => {
+                      setPayoChecking(true);
+                      try {
+                        const r = await api.get(`/payments/payo/status/${encodeURIComponent(payoSession.reference)}`);
+                        if (r.data?.status === "approved") {
+                          showToast(`Payo payment verified for #${payoSession.orderNo}!`);
+                          setPayoSession(null);
+                          setShowPayModal(false);
+                          setItems([]);
+                          setHeldOrderId(null);
+                          setHeldOrderNo("");
+                          setDiscountPct(0);
+                          setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
+                          setServiceCharge(0);
+                          loadHeldOrders();
+                        } else {
+                          showToast(`Status: ${r.data?.status || "pending"}`, "info");
+                        }
+                      } catch (_) {
+                        showToast("Failed to check Payo status", "error");
+                      } finally {
+                        setPayoChecking(false);
+                      }
+                    }}
+                    style={{ padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #c4b5fd", color: "#5b21b6", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                  >
+                    {payoChecking ? "Checking…" : "Verify Now"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={payoChecking}
+                    onClick={async () => {
+                      if (!window.confirm("Confirm guest completed bank transfer and finalize order now?")) return;
+                      setPayoChecking(true);
+                      try {
+                        await api.post(`/payments/payo/confirm/${encodeURIComponent(payoSession.reference)}`);
+                        showToast(`Order #${payoSession.orderNo} marked Paid via Payo!`);
+                        setPayoSession(null);
+                        setShowPayModal(false);
+                        setItems([]);
+                        setHeldOrderId(null);
+                        setHeldOrderNo("");
+                        setDiscountPct(0);
+                        setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
+                        setServiceCharge(0);
+                        loadHeldOrders();
+                      } catch (err) {
+                        showToast(err.response?.data?.message || "Failed to confirm payment", "error");
+                      } finally {
+                        setPayoChecking(false);
+                      }
+                    }}
+                    style={{ padding: "8px 10px", borderRadius: 8, background: "#059669", color: "#fff", border: "none", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                  >
+                    Mark Paid
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Confirm button */}
-            <button
-              type="button"
-              disabled={placing}
-              onClick={placeOrder}
-              style={{
-                width: "100%",
-                padding: 14,
-                background: placing ? "#cbd5e1" : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                border: "none",
-                borderRadius: 14,
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: 15,
-                cursor: placing ? "not-allowed" : "pointer",
-                letterSpacing: 0.3,
-                transition: "all 0.2s",
-                boxShadow: "0 6px 20px rgba(16,185,129,0.35)",
-              }}
-            >
-              {placing ? t('pos.processingSale') : (payMethod === 'Cash' ? t('pos.confirmCashSale') : payMethod === 'Telebirr' ? t('pos.confirmTelebirrSale') : t('pos.confirmCardSale'))}
-            </button>
+            {!(payMethod === "Payo" && payoSession) && (
+              <button
+                type="button"
+                disabled={placing}
+                onClick={placeOrder}
+                style={{
+                  width: "100%",
+                  padding: 14,
+                  background: placing ? "#cbd5e1" : payMethod === "Payo" ? "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)" : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  border: "none",
+                  borderRadius: 14,
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: 15,
+                  cursor: placing ? "not-allowed" : "pointer",
+                  letterSpacing: 0.3,
+                  transition: "all 0.2s",
+                  boxShadow: "0 6px 20px rgba(16,185,129,0.35)",
+                }}
+              >
+                {placing ? t('pos.processingSale') : (payMethod === 'Cash' ? t('pos.confirmCashSale') : payMethod === 'Telebirr' ? t('pos.confirmTelebirrSale') : payMethod === 'Payo' ? 'Generate Payo Payment Link' : t('pos.confirmCardSale'))}
+              </button>
+            )}
           </div>
         </div>
       )}

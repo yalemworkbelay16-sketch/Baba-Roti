@@ -906,6 +906,11 @@ const getPublicMenu = asyncHandler(async (req, res) => {
     taxRate: Number(settings?.taxRate ?? 15),
     enableServiceCharge: !!settings?.enableServiceCharge,
     serviceChargeRate: Number(settings?.serviceChargeRate ?? 10),
+    payoEnabled: Boolean(
+      settings?.payoSettings?.enabled &&
+      settings?.payoSettings?.enableInDigitalMenu !== false &&
+      (settings?.payoSettings?.apiKey || process.env.PAYO_API_KEY)
+    ),
     digitalMenuSettings: settings?.digitalMenuSettings || {},
     categories,
     products: enrichedProducts,

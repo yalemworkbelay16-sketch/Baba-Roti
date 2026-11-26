@@ -100,6 +100,18 @@ const settingSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+    // Payo (payment.et) Online Payment Gateway Configuration (API Key stored server-side)
+    payoSettings: {
+      type: Object,
+      default: {
+        enabled: false,
+        enableInPos: true,
+        enableInDigitalMenu: true,
+        apiBaseUrl: 'https://checkout.payment.et',
+        apiKey: '',
+        webhookSecret: '',
+      },
+    },
     // Granular process notifications and security controls
     telegramNotificationSettings: {
       type: Object,
