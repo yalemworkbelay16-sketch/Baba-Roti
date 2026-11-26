@@ -420,20 +420,21 @@ const requestOtp = asyncHandler(async (req, res) => {
   await user.save();
 
   // ── Send OTP to the staff member's exact Telegram chat ───────────
-  const staffDisplayName = user?.name || matchedSub?.name || 'Staff Member';
+  const rawDisplayName = user?.name || matchedSub?.name || 'Baba Roti';
+  const staffDisplayName = String(rawDisplayName)
+    .replace(/Baba\s*Roti\s*Caf[eé]?\s*Admin/gi, 'Baba Roti')
+    .replace(/\s*Caf[eé]/gi, '')
+    .trim() || 'Baba Roti';
+
   sendTelegramDirect(recipientChatId,
-    `🏨 <b>Baba Roti</b>
-━━━━━━━━━━━━━━━━━━━━
-🔐 <b>Staff Login OTP Code</b>
+    `🔐 <b>Baba Roti — Login Code</b>
 
-Hello <b>${staffDisplayName}</b>,
-Your one-time login verification code is:
+Hello <b>${staffDisplayName}</b> 👋
 
-<b>🔢 ${otp}</b>
+Your verification code:  <code>${otp}</code>
+<i>(Tap code to copy · Valid for 5 minutes)</i>
 
-⏱ Valid for <b>5 minutes</b>.
-Do not share this code with anyone.
-━━━━━━━━━━━━━━━━━━━━`
+⚠️ <i>Do not share this code with anyone.</i>`
   );
 
   res.json({

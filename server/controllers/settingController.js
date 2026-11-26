@@ -5,34 +5,34 @@ const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
 
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard:     { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  pos:           { storekeeper: true,  cashier: true,  waiter: true,  fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  captainOrder:  { storekeeper: true,  cashier: true,  waiter: true,  fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  cashSales:     { storekeeper: true,  cashier: true,  waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  rawMaterials:  { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  mainStore:     { storekeeper: true,  cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  kitchenStore:  { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  barStore:      { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  stationMapping:{ storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  products:      { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  stockMovements:{ storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  suppliers:     { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  consumption:   { storekeeper: true,  cashier: false, waiter: true,  fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  production:    { storekeeper: true,  cashier: false, waiter: false, fb_team: true,  supervisor: true,  manager: true,  admin: true },
-  reports:       { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  expenses:      { storekeeper: true,  cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
-  analytics:     { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: true,  admin: true },
+  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
+  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
+  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
+  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: true, admin: true },
   staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
 };
 
 const DEFAULT_CRUD_PERMISSIONS = {
-  rawMaterials:   { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  products:       { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  suppliers:      { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  expenses:       { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  rawMaterials: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  products: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  suppliers: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  expenses: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
   stockMovements: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  purchases:      { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  employees:      { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  purchases: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  employees: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
 };
 
 // @desc   Get system settings (creates default if none exists)
@@ -346,7 +346,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       status: 'success',
       details: { rawMaterialsUpdated },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ ...updated.toJSON(), rawMaterialsUpdated });
 });
@@ -587,7 +587,7 @@ const applyStationCategoryMapping = asyncHandler(async (req, res) => {
       status: 'success',
       details: { updatedCount, totalMaterials: materials.length },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ success: true, count: materials.length, updatedCount });
 });
