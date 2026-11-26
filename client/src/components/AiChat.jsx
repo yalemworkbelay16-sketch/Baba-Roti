@@ -447,25 +447,26 @@ export default function AiChat() {
         }
       `}</style>
 
-      {/* ── Floating trigger button ── */}
+      {/* ── Floating trigger button (sits neatly above MobileBottomNav on phones) ── */}
       {!open && (
         <button
           onClick={handleOpen}
-          className="fixed bottom-6 right-6 z-[998] flex items-center gap-2.5 rounded-2xl shadow-2xl px-4 py-3 text-white font-bold text-sm transition-all hover:scale-105 active:scale-95"
+          className="fixed bottom-[76px] right-3 lg:bottom-6 lg:right-6 z-30 flex items-center gap-1.5 lg:gap-2.5 rounded-full lg:rounded-2xl shadow-lg lg:shadow-2xl px-3 py-2 lg:px-4 lg:py-3 text-white font-bold text-xs lg:text-sm transition-all hover:scale-105 active:scale-95 border border-white/20"
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 60%, #1a56db 100%)' }}
           title="Open MEGA Assistant"
         >
           <div className="relative">
-            <Bot size={18} />
+            <Bot size={16} className="lg:w-[18px] lg:h-[18px]" />
             {unread > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black">
                 {unread}
               </span>
             )}
           </div>
-          <span>Ask MEGA</span>
+          <span className="lg:hidden">MEGA</span>
+          <span className="hidden lg:inline">Ask MEGA</span>
           {analyzed && (
-            <span className={`text-xs font-normal opacity-80`}>
+            <span className="hidden lg:inline text-xs font-normal opacity-80">
               · Score {analyzed.score}/100
             </span>
           )}
@@ -475,10 +476,10 @@ export default function AiChat() {
       {/* ── Chat panel ── */}
       {open && (
         <div
-          className={`fixed right-6 z-[999] flex flex-col rounded-3xl overflow-hidden shadow-2xl border border-white/20 transition-all duration-300 ${minimized ? 'bottom-6 h-14 w-80' : 'bottom-6 w-[390px]'
+          className={`fixed inset-x-2 bottom-[76px] lg:inset-x-auto lg:right-6 lg:bottom-6 z-[999] flex flex-col rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl border border-white/20 transition-all duration-300 ${minimized ? 'h-14 w-auto lg:w-80' : 'lg:w-[390px] max-h-[calc(100dvh-6.25rem)]'
             }`}
           style={{
-            height: minimized ? 56 : 580,
+            height: minimized ? 56 : 'min(580px, calc(100dvh - 6.25rem))',
             animation: 'megaSlideUp 0.25s ease-out',
             background: 'linear-gradient(180deg, #fafbff 0%, #ffffff 100%)',
           }}

@@ -682,11 +682,11 @@ export default function Consumption() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
         <div>
-          <h1 className="text-xl font-bold text-ink-900">Consumption Management</h1>
-          <p className="text-xs text-ink-400 mt-0.5">
-            Staff meals, guest entertainment & internal consumption — tracked & costed
+          <h1 className="hidden lg:block text-xl font-bold text-ink-900">Consumption Management</h1>
+          <p className="text-xs text-ink-500">
+            Staff meals, guest entertainment &amp; internal consumption — tracked &amp; costed
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -708,28 +708,28 @@ export default function Consumption() {
             <button
               type="button"
               onClick={() => openAllowedMealsModal()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 text-xs sm:text-sm font-bold text-indigo-700 shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 text-xs sm:text-sm font-bold text-indigo-700 shadow-2xs transition cursor-pointer"
               title="Assign allowed staff meals per employee (Admin & System Developer only)"
             >
-              <UtensilsCrossed size={16} /> Set Allowed Meals
+              <UtensilsCrossed size={15} /> Set Allowed Meals
             </button>
           )}
           {canCreate && (
             <button
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition"
+              className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition"
             >
-              <Plus size={16} /> New Consumption
+              <Plus size={15} /> New Consumption
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Category filter tabs with counts ── */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-100 bg-white p-3 shadow-2xs">
+      {/* ── Category filter tabs with counts (compact scrollable row on phones) ── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap rounded-xl border border-ink-100 bg-white p-2 sm:p-3 shadow-2xs">
         <button
           onClick={() => { setFilterCat(''); }}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${!filterCat
+          className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${!filterCat
             ? 'bg-blue-900 text-white shadow-xs'
             : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
@@ -747,7 +747,7 @@ export default function Consumption() {
           return (
             <button key={cat.key}
               onClick={() => setFilterCat(isActive ? '' : cat.key)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
+              className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
                 }`}
             >
               <Icon size={12} className={isActive ? 'text-white' : ''} />
@@ -763,17 +763,17 @@ export default function Consumption() {
 
       {/* ── Search ── */}
       <div className="flex items-center gap-2">
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-300" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search voucher, beneficiary…"
-            className="rounded-lg border border-ink-200 py-2 pl-8 pr-3 text-sm outline-none focus:border-blue-500 w-52"
+            className="w-full sm:w-60 rounded-lg border border-ink-200 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-blue-500"
           />
         </div>
         <button onClick={load} disabled={loading}
-          className="rounded-lg border border-ink-200 p-2 text-ink-500 hover:bg-ink-50 transition">
+          className="rounded-lg border border-ink-200 bg-white p-2 text-ink-500 hover:bg-ink-50 transition shrink-0">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -786,9 +786,105 @@ export default function Consumption() {
         </div>
       )}
 
-      {/* ── Table ── */}
+      {/* ── Mobile Card List (< md) & Desktop Table (>= md) ── */}
       <div className="overflow-hidden rounded-xl border border-blue-200/70 bg-white shadow-soft">
-        <div className="overflow-x-auto">
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-ink-100">
+          {loading && (
+            <div className="px-4 py-10 text-center text-ink-400 text-sm">
+              <RefreshCw size={16} className="inline animate-spin mr-2" />Loading…
+            </div>
+          )}
+          {!loading && filtered.length === 0 && (
+            <div className="px-4 py-12 text-center text-ink-400 text-sm">
+              No consumption records found. {canCreate && <span className="text-blue-600 font-semibold cursor-pointer hover:underline" onClick={openCreate}>Add the first one →</span>}
+            </div>
+          )}
+          {!loading && paginated.map(r => {
+            const cat = catByKey[r.category] || CATEGORIES[0];
+            const CatIcon = cat.icon;
+            return (
+              <div key={r._id} ref={setRowRef(r)} className={rowClass(r, 'p-3.5 space-y-2.5 transition-colors')}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-blue-700">{r.voucherNo || '—'}</span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cat.color}`}>
+                        <CatIcon size={10} /> {cat.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ink-400 mt-0.5">{new Date(r.date).toLocaleString()}</p>
+                  </div>
+                  <div className="shrink-0">
+                    {r.category === 'staff_meal' && r.status === 'approved' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full font-bold px-2 py-0.5 text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-800">
+                        <CheckCircle size={10} className="text-emerald-600" /> Auto-Approved
+                      </span>
+                    ) : (
+                      <WorkflowBadge status={r.status} size="sm" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-xs bg-slate-50/80 rounded-lg px-2.5 py-2 border border-slate-100">
+                  <div className="min-w-0">
+                    <span className="text-ink-400 text-[10px] block">Beneficiary &amp; Pax</span>
+                    <span className="font-semibold text-ink-800 truncate block">
+                      {r.beneficiary || '—'} <span className="text-ink-400 font-normal">({r.pax || 1} pax)</span>
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-ink-400 text-[10px] block">Recipe Cost</span>
+                    <span className="font-bold text-ink-900 tabular-nums">{etb(r.totalRecipeCost)}</span>
+                  </div>
+                </div>
+
+                {(r.items || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {r.items.map((item, i) => (
+                      <span key={i} className="inline-flex items-center rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                        {item.product?.name || '—'} <span className="ml-1 text-blue-400">×{item.quantity}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[11px] text-ink-400 truncate">By: {r.performedBy?.name || '—'}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => { setDetailRecord(r); setDetailOpen(true); }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                    >
+                      <Eye size={12} /> View
+                    </button>
+                    {canCreate && r.status === 'pending' && (
+                      <button onClick={() => openEdit(r)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white">
+                        <Pencil size={11} /> Edit
+                      </button>
+                    )}
+                    {canApprove && r.status === 'pending' && (
+                      <button onClick={() => openAction(r, 'approve')}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">
+                        <CheckCircle size={11} /> Approve
+                      </button>
+                    )}
+                    {canVoid && ['pending', 'approved'].includes(r.status) && (
+                      <button onClick={() => openAction(r, 'void')}
+                        className="inline-flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-2 py-1 text-xs font-semibold text-red-600">
+                        <Ban size={11} /> Void
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)' }}>
               <tr>
@@ -1078,10 +1174,10 @@ export default function Consumption() {
                 </div>
               ) : (
                 <div className={`p-3 rounded-xl border text-xs font-semibold mb-2.5 transition-all ${isDailyQuotaReached
-                    ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs'
-                    : allowedProductIds && allowedProductIds.size > 0
-                      ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
-                      : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                  ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs'
+                  : allowedProductIds && allowedProductIds.size > 0
+                    ? 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-2xs'
+                    : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                   }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0">
@@ -1106,8 +1202,8 @@ export default function Consumption() {
                         {/* Daily Limit Tracker Badge */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${isDailyQuotaReached
-                              ? 'bg-rose-200 text-rose-950'
-                              : 'bg-emerald-100 text-emerald-900'
+                            ? 'bg-rose-200 text-rose-950'
+                            : 'bg-emerald-100 text-emerald-900'
                             }`}>
                             <Clock size={11} />
                             Daily Quota: {todayEmployeeConsumption.totalPortions} / {dailyMealLimit} portion(s) ordered today
@@ -1457,8 +1553,8 @@ export default function Consumption() {
                     type="button"
                     onClick={() => setQuotaDailyMealLimit(cnt)}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${quotaDailyMealLimit === cnt
-                        ? 'bg-indigo-600 text-white shadow-2xs'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                       }`}
                   >
                     {cnt} / day

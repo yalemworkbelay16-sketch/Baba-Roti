@@ -1653,7 +1653,7 @@ const NotificationBell = () => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-ink-100 bg-white shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden">
+        <div className="fixed left-2 right-2 top-14 sm:left-auto sm:top-auto sm:absolute sm:right-0 sm:mt-2 sm:w-80 rounded-2xl border border-ink-100 bg-white shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink-100 bg-ink-50/60">
             <div className="flex items-center gap-2">
@@ -1790,27 +1790,28 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
 
       <header
-        className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200/60 px-4 py-3 backdrop-blur-md shadow-sm sm:px-8"
-        style={{ background: 'rgba(255,255,255,0.85)' }}
+        className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200/60 px-2.5 py-2 backdrop-blur-md shadow-sm sm:px-8 sm:py-3"
+        style={{ background: 'rgba(255,255,255,0.88)' }}
       >
         {/* Left: menu toggle + title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             onClick={onMenuClick}
-            className="rounded-md p-1.5 text-ink-500 hover:bg-ink-50 lg:hidden"
+            className="rounded-md p-1.5 text-ink-500 hover:bg-ink-50 lg:hidden shrink-0"
+            aria-label="Open menu"
           >
-            <Menu size={22} />
+            <Menu size={20} />
           </button>
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center rounded-md p-1.5 text-ink-500 hover:bg-ink-100 transition"
+            className="hidden lg:flex items-center justify-center rounded-md p-1.5 text-ink-500 hover:bg-ink-100 transition shrink-0"
             title="Toggle sidebar"
           >
             <Menu size={22} />
           </button>
-          <div>
-            <p className="text-xl font-bold text-ink-900">{title}</p>
-            <p className="text-xs text-ink-500">
+          <div className="min-w-0">
+            <p className="text-sm sm:text-xl font-bold text-ink-900 truncate">{title}</p>
+            <p className="hidden sm:block text-xs text-ink-500 truncate">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
               })}
@@ -1819,7 +1820,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
         </div>
 
         {/* Right: session indicator + notifications + user menu */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Session timeout indicator */}
           <div
             onClick={() => setMenuOpen(v => !v)}
@@ -1833,30 +1834,32 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
             </span>
           </div>
 
-          {/* Dual Language Switcher (EN | አማርኛ) - Crystal clear active indicator */}
-          <div className="flex items-center rounded-full border border-ink-200/90 bg-white p-0.5 text-xs font-bold shadow-xs select-none">
+          {/* Dual Language Switcher (EN | አማርኛ) - Compact on phones */}
+          <div className="flex items-center rounded-full border border-ink-200/90 bg-white p-0.5 text-[11px] sm:text-xs font-bold shadow-xs select-none shrink-0">
             <button
               type="button"
               onClick={() => setLanguage('en')}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${!isAmharic
+              className={`flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 transition-all ${!isAmharic
                 ? 'bg-blue-600 text-white shadow-xs font-extrabold'
                 : 'text-ink-500 hover:text-ink-900'
                 }`}
               title="Switch to English"
             >
               <Globe size={11} className={!isAmharic ? 'text-white' : 'text-blue-600'} />
-              <span>English</span>
+              <span className="hidden sm:inline">English</span>
+              <span className="sm:hidden">EN</span>
             </button>
             <button
               type="button"
               onClick={() => setLanguage('am')}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 transition-all ${isAmharic
+              className={`flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 transition-all ${isAmharic
                 ? 'bg-blue-600 text-white shadow-xs font-extrabold'
                 : 'text-ink-500 hover:text-ink-900'
                 }`}
               title="ወደ አማርኛ ቀይር"
             >
-              <span>አማርኛ</span>
+              <span className="hidden sm:inline">አማርኛ</span>
+              <span className="sm:hidden">አማ</span>
             </button>
           </div>
 
@@ -1864,15 +1867,15 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
           <NotificationBell />
 
           {/* User menu */}
-          <div className="relative" ref={menuRef}>
+          <div className="relative shrink-0" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="flex items-center gap-2.5 rounded-full border border-ink-200/80 bg-white py-1 pl-1 pr-3 shadow-xs hover:border-ink-300 hover:bg-ink-50/60 transition"
+              className="flex items-center gap-1.5 sm:gap-2.5 rounded-full border border-ink-200/80 bg-white py-0.5 pl-0.5 pr-1.5 sm:py-1 sm:pl-1 sm:pr-3 shadow-xs hover:border-ink-300 hover:bg-ink-50/60 transition"
             >
               {user?.avatar ? (
-                <img src={user.avatar} alt={user?.name} className="h-8 w-8 rounded-full object-cover ring-1 ring-ink-200" />
+                <img src={user.avatar} alt={user?.name} className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover ring-1 ring-ink-200" />
               ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-xs">
+                <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-xs">
                   {user?.name?.[0]?.toUpperCase()}
                 </span>
               )}
@@ -1880,7 +1883,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                 <p className="text-xs font-semibold leading-tight text-ink-800">{user?.name}</p>
                 <p className="text-[10px] leading-none text-ink-400">{roleDisplayName}</p>
               </div>
-              <ChevronDown size={14} className={`text-ink-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={13} className={`text-ink-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {menuOpen && (

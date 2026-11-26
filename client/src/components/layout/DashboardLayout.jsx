@@ -75,7 +75,7 @@ const DashboardLayout = () => {
           </main>
         ) : (
           <main
-            className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 flex flex-col justify-between pb-24 lg:pb-6"
+            className="flex-1 overflow-y-auto px-3 py-4 sm:px-8 sm:py-6 flex flex-col justify-between pb-32 lg:pb-6"
             style={{ background: 'linear-gradient(135deg, #f0f4ff 0%, #f8faff 50%, #ffffff 100%)' }}
           >
             <div>

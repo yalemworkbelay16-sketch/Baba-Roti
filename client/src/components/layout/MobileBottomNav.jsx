@@ -6,6 +6,7 @@ import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 
 /**
  * MobileBottomNav
@@ -113,7 +114,7 @@ export default function MobileBottomNav({ onOpenMenu }) {
           className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-rose-600 font-medium transition-all duration-200 cursor-pointer"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors">
-            <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
+            <LogoutRoundedIcon sx={{ fontSize: 20 }} />
           </span>
           <span className="text-[10px] tracking-tight mt-0.5">Logout</span>
         </button>

@@ -77,9 +77,10 @@ export default function useHighlightRow({
   useEffect(() => {
     if (!activeId) return;
     const scrollTimer = setTimeout(() => {
-      const el = rowRefs.current.get(String(activeId));
-      if (el && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const candidates = rowRefs.current.get(String(activeId)) || [];
+      const visibleEl = candidates.find((el) => el && el.offsetParent !== null) || candidates[0];
+      if (visibleEl && typeof visibleEl.scrollIntoView === 'function') {
+        visibleEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 150);
     const clearTimer = setTimeout(() => {
@@ -95,8 +96,16 @@ export default function useHighlightRow({
   const setRowRef = useCallback((item) => (el) => {
     const id = item?._id ? String(item._id) : '';
     if (!id) return;
-    if (el) rowRefs.current.set(id, el);
-    else rowRefs.current.delete(id);
+    const prev = rowRefs.current.get(id) || [];
+    if (el) {
+      if (!prev.includes(el)) {
+        rowRefs.current.set(id, [...prev, el]);
+      }
+    } else {
+      const cleaned = prev.filter((node) => node && node.isConnected);
+      if (cleaned.length > 0) rowRefs.current.set(id, cleaned);
+      else rowRefs.current.delete(id);
+    }
   }, []);
 
   const rowClass = useCallback(
