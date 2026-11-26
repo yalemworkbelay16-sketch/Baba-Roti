@@ -2933,8 +2933,8 @@ export default function Settings() {
                                 type="button"
                                 onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase transition cursor-pointer shadow-2xs ${isProcessAllowed
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                                    : 'bg-ink-100 text-ink-500 border border-ink-200 hover:bg-ink-200'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                  : 'bg-ink-100 text-ink-500 border border-ink-200 hover:bg-ink-200'
                                   }`}
                                 title={`Click to ${isProcessAllowed ? 'disable' : 'allow'} this process`}
                               >
@@ -2957,12 +2957,12 @@ export default function Settings() {
                                     disabled={!isProcessAllowed}
                                     onClick={() => toggleRole(r.key)}
                                     className={`inline-flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-lg border transition cursor-pointer ${!isProcessAllowed
-                                        ? 'opacity-30 border-ink-200 bg-ink-50 cursor-not-allowed'
-                                        : active
-                                          ? isWaiter
-                                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs hover:bg-purple-700'
-                                            : 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
-                                          : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
+                                      ? 'opacity-30 border-ink-200 bg-ink-50 cursor-not-allowed'
+                                      : active
+                                        ? isWaiter
+                                          ? 'bg-purple-600 text-white border-purple-600 shadow-2xs hover:bg-purple-700'
+                                          : 'bg-blue-600 text-white border-blue-600 shadow-2xs hover:bg-blue-700'
+                                        : 'bg-white text-ink-300 border-ink-200 hover:border-blue-400 hover:bg-blue-50/40'
                                       }`}
                                     title={
                                       !isProcessAllowed
@@ -3009,8 +3009,8 @@ export default function Settings() {
                       <div
                         key={item.key}
                         className={`p-3.5 rounded-xl border transition ${isProcessAllowed
-                            ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
-                            : 'bg-ink-50/70 border-ink-100 opacity-60'
+                          ? 'bg-white border-ink-200 shadow-2xs hover:border-blue-300'
+                          : 'bg-ink-50/70 border-ink-100 opacity-60'
                           }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -3028,8 +3028,8 @@ export default function Settings() {
                             type="button"
                             onClick={() => setTgNotifSettings((prev) => ({ ...prev, [item.key]: prev[item.key] === false ? true : false }))}
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase shrink-0 cursor-pointer transition ${isProcessAllowed
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
-                                : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200'
+                              : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
                               }`}
                           >
                             {isProcessAllowed ? 'Allowed' : 'Disabled'}
@@ -3127,8 +3127,8 @@ export default function Settings() {
                                     type="button"
                                     onClick={() => toggleRole(r.key)}
                                     className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${active
-                                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                                        : 'bg-white text-ink-600 border-ink-200 hover:bg-slate-50'
+                                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                      : 'bg-white text-ink-600 border-ink-200 hover:bg-slate-50'
                                       }`}
                                   >
                                     <span>{r.icon}</span>
@@ -4397,8 +4397,35 @@ export default function Settings() {
       {/* ── Tab: Service Charge ── */}
       {currentTab === 'serviceCharge' && (() => {
         const presets = Array.isArray(systemForm.serviceChargePresets) && systemForm.serviceChargePresets.length > 0
+        const rawPresets = Array.isArray(systemForm.serviceChargePresets) && systemForm.serviceChargePresets.length > 0
           ? systemForm.serviceChargePresets
           : [5, 10, 15];
+          : [10];
+        const currentRate = Number(systemForm.serviceChargeRate) || 0;
+        // Always keep configured default rate visible in preset buttons when > 0
+        const presets = Array.from(new Set([
+          ...rawPresets,
+          ...(currentRate > 0 ? [currentRate] : []),
+        ])).sort((a, b) => a - b);
+
+        const handleDefaultRateChange = (val) => {
+          if (val === '') {
+            setSystemForm({ ...systemForm, serviceChargeRate: '' });
+            return;
+          }
+          const num = Math.min(100, Math.max(0, Number(val) || 0));
+          const prevRate = Number(systemForm.serviceChargeRate) || 0;
+          // If presets only had the old default (or default was in presets), keep the new default visible
+          const nextPresets = Array.from(new Set([
+            ...(Array.isArray(systemForm.serviceChargePresets) ? systemForm.serviceChargePresets : []).filter((p) => p !== prevRate || p === num),
+            ...(num > 0 ? [num] : []),
+          ])).sort((a, b) => a - b);
+          setSystemForm({
+            ...systemForm,
+            serviceChargeRate: num,
+            serviceChargePresets: nextPresets.length > 0 ? nextPresets : [10],
+          });
+        };
 
         const handlePresetsChange = (str) => {
           const arr = str
@@ -4406,25 +4433,32 @@ export default function Settings() {
             .map((s) => Number(s.trim()))
             .filter((n) => !isNaN(n) && n > 0 && n <= 100);
           setSystemForm({ ...systemForm, serviceChargePresets: arr });
+          setSystemForm({ ...systemForm, serviceChargePresets: Array.from(new Set(arr)).sort((a, b) => a - b) });
         };
 
         const togglePreset = (num) => {
           let next;
           if (presets.includes(num)) {
             next = presets.filter((p) => p !== num);
+          if (rawPresets.includes(num)) {
+            next = rawPresets.filter((p) => p !== num);
           } else {
             next = [...presets, num].sort((a, b) => a - b);
+            next = [...rawPresets, num].sort((a, b) => a - b);
           }
           if (next.length === 0) next = [10];
+          if (next.length === 0) next = [currentRate > 0 ? currentRate : 10];
           setSystemForm({ ...systemForm, serviceChargePresets: next });
         };
 
         // Live calculation sample
         const sampleSubtotal = 250;
         const currentRate = systemForm.serviceChargeRate || 10;
+        const effectiveRate = currentRate > 0 ? currentRate : 10;
         const sampleTax = Math.round((sampleSubtotal * (systemForm.taxRate || 15)) / 100 * 100) / 100;
         const sampleSvc = systemForm.enableServiceCharge
           ? Math.round((sampleSubtotal * currentRate) / 100 * 100) / 100
+          ? Math.round((sampleSubtotal * effectiveRate) / 100 * 100) / 100
           : 0;
         const sampleTotal = sampleSubtotal + sampleTax + sampleSvc;
 
@@ -4497,6 +4531,7 @@ export default function Settings() {
                         max={100}
                         value={systemForm.serviceChargeRate}
                         onChange={(e) => setSystemForm({ ...systemForm, serviceChargeRate: Number(e.target.value) })}
+                        onChange={(e) => handleDefaultRateChange(e.target.value)}
                         className="w-full rounded-xl border border-ink-200 py-2.5 pl-3.5 pr-10 text-sm font-semibold text-ink-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         placeholder="10"
                       />
@@ -4528,21 +4563,38 @@ export default function Settings() {
                   <span className="text-xs font-semibold text-ink-600 block mb-2">
                     Click to quickly toggle popular percentage buttons:
                   </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-semibold text-ink-600">
+                      Click to quickly toggle popular percentage buttons:
+                    </span>
+                    {currentRate > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSystemForm({ ...systemForm, serviceChargePresets: [currentRate] })}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                      >
+                        Show only default ({currentRate}%) in POS
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {[5, 8, 10, 12, 15, 18, 20].map((rate) => {
                       const isIncluded = presets.includes(rate);
+                      const isDefault = rate === currentRate;
                       return (
                         <button
                           key={rate}
                           type="button"
                           onClick={() => togglePreset(rate)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${isIncluded
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${isIncluded
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                             }`}
                         >
                           {isIncluded && <Check size={13} />}
                           {rate}%
+                          {rate}%{isDefault ? ' (Default)' : ''}
                         </button>
                       );
                     })}

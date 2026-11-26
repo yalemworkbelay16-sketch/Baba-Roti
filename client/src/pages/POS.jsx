@@ -128,13 +128,16 @@ export default function POS() {
       });
     }
   }, [user, selectedWaiter]);
+const getDefaultServiceChargePct = (cfg, type = 'dine_in') => {
+  if (!cfg?.enableServiceCharge) return 0;
+  if (cfg.autoApplyServiceChargeDineIn && type !== 'dine_in') return 0;
+  const rate = Number(cfg.serviceChargeRate);
+  return !isNaN(rate) && rate >= 0 ? rate : 10;
+};
+
   const [refreshingWaiters, setRefreshingWaiters] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [discountPct, setDiscountPct] = useState(0);
-  const [serviceChargePct, setServiceChargePct] = useState(0);
-  const [serviceCharge, setServiceCharge] = useState(0);
-  const [editingNoteIdx, setEditingNoteIdx] = useState(null);
-  const [noteText, setNoteText] = useState("");
 
   // If we have cached products, start with loading=false so the UI appears instantly
   const [loading, setLoading] = useState(() => {
@@ -170,6 +173,11 @@ export default function POS() {
       };
     }
   });
+
+  const [serviceChargePct, setServiceChargePct] = useState(() => getDefaultServiceChargePct(settings, orderType));
+  const [serviceCharge, setServiceCharge] = useState(0);
+  const [editingNoteIdx, setEditingNoteIdx] = useState(null);
+  const [noteText, setNoteText] = useState("");
 
   const [searchQ, setSearchQ] = useState("");
 
@@ -371,10 +379,12 @@ export default function POS() {
           localStorage.setItem("baba_roti_pos_settings_cache", JSON.stringify(newSettings));
         } catch (_) { }
 
-        // Auto-initialize service charge if enabled and not already explicitly set
-        if (newSettings.enableServiceCharge && serviceChargePct === 0) {
+        // Auto-initialize / sync service charge default when settings load (if not editing a held order)
+        if (!heldOrderId && items.length === 0) {
+          setServiceChargePct(getDefaultServiceChargePct(newSettings, orderType));
+        } else if (newSettings.enableServiceCharge && serviceChargePct === 0) {
           if (!newSettings.autoApplyServiceChargeDineIn || orderType === 'dine_in') {
-            setServiceChargePct(newSettings.serviceChargeRate || 10);
+            setServiceChargePct(Number(newSettings.serviceChargeRate ?? 10));
           }
         }
       }
@@ -696,7 +706,7 @@ export default function POS() {
     setSelectedWaiter(null);
     setCustomerName("");
     setDiscountPct(0);
-    setServiceChargePct(0);
+    setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
     setServiceCharge(0);
     showToast("Cart cleared. Ready for next order.", "info");
   };
@@ -795,7 +805,7 @@ export default function POS() {
       setHeldOrderOriginalItems([]);
       setItems([]);
       setDiscountPct(0);
-      setServiceChargePct(0);
+      setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
       setServiceCharge(0);
       setCustomerName("");
       setMobileCartOpen(false);
@@ -872,7 +882,7 @@ export default function POS() {
       setHeldOrderNo("");
       setItems([]);
       setDiscountPct(0);
-      setServiceChargePct(0);
+      setServiceChargePct(getDefaultServiceChargePct(settings, orderType));
       setServiceCharge(0);
       setCustomerName("");
       setAmountPaid("");
@@ -1090,8 +1100,9 @@ export default function POS() {
                     setOrderType(val);
                     if (val !== "dine_in") {
                       setSelectedTable("");
-                    } else if (settings?.autoApplyServiceChargeDineIn && settings?.enableServiceCharge && serviceChargePct === 0) {
-                      setServiceChargePct(settings.serviceChargeRate || 10);
+                    }
+                    if (!heldOrderId) {
+                      setServiceChargePct(getDefaultServiceChargePct(settings, val));
                     }
                   }}
                   style={{
@@ -1987,14 +1998,20 @@ export default function POS() {
               </div>
             </div>
 
-            {/* Service Charge selector - matching discount mode exactly */}
+            {/* Service Charge selector - highlights configured default when enabled */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
                 {t('pos.serviceCharge')}
               </span>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {Array.from(new Set([0, ...(settings.serviceChargePresets || [5, 10, 15]), ...(serviceChargePct > 0 ? [serviceChargePct] : [])])).sort((a, b) => a - b).map((s) => {
+                {Array.from(new Set([
+                  0,
+                  ...(settings.serviceChargePresets || [5, 10, 15]),
+                  ...(settings.enableServiceCharge && Number(settings.serviceChargeRate) > 0 ? [Number(settings.serviceChargeRate)] : []),
+                  ...(serviceChargePct > 0 ? [serviceChargePct] : []),
+                ])).sort((a, b) => a - b).map((s) => {
                   const active = serviceChargePct === s;
+                  const isDefaultRate = settings.enableServiceCharge && s > 0 && s === Number(settings.serviceChargeRate);
                   return (
                     <button
                       key={s}
@@ -2003,12 +2020,13 @@ export default function POS() {
                         setServiceChargePct(s);
                         if (s === 0) setServiceCharge(0);
                       }}
+                      title={isDefaultRate ? `System Default (${s}%)` : undefined}
                       style={{
                         padding: "3px 10px",
                         borderRadius: 6,
-                        border: active ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                        border: active ? "1.5px solid #2563eb" : isDefaultRate ? "1px solid #93c5fd" : "1px solid #e2e8f0",
                         background: active ? "#2563eb" : "#f8fafc",
-                        color: active ? "#ffffff" : "#64748b",
+                        color: active ? "#ffffff" : isDefaultRate ? "#1d4ed8" : "#64748b",
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: "pointer",
