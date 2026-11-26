@@ -16,6 +16,7 @@ const DEFAULT_NAV_VISIBILITY = {
   stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
   products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
   stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
   suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
   consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
   production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },

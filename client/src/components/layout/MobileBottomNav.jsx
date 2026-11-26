@@ -173,9 +173,13 @@ export default function MobileBottomNav({ onOpenMenu }) {
       )}
 
       {/* 3. Inventory / Consumption */}
-      {(canSeeNav('rawMaterials') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
+      {(canSeeNav('rawMaterials') || canSeeNav('mainStore') || canSeeNav('kitchenStore') || canSeeNav('barStore') || canSeeNav('products') || canSeeNav('suppliers') || canSeeNav('consumption')) && (
         <NavLink
-          to={canSeeNav('consumption') && !canSeeNav('rawMaterials') ? '/consumption' : '/materials'}
+          to={
+            canSeeNav('consumption') && !canSeeNav('rawMaterials') && !canSeeNav('mainStore') && !canSeeNav('kitchenStore') && !canSeeNav('barStore')
+              ? '/consumption'
+              : (canSeeNav('products') && !canSeeNav('rawMaterials') ? '/products' : '/materials')
+          }
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200 cursor-pointer ${
             isInventoryActive
               ? 'text-blue-600 font-bold scale-105'

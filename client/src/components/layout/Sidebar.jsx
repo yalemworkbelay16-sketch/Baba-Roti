@@ -882,7 +882,9 @@ const Sidebar = ({
           )}
 
           {/* ── SECTION: OPERATIONS ── */}
-          <SectionLabel collapsed={collapsed}>{t('nav.operations')}</SectionLabel>
+          {(canSeeNav('stockMovements') || canSeeNav('stockRequests') || canSeeNav('reports') || canSeeNav('expenses') || canSeeNav('analytics')) && (
+            <SectionLabel collapsed={collapsed}>{t('nav.operations')}</SectionLabel>
+          )}
 
           {/* 4. Stock Movements */}
           {canSeeNav('stockMovements') && (
@@ -928,29 +930,31 @@ const Sidebar = ({
           )}
 
           {/* 5. Stock Issue & Request */}
-          <div
-            onMouseEnter={(e) =>
-              openFlyout(
-                {
-                  title: t('nav.stockRequests'),
-                  icon: MoveToInboxRoundedIcon,
-                  items: [{ to: '/stock-requests', label: t('nav.stockRequests'), icon: MoveToInboxRoundedIcon }],
-                },
-                e
-              )
-            }
-            onMouseLeave={scheduleCloseFlyout}
-          >
-            <MenuLink
-              to="/stock-requests"
-              label={t('nav.stockRequests')}
-              subtitle={isAmharic ? 'የዕቃ ጥያቄና ወጪ' : 'Requisition & dispatch'}
-              icon={MoveToInboxRoundedIcon}
-              iconGradient="linear-gradient(135deg, #d97706 0%, #f59e0b 100%)"
-              collapsed={collapsed}
-              onClick={onClose}
-            />
-          </div>
+          {canSeeNav('stockRequests') && (
+            <div
+              onMouseEnter={(e) =>
+                openFlyout(
+                  {
+                    title: t('nav.stockRequests'),
+                    icon: MoveToInboxRoundedIcon,
+                    items: [{ to: '/stock-requests', label: t('nav.stockRequests'), icon: MoveToInboxRoundedIcon }],
+                  },
+                  e
+                )
+              }
+              onMouseLeave={scheduleCloseFlyout}
+            >
+              <MenuLink
+                to="/stock-requests"
+                label={t('nav.stockRequests')}
+                subtitle={isAmharic ? 'የዕቃ ጥያቄና ወጪ' : 'Requisition & dispatch'}
+                icon={MoveToInboxRoundedIcon}
+                iconGradient="linear-gradient(135deg, #d97706 0%, #f59e0b 100%)"
+                collapsed={collapsed}
+                onClick={onClose}
+              />
+            </div>
+          )}
 
           {/* 6. Reports */}
           {canSeeNav('reports') && (
@@ -1041,8 +1045,12 @@ const Sidebar = ({
             )
           )}
 
-          {/* ── SECTION: ADMIN ── */}
-          <SectionLabel collapsed={collapsed}>{isAmharic ? 'አስተዳደር' : 'Admin'}</SectionLabel>
+          {/* ── SECTION: ADMIN / ACCOUNT ── */}
+          <SectionLabel collapsed={collapsed}>
+            {(canSeeNav('staffAccounts') || ['admin', 'manager', 'dev'].includes(user?.role))
+              ? (isAmharic ? 'አስተዳደር' : 'Admin')
+              : (isAmharic ? 'መለያ' : 'Account')}
+          </SectionLabel>
 
           {/* 8. Staff & Employees */}
           {canSeeNav('staffAccounts') && (

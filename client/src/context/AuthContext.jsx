@@ -43,6 +43,7 @@ const DEFAULT_NAV_VISIBILITY = {
   stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
   products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
   stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
   suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
   consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
   production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
@@ -303,10 +304,14 @@ export const AuthProvider = ({ children }) => {
           ? 'bar'
           : currentUser?.assignedStation || 'all';
 
-    // Station restricted staff go directly to their station store
+    // Station restricted staff go directly to their station store ONLY if allowed to view it
     const isStaffStationRestricted = userStation !== 'all' && !['admin', 'manager', 'dev'].includes(currentUser.role);
-    if (isStaffStationRestricted && userStation === 'kitchen') return '/materials?station=kitchen';
-    if (isStaffStationRestricted && userStation === 'bar') return '/materials?station=bar';
+    if (isStaffStationRestricted && userStation === 'kitchen' && (canSeeNav('kitchenStore') || canSeeNav('rawMaterials'))) {
+      return '/materials?station=kitchen';
+    }
+    if (isStaffStationRestricted && userStation === 'bar' && (canSeeNav('barStore') || canSeeNav('rawMaterials'))) {
+      return '/materials?station=bar';
+    }
 
     // If dashboard is permitted for this role, land on dashboard
     if (canSeeNav('dashboard')) return '/';
@@ -323,6 +328,9 @@ export const AuthProvider = ({ children }) => {
       if (userStation === 'main') return '/materials?station=main';
       return '/materials';
     }
+    if (canSeeNav('mainStore')) return '/materials?station=main';
+    if (canSeeNav('kitchenStore')) return '/materials?station=kitchen';
+    if (canSeeNav('barStore')) return '/materials?station=bar';
 
     // Subsystems
     if (canSeeNav('pos')) return '/pos';
@@ -334,6 +342,7 @@ export const AuthProvider = ({ children }) => {
     if (canSeeNav('products')) return '/products';
     if (canSeeNav('stockRequests')) return '/stock-requests';
     if (canSeeNav('consumption')) return '/consumption';
+    if (canSeeNav('production')) return '/production';
     if (canSeeNav('suppliers')) return '/suppliers';
 
     // Finance & Reports

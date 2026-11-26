@@ -7,10 +7,11 @@ import ModuleLocked from './ui/ModuleLocked';
  * ProtectedRoute:
  *  - roles: restrict to specific roles
  *  - capability: restrict to a workflow capability
+ *  - navKey: restrict based on Page Visibility settings (string or array of keys)
  *  - module: restrict based on developer module licensing (e.g. 'subsystem')
  */
-const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => {
-  const { user, loading, can, isModuleLicensed, hasRole, getDefaultLandingUrl } = useAuth();
+const ProtectedRoute = ({ children, roles, capability, navKey, module: moduleProp }) => {
+  const { user, loading, can, canSeeNav, isModuleLicensed, hasRole, getDefaultLandingUrl } = useAuth();
   const [safetyTimeoutPassed, setSafetyTimeoutPassed] = React.useState(false);
 
   React.useEffect(() => {
@@ -43,7 +44,18 @@ const ProtectedRoute = ({ children, roles, capability, module: moduleProp }) => 
     return <ModuleLocked />;
   }
 
-  const fallbackUrl = getDefaultLandingUrl ? getDefaultLandingUrl() : (user?.role === 'waiter' ? '/pos' : '/');
+  let fallbackUrl = getDefaultLandingUrl ? getDefaultLandingUrl() : (user?.role === 'waiter' ? '/pos' : '/');
+  if (typeof window !== 'undefined' && fallbackUrl === window.location.pathname) {
+    fallbackUrl = '/profile';
+  }
+
+  if (navKey) {
+    const keys = Array.isArray(navKey) ? navKey : [navKey];
+    const allowed = keys.some((k) => canSeeNav(k));
+    if (!allowed) {
+      return <Navigate to={fallbackUrl} replace />;
+    }
+  }
 
   if (capability && !can(capability)) {
     return <Navigate to={fallbackUrl} replace />;
