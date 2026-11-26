@@ -58,7 +58,7 @@ function App() {
             <Route path="/dashboard" element={<HomeRoute />} />
             <Route path="/pos" element={<ProtectedRoute module="subsystem" navKey="pos"><POS /></ProtectedRoute>} />
             <Route path="/captain-order" element={<ProtectedRoute module="subsystem" navKey="captainOrder"><CaptainOrder /></ProtectedRoute>} />
-            <Route path="/cash-sales" element={<ProtectedRoute module="subsystem" navKey="cashSales" roles={['admin', 'manager', 'supervisor', 'cashier', 'storekeeper', 'dev']}><CashSales /></ProtectedRoute>} />
+            <Route path="/cash-sales" element={<ProtectedRoute module="subsystem" navKey="cashSales" roles={['admin', 'manager', 'operation_manager', 'supervisor', 'cashier', 'storekeeper', 'dev']}><CashSales /></ProtectedRoute>} />
             <Route path="/materials" element={<ProtectedRoute navKey={['rawMaterials', 'mainStore', 'kitchenStore', 'barStore']}><RawMaterials /></ProtectedRoute>} />
             <Route path="/materials/*" element={<ProtectedRoute navKey={['rawMaterials', 'mainStore', 'kitchenStore', 'barStore']}><RawMaterials /></ProtectedRoute>} />
             <Route path="/production" element={<ProtectedRoute navKey="production"><Production /></ProtectedRoute>} />
@@ -84,7 +84,7 @@ function App() {
             <Route
               path="/purchases"
               element={
-                <ProtectedRoute roles={['admin', 'manager', 'supervisor', 'dev']}>
+                <ProtectedRoute roles={['admin', 'manager', 'operation_manager', 'supervisor', 'dev']}>
                   <Purchases />
                 </ProtectedRoute>
               }
@@ -128,7 +128,7 @@ function App() {
             <Route
               path="/activity-log"
               element={
-                <ProtectedRoute navKey="staffAccounts" roles={['admin', 'manager', 'supervisor', 'dev']}>
+                <ProtectedRoute navKey="staffAccounts" roles={['admin', 'manager', 'operation_manager', 'supervisor', 'dev']}>
                   <ActivityLog />
                 </ProtectedRoute>
               }
@@ -146,7 +146,7 @@ function App() {
             <Route
               path="/recycle-bin"
               element={
-                <ProtectedRoute roles={['admin', 'manager', 'supervisor', 'dev']}>
+                <ProtectedRoute roles={['admin', 'manager', 'operation_manager', 'supervisor', 'dev']}>
                   <RecycleBin />
                 </ProtectedRoute>
               }

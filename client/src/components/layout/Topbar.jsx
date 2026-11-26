@@ -1767,6 +1767,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
   const roleBadgeStyle = {
     admin: 'bg-amber-50 text-amber-800 border-amber-200',
     manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    operation_manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    executive_chef: 'bg-amber-50 text-amber-700 border-amber-200',
     storekeeper: 'bg-blue-50 text-blue-700 border-blue-200',
     fb_team: 'bg-teal-50 text-teal-700 border-teal-200',
     waiter: 'bg-purple-50 text-purple-700 border-purple-200',
@@ -1777,6 +1779,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
   const roleDisplayName = {
     admin: 'Admin',
     manager: 'Manager',
+    operation_manager: 'Operation Manager',
+    executive_chef: 'Executive Chef',
     supervisor: 'Supervisor',
     storekeeper: 'Store Keeper',
     cashier: 'Cashier',

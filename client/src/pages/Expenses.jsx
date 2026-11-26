@@ -345,8 +345,8 @@ function VoucherReceiptPreview({ rawUrl, voucherId, onReuploaded }) {
 export default function Expenses() {
   const { user, hasRole, canCrud } = useAuth();
   const { t, isAmharic } = useLanguage();
-  const canEdit = canCrud ? canCrud('expenses', 'edit') : (hasRole('admin') || hasRole('manager'));
-  const canDelete = canCrud ? canCrud('expenses', 'delete') : (hasRole('admin') || hasRole('manager'));
+  const canEdit = canCrud ? canCrud('expenses', 'edit') : (hasRole('admin') || hasRole('manager') || hasRole('operation_manager'));
+  const canDelete = canCrud ? canCrud('expenses', 'delete') : (hasRole('admin') || hasRole('manager') || hasRole('operation_manager'));
 
   // Filter states
   const [datePreset, setDatePreset] = useState('month'); // 'all' | 'today' | 'week' | 'month' | 'last_month' | 'custom'

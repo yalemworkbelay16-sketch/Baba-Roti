@@ -60,7 +60,7 @@ const Products = () => {
   const quickUploadInputRef = useRef();
   const formImageInputRef = useRef();
   const { hasRole, can, canCrud } = useAuth();
-  const canEdit = canCrud ? canCrud('products', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
+  const canEdit = canCrud ? canCrud('products', 'edit') : (hasRole('admin', 'manager', 'operation_manager', 'executive_chef') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('products', 'delete') : hasRole('admin');
 
   const applyDatePreset = (preset) => {

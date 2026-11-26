@@ -87,26 +87,26 @@ async function getChatIds(options = {}) {
       return true;
     });
 
-    const MANAGEMENT_ROLES = new Set(['admin', 'manager', 'supervisor', 'dev']);
+    const MANAGEMENT_ROLES = new Set(['admin', 'manager', 'operation_manager', 'supervisor', 'dev']);
     const isFinancialProcess = ['salesImport', 'dailyReports', 'expenses'].includes(processKey);
     const isOrderProcess = ['posOrders', 'customerQrOrders', 'captainOrders'].includes(processKey);
 
     const restrictFinancial = notifSettings.restrictFinancialToManagement !== false;
     const staffOwnOrdersOnly = notifSettings.staffSeeOwnOrdersOnly !== false;
 
-    // Default allowed operational roles per process (Registered Roles: admin, manager, supervisor, storekeeper, cashier, waiter, fb_team, dev)
+    // Default allowed operational roles per process (Registered Roles: admin, manager, operation_manager, executive_chef, supervisor, storekeeper, cashier, waiter, fb_team, dev)
     const DEFAULT_PROCESS_ROLES = {
-      salesImport: ['admin', 'manager', 'dev'],
-      posOrders: ['admin', 'manager', 'cashier', 'dev'],
-      customerQrOrders: ['admin', 'manager', 'supervisor', 'waiter', 'fb_team', 'dev'],
-      captainOrders: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team', 'dev'],
-      stockTransactions: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
-      stockRequests: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
-      consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper', 'dev'],
-      expenses: ['admin', 'manager', 'supervisor', 'dev'],
-      dailyReports: ['admin', 'manager', 'supervisor', 'dev'],
+      salesImport: ['admin', 'manager', 'operation_manager', 'dev'],
+      posOrders: ['admin', 'manager', 'operation_manager', 'cashier', 'dev'],
+      customerQrOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'waiter', 'fb_team', 'dev'],
+      captainOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'dev'],
+      stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
+      stockRequests: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
+      consumption: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper', 'dev'],
+      expenses: ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'],
+      dailyReports: ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'],
       authLogins: ['admin', 'dev'],
-      masterData: ['admin', 'manager', 'dev'],
+      masterData: ['admin', 'manager', 'operation_manager', 'executive_chef', 'dev'],
     };
 
     // Staff lookup by chatId

@@ -22,7 +22,7 @@ const itemName = (item) =>
 
 export default function RecycleBin() {
   const { hasRole, can } = useAuth();
-  const isAdmin = hasRole('admin') || hasRole('manager') || can('voidTransactions');
+  const isAdmin = hasRole('admin') || hasRole('manager') || hasRole('operation_manager') || can('voidTransactions');
 
   const [items,     setItems]     = useState([]);
   const [loading,   setLoading]   = useState(true);

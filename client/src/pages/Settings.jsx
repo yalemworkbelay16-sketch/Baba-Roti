@@ -104,6 +104,8 @@ const SETTINGS_ROLES = [
   { key: 'waiter', label: 'Waiter' },
   { key: 'fb_team', label: 'F & B Team' },
   { key: 'supervisor', label: 'Supervisor' },
+  { key: 'executive_chef', label: 'Executive Chef' },
+  { key: 'operation_manager', label: 'Operation Manager' },
   { key: 'manager', label: 'Manager' },
   { key: 'admin', label: 'Admin' },
 ];
@@ -171,45 +173,45 @@ export default function Settings() {
     productSellingPriceAdjustPercent: 0,
     applyToMaterialsNow: false,
     rolePermissions: {
-      recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
-      postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
-      transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true }
+      recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+      postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+      transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true }
     },
     navVisibility: {
-      dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-      cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-      rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-      suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-      reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-      analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: true, admin: true },
-      staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
+      dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+      reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, admin: true },
+      staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
     },
     // CRUD privileges per module
     crudPermissions: Object.fromEntries(
       CRUD_MODULES_LIST.map(({ key }) => [
         key,
         {
-          view: { storekeeper: true, cashier: key === 'products', waiter: key === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(key), supervisor: true, manager: true, admin: true },
-          edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(key), manager: true, admin: true },
-          delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
+          view: { storekeeper: true, cashier: key === 'products', waiter: key === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(key), supervisor: true, executive_chef: ['rawMaterials', 'products', 'stockMovements'].includes(key), operation_manager: true, manager: true, admin: true },
+          edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(key), executive_chef: ['rawMaterials', 'products'].includes(key), operation_manager: true, manager: true, admin: true },
+          delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
         },
       ])
     ),
@@ -412,6 +414,8 @@ export default function Settings() {
   const REGISTERED_TG_ROLES = [
     { key: 'admin', label: 'Admin', icon: '👑', color: 'brass' },
     { key: 'manager', label: 'Manager', icon: '👔', color: 'green' },
+    { key: 'operation_manager', label: 'Operation Manager', icon: '🏢', color: 'emerald' },
+    { key: 'executive_chef', label: 'Executive Chef', icon: '👨‍🍳', color: 'amber' },
     { key: 'supervisor', label: 'Supervisor', icon: '📋', color: 'blue' },
     { key: 'storekeeper', label: 'Storekeeper', icon: '📦', color: 'ink' },
     { key: 'cashier', label: 'Cashier', icon: '💳', color: 'emerald' },
@@ -421,17 +425,17 @@ export default function Settings() {
 
   // Default allowed operational roles per process (Registered roles only)
   const DEFAULT_PROCESS_ROLES = {
-    salesImport: ['admin', 'manager'],
-    posOrders: ['admin', 'manager', 'cashier'],
-    customerQrOrders: ['admin', 'manager', 'supervisor', 'waiter', 'fb_team'],
-    captainOrders: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team'],
-    stockTransactions: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team'],
-    stockRequests: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team'],
-    consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper'],
-    expenses: ['admin', 'manager', 'supervisor'],
-    dailyReports: ['admin', 'manager', 'supervisor'],
+    salesImport: ['admin', 'manager', 'operation_manager'],
+    posOrders: ['admin', 'manager', 'operation_manager', 'cashier'],
+    customerQrOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'waiter', 'fb_team'],
+    captainOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team'],
+    stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team'],
+    stockRequests: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team'],
+    consumption: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper'],
+    expenses: ['admin', 'manager', 'operation_manager', 'supervisor'],
+    dailyReports: ['admin', 'manager', 'operation_manager', 'supervisor'],
     authLogins: ['admin'],
-    masterData: ['admin', 'manager'],
+    masterData: ['admin', 'manager', 'operation_manager', 'executive_chef'],
   };
 
   // Telegram Process Settings State & Privacy Controls
@@ -935,6 +939,8 @@ export default function Settings() {
   const roleBadgeColor = {
     admin: 'bg-brass-100 text-brass-800 border-brass-300',
     manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    operation_manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    executive_chef: 'bg-amber-50 text-amber-800 border-amber-200',
     supervisor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     storekeeper: 'bg-blue-50 text-blue-700 border-blue-200',
     cashier: 'bg-teal-50 text-teal-700 border-teal-200',
@@ -977,7 +983,7 @@ export default function Settings() {
           <Shield size={16} /> Security &amp; Password
         </button>
 
-        {hasRole('admin', 'manager') && (
+        {hasRole('admin', 'manager', 'operation_manager') && (
           <button
             onClick={() => setTab('system')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'system'
@@ -1001,7 +1007,7 @@ export default function Settings() {
           </button>
         )}
 
-        {(hasRole('admin', 'manager', 'supervisor') || can('manageStationMapping') || canSeeNav('stationMapping')) && (
+        {(hasRole('admin', 'manager', 'operation_manager', 'supervisor') || can('manageStationMapping') || canSeeNav('stationMapping')) && (
           <button
             onClick={() => setTab('stations')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'stations'
@@ -1025,7 +1031,7 @@ export default function Settings() {
           </button>
         )}
 
-        {hasRole('admin', 'manager') && (
+        {hasRole('admin', 'manager', 'operation_manager') && (
           <button
             onClick={() => { setTab('printers'); loadPrinters(); }}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'printers'
@@ -1037,7 +1043,7 @@ export default function Settings() {
           </button>
         )}
 
-        {hasRole('admin', 'manager') && (
+        {hasRole('admin', 'manager', 'operation_manager') && (
           <button
             onClick={() => setTab('serviceCharge')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'serviceCharge'
@@ -1049,7 +1055,7 @@ export default function Settings() {
           </button>
         )}
 
-        {hasRole('admin', 'manager', 'supervisor') && (
+        {hasRole('admin', 'manager', 'operation_manager', 'supervisor') && (
           <button
             onClick={() => setTab('digitalMenu')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'digitalMenu'

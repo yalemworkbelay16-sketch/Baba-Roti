@@ -26,6 +26,8 @@ function roleToPosition(role) {
     admin: 'Administrator',
     dev: 'System Developer',
     manager: 'Manager',
+    operation_manager: 'Operation Manager',
+    executive_chef: 'Executive Chef',
     supervisor: 'Supervisor',
     storekeeper: 'Storekeeper',
     cashier: 'Cashier',
@@ -43,9 +45,10 @@ function normalizeDepartment(dept, role) {
     return String(dept).trim();
   }
   if (role === 'waiter') return 'Waiter';
+  if (role === 'executive_chef') return 'Kitchen';
   if (role === 'cashier' || role === 'fb_team') return 'Food & Beverage';
   if (role === 'storekeeper') return 'Main Store';
-  if (['manager', 'admin', 'supervisor', 'dev'].includes(role)) return 'Management';
+  if (['manager', 'operation_manager', 'admin', 'supervisor', 'dev'].includes(role)) return 'Management';
   return 'Other';
 }
 

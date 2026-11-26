@@ -39,7 +39,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'med
 
 export default function Employees() {
   const { hasRole, canCrud } = useAuth();
-  const canEdit = canCrud ? canCrud('employees', 'edit') : hasRole('admin', 'manager');
+  const canEdit = canCrud ? canCrud('employees', 'edit') : hasRole('admin', 'manager', 'operation_manager');
   const canDelete = canCrud ? canCrud('employees', 'delete') : hasRole('admin');
 
   const [employees, setEmployees] = useState([]);

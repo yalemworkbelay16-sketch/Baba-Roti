@@ -489,7 +489,7 @@ const Sidebar = ({
       : String(user?.department || '').toLowerCase().includes('bar')
         ? 'bar'
         : user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !['admin', 'manager', 'dev'].includes(user?.role);
+  const isStationRestricted = userStation !== 'all' && !['admin', 'manager', 'operation_manager', 'dev'].includes(user?.role);
 
   const inventoryItems = [
     !isStationRestricted && canSeeNav('rawMaterials') && {
@@ -535,7 +535,7 @@ const Sidebar = ({
   const staffItems = [
     { to: '/users', label: t('nav.staffAccounts'), icon: PeopleAltRoundedIcon },
     { to: '/employees', label: t('nav.employees'), icon: ManageAccountsRoundedIcon },
-    (canSeeNav('activityLog') || ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role)) && {
+    (canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'].includes(user?.role)) && {
       to: '/activity-log',
       label: isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log',
       icon: HistoryRoundedIcon,
@@ -1047,7 +1047,7 @@ const Sidebar = ({
 
           {/* ── SECTION: ADMIN / ACCOUNT ── */}
           <SectionLabel collapsed={collapsed}>
-            {(canSeeNav('staffAccounts') || ['admin', 'manager', 'dev'].includes(user?.role))
+            {(canSeeNav('staffAccounts') || ['admin', 'manager', 'operation_manager', 'dev'].includes(user?.role))
               ? (isAmharic ? 'አስተዳደር' : 'Admin')
               : (isAmharic ? 'መለያ' : 'Account')}
           </SectionLabel>
@@ -1090,7 +1090,7 @@ const Sidebar = ({
               >
                 <SubLink to="/users" label={t('nav.staffAccounts')} icon={PeopleAltRoundedIcon} onClick={onClose} />
                 <SubLink to="/employees" label={t('nav.employees')} icon={ManageAccountsRoundedIcon} onClick={onClose} />
-                {(canSeeNav('activityLog') || ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role)) && (
+                {(canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'].includes(user?.role)) && (
                   <SubLink
                     to="/activity-log"
                     label={isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log'}
@@ -1128,7 +1128,7 @@ const Sidebar = ({
           </div>
 
           {/* 10. Recycle Bin */}
-          {(canSeeNav('staffAccounts') || user?.role === 'admin' || user?.role === 'manager') && (
+          {(canSeeNav('staffAccounts') || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'operation_manager') && (
             <div
               onMouseEnter={(e) =>
                 openFlyout(

@@ -5,35 +5,35 @@ const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
 
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, manager: true, admin: true },
-  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
-  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
-  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: true, admin: true },
-  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
+  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
+  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
 };
 
 const DEFAULT_CRUD_PERMISSIONS = {
-  rawMaterials: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  products: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  suppliers: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  expenses: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  stockMovements: { view: { storekeeper: true, fb_team: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  purchases: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
-  employees: { view: { storekeeper: true, fb_team: false, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, manager: false, admin: true } },
+  rawMaterials: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: true, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  products: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: true, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  suppliers: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  expenses: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  stockMovements: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  purchases: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  employees: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
 };
 
 // @desc   Get system settings (creates default if none exists)
@@ -67,16 +67,52 @@ const getSettings = asyncHandler(async (req, res) => {
       settings.rolePermissions = DEFAULT_ROLE_PERMISSIONS;
       settings.markModified('rolePermissions');
       modified = true;
+    } else {
+      for (const [cap, defs] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+        settings.rolePermissions[cap] = settings.rolePermissions[cap] || {};
+        for (const r of ['operation_manager', 'executive_chef']) {
+          if (settings.rolePermissions[cap][r] === undefined) {
+            settings.rolePermissions[cap][r] = defs[r];
+            settings.markModified('rolePermissions');
+            modified = true;
+          }
+        }
+      }
     }
     if (!settings.navVisibility) {
       settings.navVisibility = DEFAULT_NAV_VISIBILITY;
       settings.markModified('navVisibility');
       modified = true;
+    } else {
+      for (const [navKey, defs] of Object.entries(DEFAULT_NAV_VISIBILITY)) {
+        settings.navVisibility[navKey] = settings.navVisibility[navKey] || {};
+        for (const r of ['operation_manager', 'executive_chef']) {
+          if (settings.navVisibility[navKey][r] === undefined) {
+            settings.navVisibility[navKey][r] = defs[r];
+            settings.markModified('navVisibility');
+            modified = true;
+          }
+        }
+      }
     }
     if (!settings.crudPermissions) {
       settings.crudPermissions = DEFAULT_CRUD_PERMISSIONS;
       settings.markModified('crudPermissions');
       modified = true;
+    } else {
+      for (const [mod, ops] of Object.entries(DEFAULT_CRUD_PERMISSIONS)) {
+        settings.crudPermissions[mod] = settings.crudPermissions[mod] || {};
+        for (const op of ['view', 'edit', 'delete']) {
+          settings.crudPermissions[mod][op] = settings.crudPermissions[mod][op] || {};
+          for (const r of ['operation_manager', 'executive_chef']) {
+            if (settings.crudPermissions[mod][op][r] === undefined) {
+              settings.crudPermissions[mod][op][r] = ops[op]?.[r] ?? false;
+              settings.markModified('crudPermissions');
+              modified = true;
+            }
+          }
+        }
+      }
     }
     if (!settings.licensedModules) {
       settings.licensedModules = {

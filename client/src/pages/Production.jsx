@@ -44,7 +44,7 @@ const formatUnitQty = (val, unit = '', name = '') => {
 
 export default function Production() {
   const { user, can, hasRole } = useAuth();
-  const isManagerOrAdmin = ['admin', 'manager', 'supervisor', 'dev'].includes(user?.role);
+  const isManagerOrAdmin = ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'dev'].includes(user?.role);
 
   // Station Restriction check
   const userStation = (user?.assignedStation && user?.assignedStation !== 'all')

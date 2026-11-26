@@ -89,7 +89,7 @@ const RawMaterials = () => {
       : String(user?.department || '').toLowerCase().includes('bar')
         ? 'bar'
         : user?.assignedStation || 'all';
-  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'manager', 'dev');
+  const isStationRestricted = userStation !== 'all' && !hasRole('admin', 'manager', 'operation_manager', 'dev');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const stationFromUrl = isStationRestricted ? userStation : (searchParams.get('station') || 'all');
@@ -117,7 +117,7 @@ const RawMaterials = () => {
   const [importResult, setImportResult] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
   const importRef = useRef();
-  const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager') || can('recordGoods'));
+  const canEdit = canCrud ? canCrud('rawMaterials', 'edit') : (hasRole('admin', 'manager', 'operation_manager') || can('recordGoods'));
   const canDelete = canCrud ? canCrud('rawMaterials', 'delete') : hasRole('admin');
 
   useEffect(() => {
@@ -1110,7 +1110,7 @@ const RawMaterials = () => {
               Showing {filteredMaterials.length} items for <strong className="text-ink-900 capitalize">{stationFilter === 'main' ? 'Main Store Item' : stationFilter} Station</strong>
             </span>
           )}
-          {!isStationRestricted && hasRole('admin', 'manager') && (
+          {!isStationRestricted && hasRole('admin', 'manager', 'operation_manager') && (
             <Link
               to="/settings?tab=stations"
               className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition shadow-2xs"

@@ -4,6 +4,8 @@ import { ShieldCheck, UserCheck, Clock, FileSpreadsheet, PenLine, ChefHat } from
 const ROLE_LABELS = {
   admin: 'Admin',
   manager: 'Manager',
+  operation_manager: 'Operation Manager',
+  executive_chef: 'Executive Chef',
   supervisor: 'Supervisor',
   storekeeper: 'Store Keeper',
   cashier: 'Cashier',
