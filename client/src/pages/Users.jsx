@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Plus, Users as UsersIcon, Phone, Send, Pencil, X, Trash2, BellOff,
   Search, ShieldCheck, Camera, Upload, Check, Award, RefreshCw,
-  Activity, Monitor, Laptop,
+  Activity, Monitor, Laptop, Eye,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,7 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
 import EmployeeIdBadgeModal from '../components/employee/EmployeeIdBadgeModal';
+import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { normalizeFileUrl } from '../utils/fileUrl';
 
 const emptyForm = {
@@ -70,6 +71,9 @@ const Users = () => {
   const fileInputRef = useRef(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoUploadErr, setPhotoUploadErr] = useState('');
+
+  // View Detail & Audit Modal state
+  const [detailUser, setDetailUser] = useState(null);
 
   // Digital ID Badge Modal state
   const [badgeModalOpen, setBadgeModalOpen] = useState(false);
@@ -608,6 +612,14 @@ const Users = () => {
                           }`}>
                         {u.isActive ? 'Disable' : 'Enable'}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailUser(u)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 transition cursor-pointer"
+                        title="View staff account & security audit details"
+                      >
+                        <Eye size={12} /> View
+                      </button>
                       {u.role !== 'dev' && currentUser?._id !== u._id && (
                         <button onClick={() => handleDelete(u)}
                           className="inline-flex items-center rounded-lg p-1 text-ink-400 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 transition"
@@ -885,6 +897,123 @@ const Users = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* ══ View Staff Account & Security Audit Modal ══ */}
+      <Modal
+        open={Boolean(detailUser)}
+        onClose={() => setDetailUser(null)}
+        title={detailUser ? `${detailUser.name} — Security & Account Details` : 'Staff Account Details'}
+        width="max-w-lg"
+      >
+        {detailUser && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+              {detailUser.photoUrl || detailUser.avatar ? (
+                <img
+                  src={normalizeFileUrl(detailUser.photoUrl || detailUser.avatar)}
+                  alt={detailUser.name}
+                  className="h-14 w-14 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 text-blue-700 font-bold text-lg shrink-0">
+                  {detailUser.name?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="font-bold text-ink-900 truncate">{detailUser.name}</h4>
+                  <Badge color={roleColor[detailUser.role] || 'ink'}>
+                    {roleLabels[detailUser.role] || detailUser.role}
+                  </Badge>
+                  <Badge color={detailUser.isActive ? 'green' : 'red'}>
+                    {detailUser.isActive ? 'Active' : 'Disabled'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-ink-500 truncate mt-0.5">{detailUser.email}</p>
+                {detailUser.employeeId && (
+                  <p className="text-[11px] font-mono text-ink-500 mt-0.5">ID: {detailUser.employeeId}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm rounded-xl border border-slate-200 bg-white p-3.5">
+              <div>
+                <p className="text-[11px] text-ink-400">Assigned Station</p>
+                <p className="font-semibold capitalize">
+                  {detailUser.assignedStation === 'main'
+                    ? 'Main Store'
+                    : detailUser.assignedStation === 'kitchen'
+                      ? 'Kitchen Station'
+                      : detailUser.assignedStation === 'bar'
+                        ? 'Bar Station'
+                        : 'All Stations'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Department</p>
+                <p className="font-semibold">{detailUser.department || 'General'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Phone</p>
+                <p className="font-medium">{detailUser.phone || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Telegram Alerts</p>
+                <p className="font-medium">
+                  {detailUser.telegramChatId ? `Connected (${detailUser.telegramChatId})` : 'Not linked'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Live Status</p>
+                <p className="font-semibold">
+                  {detailUser.isOnline
+                    ? 'Online (Active session)'
+                    : detailUser.lastActiveAt
+                      ? `Offline · ${formatRelativeTime(detailUser.lastActiveAt)}`
+                      : 'Never logged in'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Last Login Time</p>
+                <p className="font-medium">
+                  {detailUser.lastLoginAt ? new Date(detailUser.lastLoginAt).toLocaleString() : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Last Machine IP</p>
+                <p className="font-mono text-xs font-semibold">{detailUser.lastLoginIp || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-ink-400">Last Device / Browser</p>
+                <p className="font-medium text-xs break-words">{detailUser.lastLoginDevice || '—'}</p>
+              </div>
+            </div>
+
+            <RecordAuditTrail record={detailUser} />
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setDetailUser(null)}
+                className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50 cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = detailUser;
+                  setDetailUser(null);
+                  openEdit(target);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-semibold text-white cursor-pointer"
+              >
+                <Pencil size={14} /> Edit
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* ══ Digital Staff ID Badge Modal ══ */}

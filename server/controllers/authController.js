@@ -38,6 +38,13 @@ const registerUser = asyncHandler(async (req, res) => {
         : (req.body.department && String(req.body.department).toLowerCase().includes('bar'))
           ? 'bar'
           : assignedStation || 'all',
+    createdBy: req.user?._id || null,
+    createdByName: req.user?.name || 'System / Self Registration',
+    createdByRole: req.user?.role || '',
+    registrationSource: 'manual',
+    updatedBy: req.user?._id || null,
+    updatedByName: req.user?.name || 'System / Self Registration',
+    updatedByRole: req.user?.role || '',
   });
 
   // Auto-subscribe to Telegram if chatId provided

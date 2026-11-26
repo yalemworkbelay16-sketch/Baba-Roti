@@ -42,6 +42,14 @@ const userSchema = new mongoose.Schema(
     otpExpiry: { type: Date, default: null },
     // Telegram granular alert overrides (if undefined, inherits system role defaults)
     telegramAlerts: { type: [String], default: undefined },
+    // Security & Audit Trail
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdByName: { type: String, default: '' },
+    createdByRole: { type: String, default: '' },
+    registrationSource: { type: String, default: 'manual' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedByName: { type: String, default: '' },
+    updatedByRole: { type: String, default: '' },
   },
   { timestamps: true }
 );

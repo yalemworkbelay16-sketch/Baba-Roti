@@ -71,6 +71,12 @@ const updateUser = asyncHandler(async (req, res) => {
   }
   if (req.body.password) user.password = req.body.password;
 
+  if (req.user) {
+    user.updatedBy = req.user._id || null;
+    user.updatedByName = req.user.name || user.updatedByName;
+    user.updatedByRole = req.user.role || user.updatedByRole;
+  }
+
   const updated = await user.save();
 
   const Setting = require('../models/Setting');
@@ -198,6 +204,10 @@ const updateUser = asyncHandler(async (req, res) => {
     isActive: updated.isActive,
     phone: updated.phone || '',
     telegramChatId: updated.telegramChatId || '',
+    createdByName: updated.createdByName || '',
+    createdByRole: updated.createdByRole || '',
+    updatedByName: updated.updatedByName || '',
+    updatedByRole: updated.updatedByRole || '',
   });
 });
 
