@@ -152,29 +152,114 @@ export default function Production() {
     }
   }, [recipes, stationFilter, selectedRecipeId]);
 
-  // ── Trigger Live Requirement Calculation ──
+  // ── Instant Client-Side Calculation Helper (real-time, zero stale state) ──
+  const buildLocalCalcPreview = useCallback((recipe, qty, materialsList = []) => {
+    if (!recipe || Number(qty) <= 0) return null;
+    const planned = Math.max(0.0001, Number(qty) || 1);
+    const ratio = planned / Math.max(0.0001, Number(recipe.yieldQuantity || 1));
+    const station = recipe.station || 'kitchen';
+    const stationField = station === 'bar' ? 'barStock' : 'kitchenStock';
+
+    let totalCost = 0;
+    let canProduce = true;
+
+    const ingredientRequirements = (recipe.ingredients || []).map((ing, idx) => {
+      const matId = ing.material?._id || ing.material;
+      const freshMat = materialsList.find((m) => String(m._id) === String(matId)) || ing.material || {};
+      const matName = freshMat?.name || 'Unknown Item';
+      const recipeUnit = String(ing.unit || freshMat?.unit || '').trim();
+      const baseUnit = String(freshMat?.unit || recipeUnit).trim();
+      const isRecipeDiscrete = isDiscreteUnit(recipeUnit, matName);
+      const isBaseDiscrete = isDiscreteUnit(baseUnit, matName);
+
+      const rawReqRecipeQty = (Number(ing.quantity) || 0) * ratio;
+      const reqRecipeQty = isRecipeDiscrete
+        ? Math.max(1, Math.round(rawReqRecipeQty))
+        : Number(rawReqRecipeQty.toFixed(4));
+
+      const rawReqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
+      const reqBaseQty = isBaseDiscrete
+        ? Math.max(1, Math.round(rawReqBaseQty))
+        : Number(rawReqBaseQty.toFixed(4));
+
+      const rawStock = Number(freshMat[stationField] || 0);
+      const availableStationStock = isBaseDiscrete ? Math.round(rawStock) : Number(rawStock.toFixed(4));
+      const isSufficient = availableStationStock - reqBaseQty >= -0.0001;
+      if (!isSufficient) canProduce = false;
+
+      const unitCost = Number(freshMat?.unitCost || 0);
+      const lineCost = Math.round(reqBaseQty * unitCost * 100) / 100;
+      totalCost += lineCost;
+
+      const diff = Math.max(0, reqBaseQty - availableStationStock);
+      const shortage = isSufficient
+        ? 0
+        : (isBaseDiscrete ? Math.max(1, Math.round(diff)) : Number(diff.toFixed(4)));
+
+      return {
+        materialId: matId || `ing-${idx}`,
+        materialName: matName,
+        requiredRecipeQuantity: reqRecipeQty,
+        recipeUnit,
+        requiredBaseQuantity: reqBaseQty,
+        baseUnit,
+        availableStationStock,
+        isSufficient,
+        shortage,
+        unitCost,
+        totalCost: lineCost,
+      };
+    });
+
+    const yieldUnit = recipe.yieldUnit || recipe.targetMaterial?.unit || 'kg';
+    return {
+      recipeId: recipe._id,
+      station,
+      plannedQuantity: planned,
+      yieldUnit,
+      canProduce,
+      totalCost: Math.round(totalCost * 100) / 100,
+      estimatedUnitCost: planned > 0 ? Math.round((totalCost / planned) * 100) / 100 : 0,
+      ingredients: ingredientRequirements,
+    };
+  }, []);
+
+  // ── Trigger Live Requirement Calculation (Immediate local + Server sync) ──
   useEffect(() => {
-    if (!selectedRecipeId || Number(plannedQty) <= 0) {
+    const qtyNum = Number(plannedQty);
+    const currentRecipe = recipes.find((r) => String(r._id) === String(selectedRecipeId));
+    if (!selectedRecipeId || !currentRecipe || !(qtyNum > 0)) {
       setCalcPreview(null);
       return;
     }
+
+    // Immediately show real-time local calculation so UI never shows stale recipe or qty
+    const localPreview = buildLocalCalcPreview(currentRecipe, qtyNum, rawMaterials);
+    setCalcPreview(localPreview);
+
+    let ignore = false;
     const timer = setTimeout(async () => {
       setCalcLoading(true);
       try {
         const res = await api.post('/production/calculate-requirements', {
           recipeId: selectedRecipeId,
-          quantity: Number(plannedQty),
+          quantity: qtyNum,
         });
-        setCalcPreview(res.data);
+        if (!ignore && res.data) {
+          setCalcPreview(res.data);
+        }
       } catch (err) {
-        console.warn('Calc error:', err);
+        console.warn('Calc sync fallback:', err?.response?.data?.message || err.message);
       } finally {
-        setCalcLoading(false);
+        if (!ignore) setCalcLoading(false);
       }
-    }, 200);
+    }, 180);
 
-    return () => clearTimeout(timer);
-  }, [selectedRecipeId, plannedQty]);
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
+  }, [selectedRecipeId, plannedQty, recipes, rawMaterials, buildLocalCalcPreview]);
 
   // ── Filtered Recipes ──
   const availableRecipes = useMemo(() => {
@@ -787,7 +872,7 @@ export default function Production() {
                     Ingredient Requirements & Store Availability
                   </h3>
                   <p className="text-[11px] text-ink-500 mt-0.5">
-                    Live calculation based on producing <strong>{plannedQty} {calcPreview?.yieldUnit || 'units'}</strong>
+                    Live calculation based on producing <strong>{plannedQty} {calcPreview?.yieldUnit || activeRecipe?.yieldUnit || 'units'}</strong>
                   </p>
                 </div>
                 {calcLoading ? (
