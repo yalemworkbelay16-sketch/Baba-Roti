@@ -42,7 +42,7 @@ function escapeHtml(str) {
 // ── Low-level sender ─────────────────────────────────────────────
 async function getChatIds(options = {}) {
   try {
-    const { processKey, waiterUserId, waiterChatId } = options;
+    const { processKey, waiterUserId, waiterChatId, adminAndDevOnly = false } = options;
     const User = require('../models/User');
     const [settings, inactiveUsers, activeStaff] = await Promise.all([
       Setting.findOne().select('telegramSubscribers telegramNotificationSettings').lean(),
@@ -73,6 +73,25 @@ async function getChatIds(options = {}) {
         .map(u => (u.email || '').toLowerCase().trim())
         .filter(Boolean)
     );
+
+    // Strictly restrict to Admin & System Developer accounts + system owner fallback chats
+    if (adminAndDevOnly) {
+      const adminDevIds = new Set();
+      for (const staff of (activeStaff || [])) {
+        if (!['admin', 'dev'].includes(staff.role)) continue;
+        const cId = cleanChatId(staff.telegramChatId);
+        if (cId && !blockedChatIds.has(cId) && !permanentlySuppressedChats.has(cId)) {
+          adminDevIds.add(cId);
+        }
+      }
+      for (const fallbackId of [...ENV_CHAT_IDS, ...DEFAULT_FALLBACK_CHAT_IDS]) {
+        const cId = cleanChatId(fallbackId);
+        if (cId && !blockedChatIds.has(cId) && !permanentlySuppressedChats.has(cId)) {
+          adminDevIds.add(cId);
+        }
+      }
+      return Array.from(adminDevIds);
+    }
 
     const validSubscribers = (settings?.telegramSubscribers || []).filter(s => {
       const cId = cleanChatId(s.chatId);
@@ -687,24 +706,51 @@ function notifyProductDeleted(product, user) {
 
 // ── SYSTEM SETTINGS ──────────────────────────────────────────────
 
-function notifySettingsChanged(changes, user) {
-  const lines = Object.entries(changes)
-    .filter(([k]) => !['rolePermissions', 'navVisibility'].includes(k))
-    .map(([k, v]) => `  • <b>${k}:</b> ${v}`)
-    .join('\n');
+function notifySettingsChanged(changes, user, title = 'SYSTEM SETTINGS CHANGED') {
+  let formattedLines = [];
 
-  const permChanged = 'rolePermissions' in changes || 'navVisibility' in changes;
+  if (Array.isArray(changes)) {
+    if (changes.length === 0) return; // Nothing actually changed — do not spam Telegram
+    formattedLines = changes.map((c) => {
+      if (c.from !== undefined && c.to !== undefined) {
+        return `  • <b>${escapeHtml(c.label)}:</b> <code>${escapeHtml(c.from)}</code> → <code>${escapeHtml(c.to)}</code>`;
+      }
+      return `  • <b>${escapeHtml(c.label)}:</b> ${escapeHtml(c.summary ?? '')}`;
+    });
+  } else if (changes && typeof changes === 'object') {
+    if (changes.action) {
+      formattedLines.push(`  • <b>Action:</b> ${escapeHtml(changes.action)}`);
+      if (changes.updatedCount !== undefined) {
+        formattedLines.push(`  • <b>Updated Items:</b> ${escapeHtml(changes.updatedCount)}`);
+      }
+    } else {
+      formattedLines = Object.entries(changes)
+        .filter(([k]) => !['_id', '__v', 'createdAt', 'updatedAt', 'devMasterKey', 'newDevMasterKey', 'telegramSubscribers', 'passwordVerification'].includes(k))
+        .map(([k, v]) => `  • <b>${escapeHtml(k)}:</b> ${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}`);
+    }
+  }
+
+  if (formattedLines.length === 0) return;
+
+  const MAX_LINES = 25;
+  const shownLines = formattedLines.slice(0, MAX_LINES);
+  if (formattedLines.length > MAX_LINES) {
+    shownLines.push(`  <i>…and ${formattedLines.length - MAX_LINES} more setting change(s)</i>`);
+  }
+
+  const roleText = user?.role ? ` (${String(user.role).replace(/_/g, ' ').toUpperCase()})` : '';
 
   sendTelegram(
     `🏨 <b>${HOTEL}</b>
 ━━━━━━━━━━━━━━━━━━━━
-⚙️ <b>SYSTEM SETTINGS CHANGED</b>
+⚙️ <b>${escapeHtml(title)}</b>
 
-${lines || '  (permissions / nav visibility only)'}
-${permChanged ? '\n🔐 Role permissions or nav visibility were updated.' : ''}
-👤 <b>Changed by:</b> ${user?.name || '—'}
+${shownLines.join('\n')}
+
+👤 <b>Changed by:</b> ${escapeHtml(user?.name || 'System')}${escapeHtml(roleText)}
 🕐 <b>Time:</b>       ${now()}
-━━━━━━━━━━━━━━━━━━━━`
+━━━━━━━━━━━━━━━━━━━━`,
+    { adminAndDevOnly: true }
   );
 }
 

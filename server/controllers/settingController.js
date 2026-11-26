@@ -2,7 +2,188 @@ const asyncHandler = require('express-async-handler');
 const Setting = require('../models/Setting');
 const { clearSettingsCache, DEFAULT_ROLE_PERMISSIONS } = require('../middleware/authMiddleware');
 const tg = require('../utils/telegramNotifier');
+const notify = require('../utils/notificationHelper');
 const { logActivity } = require('../utils/activityLogger');
+
+const ROLE_LABELS = {
+  storekeeper: 'Storekeeper',
+  cashier: 'Cashier',
+  waiter: 'Waiter',
+  fb_team: 'F & B Team',
+  supervisor: 'Supervisor',
+  executive_chef: 'Executive Chef',
+  operation_manager: 'Operation Manager',
+  manager: 'Manager',
+  admin: 'Admin',
+  dev: 'System Developer',
+};
+
+const SCALAR_SETTING_LABELS = {
+  hotelName: 'Hotel / Café Name',
+  systemEmail: 'System Email',
+  phone: 'Phone',
+  address: 'Address',
+  currency: 'Currency',
+  currencySymbol: 'Currency Symbol',
+  lowStockThresholdDefault: 'Low Stock Threshold',
+  taxRate: 'Tax Rate (%)',
+  autoGenerateVoucherNo: 'Auto-Generate Voucher No',
+  allowNegativeStock: 'Allow Negative Stock',
+  notes: 'System Notes',
+  contingencyPercent: 'Contingency (%)',
+  overheadPercent: 'Overhead (%)',
+  spiceCostPercent: 'Spice Cost (%)',
+  defaultFoodCostPercent: 'Target Food Cost (%)',
+  rawMaterialPriceAdjustType: 'Raw Material Adj. Type',
+  rawMaterialPriceAdjustValue: 'Raw Material Adj. Value',
+  productSellingPriceAdjustPercent: 'Product Price Adj. (%)',
+  enableServiceCharge: 'Service Charge Enabled',
+  serviceChargeRate: 'Service Charge Rate (%)',
+  serviceChargePresets: 'Service Charge Presets',
+  autoApplyServiceChargeDineIn: 'Auto-Apply Service Charge (Dine-In)',
+  sidebarTheme: 'Sidebar Theme',
+  sidebarMaterialIcons: 'Material Sidebar Icons',
+  telegramDailyReportEnabled: 'Daily Telegram Digest',
+  telegramDailyReportTime: 'Daily Digest Time',
+};
+
+const fmtSettingVal = (v) => {
+  if (v === true) return 'ON';
+  if (v === false) return 'OFF';
+  if (Array.isArray(v)) return v.join(', ') || 'None';
+  if (v === null || v === undefined || v === '') return '—';
+  return String(v);
+};
+
+function buildSettingsDiff(before, after, body = {}) {
+  const changes = [];
+
+  for (const [field, label] of Object.entries(SCALAR_SETTING_LABELS)) {
+    const oldVal = before?.[field];
+    const newVal = after?.[field];
+    if (Array.isArray(oldVal) || Array.isArray(newVal)) {
+      if (JSON.stringify(oldVal || []) !== JSON.stringify(newVal || [])) {
+        changes.push({ label, from: fmtSettingVal(oldVal), to: fmtSettingVal(newVal) });
+      }
+    } else if (String(oldVal ?? '') !== String(newVal ?? '')) {
+      changes.push({ label, from: fmtSettingVal(oldVal), to: fmtSettingVal(newVal) });
+    }
+  }
+
+  // Diff nested permission maps (rolePermissions, navVisibility)
+  const diffBoolMap = (prefix, oldMap = {}, newMap = {}) => {
+    const keys = new Set([...Object.keys(oldMap || {}), ...Object.keys(newMap || {})]);
+    for (const key of keys) {
+      const oRow = oldMap?.[key] || {};
+      const nRow = newMap?.[key] || {};
+      const roles = new Set([...Object.keys(oRow), ...Object.keys(nRow)]);
+      for (const r of roles) {
+        if (Boolean(oRow[r]) !== Boolean(nRow[r])) {
+          changes.push({
+            label: `${prefix} (${ROLE_LABELS[r] || r} · ${key})`,
+            from: oRow[r] ? 'ON' : 'OFF',
+            to: nRow[r] ? 'ON' : 'OFF',
+          });
+        }
+      }
+    }
+  };
+
+  if (body.rolePermissions !== undefined) {
+    diffBoolMap('Capability', before?.rolePermissions, after?.rolePermissions);
+  }
+  if (body.navVisibility !== undefined) {
+    diffBoolMap('Menu Access', before?.navVisibility, after?.navVisibility);
+  }
+  if (body.crudPermissions !== undefined) {
+    const oldCrud = before?.crudPermissions || {};
+    const newCrud = after?.crudPermissions || {};
+    for (const mod of new Set([...Object.keys(oldCrud), ...Object.keys(newCrud)])) {
+      for (const op of ['view', 'edit', 'delete']) {
+        const oOp = oldCrud?.[mod]?.[op] || {};
+        const nOp = newCrud?.[mod]?.[op] || {};
+        for (const r of new Set([...Object.keys(oOp), ...Object.keys(nOp)])) {
+          if (Boolean(oOp[r]) !== Boolean(nOp[r])) {
+            changes.push({
+              label: `CRUD (${ROLE_LABELS[r] || r} · ${mod} · ${op})`,
+              from: oOp[r] ? 'ON' : 'OFF',
+              to: nOp[r] ? 'ON' : 'OFF',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (body.stationCategoryMapping !== undefined) {
+    for (const mapKey of ['rawMaterialMap', 'productMap']) {
+      const oMap = before?.stationCategoryMapping?.[mapKey] || {};
+      const nMap = after?.stationCategoryMapping?.[mapKey] || {};
+      const kind = mapKey === 'rawMaterialMap' ? 'Raw Category' : 'Product Category';
+      for (const cat of new Set([...Object.keys(oMap), ...Object.keys(nMap)])) {
+        if ((oMap[cat] || 'unassigned') !== (nMap[cat] || 'unassigned')) {
+          changes.push({
+            label: `Station Mapping (${kind} · ${cat})`,
+            from: oMap[cat] || 'unassigned',
+            to: nMap[cat] || 'unassigned',
+          });
+        }
+      }
+    }
+  }
+
+  if (body.digitalMenuSettings !== undefined) {
+    const oMenu = before?.digitalMenuSettings || {};
+    const nMenu = after?.digitalMenuSettings || {};
+    for (const k of Object.keys(body.digitalMenuSettings || {})) {
+      if (JSON.stringify(oMenu[k]) !== JSON.stringify(nMenu[k])) {
+        changes.push({
+          label: `Digital Menu (${k})`,
+          from: typeof oMenu[k] === 'object' ? JSON.stringify(oMenu[k]) : fmtSettingVal(oMenu[k]),
+          to: typeof nMenu[k] === 'object' ? JSON.stringify(nMenu[k]) : fmtSettingVal(nMenu[k]),
+        });
+      }
+    }
+  }
+
+  if (body.telegramNotificationSettings !== undefined) {
+    const oTg = before?.telegramNotificationSettings || {};
+    const nTg = after?.telegramNotificationSettings || {};
+    for (const k of Object.keys(body.telegramNotificationSettings || {})) {
+      if (k === 'processRoles') {
+        const oRoles = oTg.processRoles || {};
+        const nRoles = nTg.processRoles || {};
+        for (const p of new Set([...Object.keys(oRoles), ...Object.keys(nRoles)])) {
+          if (JSON.stringify(oRoles[p] || []) !== JSON.stringify(nRoles[p] || [])) {
+            changes.push({
+              label: `Telegram Process Roles (${p})`,
+              from: (oRoles[p] || []).map(r => ROLE_LABELS[r] || r).join(', ') || 'None',
+              to: (nRoles[p] || []).map(r => ROLE_LABELS[r] || r).join(', ') || 'None',
+            });
+          }
+        }
+      } else if (JSON.stringify(oTg[k]) !== JSON.stringify(nTg[k])) {
+        changes.push({
+          label: `Telegram Alert (${k})`,
+          from: fmtSettingVal(oTg[k]),
+          to: fmtSettingVal(nTg[k]),
+        });
+      }
+    }
+  }
+
+  if (body.storeLocations !== undefined) {
+    if (JSON.stringify(before?.storeLocations || []) !== JSON.stringify(after?.storeLocations || [])) {
+      changes.push({
+        label: 'Store Locations',
+        from: fmtSettingVal(before?.storeLocations),
+        to: fmtSettingVal(after?.storeLocations),
+      });
+    }
+  }
+
+  return changes;
+}
 
 const DEFAULT_NAV_VISIBILITY = {
   dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
@@ -223,6 +404,7 @@ const updateSettings = asyncHandler(async (req, res) => {
   if (!settings) {
     settings = new Setting();
   }
+  const beforeSnapshot = JSON.parse(JSON.stringify(settings.toObject ? settings.toObject() : settings));
 
   const allowedFields = [
     'hotelName', 'systemEmail', 'phone', 'address',
@@ -370,18 +552,44 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   const updated = await settings.save();
   clearSettingsCache();
-  tg.notifySettingsChanged(req.body, req.user);
+
+  const afterSnapshot = updated.toObject ? updated.toObject() : updated;
+  const changes = buildSettingsDiff(beforeSnapshot, afterSnapshot, req.body);
+  if (rawMaterialsUpdated > 0) {
+    changes.push({
+      label: 'Raw Material Costs Synchronized',
+      summary: `${rawMaterialsUpdated} active item(s) updated`,
+    });
+  }
+
+  if (changes.length > 0) {
+    tg.notifySettingsChanged(changes, req.user, 'SYSTEM SETTINGS CHANGED');
+    const summaryForBell = changes.slice(0, 4).map(c => c.summary ? `${c.label}: ${c.summary}` : `${c.label}: ${c.from} → ${c.to}`).join(' | ');
+    notify.push({
+      type: 'system',
+      title: 'System Settings Changed',
+      message: `${req.user?.name || 'Admin'} updated: ${summaryForBell}${changes.length > 4 ? ` (+${changes.length - 4} more)` : ''}`,
+      icon: '⚙️',
+      link: '/settings',
+      allowedRoles: ['admin', 'dev'],
+      severity: 'info',
+      userId: req.user?._id,
+    });
+  }
 
   try {
     const isStationMap = req.body.stationCategoryMapping !== undefined;
+    const summaryText = changes.length > 0
+      ? changes.slice(0, 6).map(c => c.summary ? `${c.label}: ${c.summary}` : `${c.label}: ${c.from} -> ${c.to}`).join(' | ')
+      : 'Updated system settings';
     logActivity(req, {
       action: isStationMap ? 'STATION_MAPPING' : 'UPDATE_SETTINGS',
       module: 'Settings',
       description: isStationMap
-        ? `Updated Station Category Mapping for Kitchen vs Bar (${rawMaterialsUpdated} materials synchronized)`
-        : `Updated system settings & configurations`,
+        ? `Updated Station Category Mapping (${summaryText})`
+        : `Updated settings: ${summaryText}`,
       status: 'success',
-      details: { rawMaterialsUpdated },
+      details: { rawMaterialsUpdated, changes },
     });
   } catch (_) { }
 
@@ -431,6 +639,7 @@ const applyProductPriceAdjustment = asyncHandler(async (req, res) => {
 const updateDeveloperLicense = asyncHandler(async (req, res) => {
   let settings = await Setting.findOne();
   if (!settings) settings = new Setting();
+  const beforeLicensed = JSON.parse(JSON.stringify(settings.licensedModules || {}));
 
   const isDevRole = req.user?.role === 'dev';
   const providedKey = req.body.devMasterKey || req.headers['x-dev-master-key'];
@@ -440,6 +649,8 @@ const updateDeveloperLicense = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Unauthorized: Developer / System Owner credentials or master passkey required.');
   }
+
+  const devChanges = [];
 
   if (req.body.licensedModules !== undefined) {
     settings.licensedModules = {
@@ -453,19 +664,63 @@ const updateDeveloperLicense = asyncHandler(async (req, res) => {
       settings.sidebarMaterialIcons = Boolean(req.body.licensedModules.materialIcons);
     }
     settings.markModified('licensedModules');
+
+    for (const key of new Set([...Object.keys(beforeLicensed), ...Object.keys(settings.licensedModules || {})])) {
+      if (String(beforeLicensed[key] ?? '') !== String(settings.licensedModules?.[key] ?? '')) {
+        devChanges.push({
+          label: `Licensed Module (${key})`,
+          from: fmtSettingVal(beforeLicensed[key]),
+          to: fmtSettingVal(settings.licensedModules?.[key]),
+        });
+      }
+    }
   }
 
   if (req.body.newDevMasterKey && isDevRole) {
     settings.devMasterKey = req.body.newDevMasterKey;
+    devChanges.push({
+      label: 'Developer Master Key',
+      summary: 'Updated (hidden for security)',
+    });
   }
 
   if (req.body.promoteUserId) {
     const User = require('../models/User');
-    await User.findByIdAndUpdate(req.body.promoteUserId, { role: 'dev' });
+    const promoted = await User.findByIdAndUpdate(req.body.promoteUserId, { role: 'dev' }, { new: true }).select('name email');
+    if (promoted) {
+      devChanges.push({
+        label: 'Promoted to System Developer',
+        summary: `${promoted.name} (${promoted.email})`,
+      });
+    }
   }
 
   const updated = await settings.save();
   clearSettingsCache();
+
+  if (devChanges.length > 0) {
+    tg.notifySettingsChanged(devChanges, req.user, 'DEVELOPER LICENSE / SYSTEM SETTINGS CHANGED');
+    notify.push({
+      type: 'system',
+      title: 'Developer Settings Changed',
+      message: `${req.user?.name || 'Developer'} updated: ${devChanges.slice(0, 4).map(c => c.summary ? `${c.label}: ${c.summary}` : `${c.label}: ${c.from} → ${c.to}`).join(' | ')}`,
+      icon: '🔑',
+      link: '/settings',
+      allowedRoles: ['admin', 'dev'],
+      severity: 'warning',
+      userId: req.user?._id,
+    });
+    try {
+      logActivity(req, {
+        action: 'UPDATE_DEV_SETTINGS',
+        module: 'Settings',
+        description: `Developer settings changed: ${devChanges.map(c => c.summary ? `${c.label}: ${c.summary}` : `${c.label}: ${c.from} -> ${c.to}`).join(' | ')}`,
+        status: 'warning',
+        details: { changes: devChanges },
+      });
+    } catch (_) { }
+  }
+
   res.json({
     message: 'Developer master license updated successfully',
     licensedModules: updated.licensedModules,
@@ -614,6 +869,26 @@ const applyStationCategoryMapping = asyncHandler(async (req, res) => {
       await m.save();
       updatedCount++;
     }
+  }
+
+  if (updatedCount > 0) {
+    if (tg?.notifySettingsChanged) {
+      tg.notifySettingsChanged(
+        [{ label: 'Station Category Mapping Sync', summary: `${updatedCount} raw material store location(s) updated` }],
+        req.user,
+        'STATION MAPPING APPLIED'
+      );
+    }
+    notify.push({
+      type: 'system',
+      title: 'Station Category Mapping Applied',
+      message: `${req.user?.name || 'Admin'} updated store locations for ${updatedCount} raw material(s).`,
+      icon: '🗂️',
+      link: '/settings',
+      allowedRoles: ['admin', 'dev'],
+      severity: 'info',
+      userId: req.user?._id,
+    });
   }
 
   try {
