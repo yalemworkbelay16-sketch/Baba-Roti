@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { convertUnit } = require('../utils/unitConverter');
 
 const ingredientSchema = new mongoose.Schema(
   {
@@ -54,7 +55,9 @@ productSchema.index({ category: 1 });
 productSchema.virtual('recipeCost').get(function () {
   return (this.ingredients || []).reduce((sum, ing) => {
     const unitCost = ing.material?.unitCost ?? 0;
-    return sum + unitCost * (ing.quantity || 0);
+    const ingUnit = (ing.unit || ing.material?.unit || '').trim();
+    const baseQty = convertUnit(ing.quantity || 0, ingUnit, ing.material?.unit);
+    return sum + unitCost * baseQty;
   }, 0);
 });
 

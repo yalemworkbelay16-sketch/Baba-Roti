@@ -150,8 +150,10 @@ const createConsumption = asyncHandler(async (req, res) => {
       .populate('ingredients.material', 'name unit unitCost');
     if (!product) { res.status(404); throw new Error(`Product not found: ${item.product}`); }
 
-    let recipeCost = (product.ingredients || []).reduce((sum, ing) =>
-      sum + (ing.material?.unitCost ?? 0) * ing.quantity, 0);
+    let recipeCost = (product.ingredients || []).reduce((sum, ing) => {
+      const baseQty = convertUnit(ing.quantity || 0, ing.unit || ing.material?.unit, ing.material?.unit);
+      return sum + (ing.material?.unitCost ?? 0) * baseQty;
+    }, 0);
 
     if (recipeCost === 0 && (!product.ingredients || product.ingredients.length === 0)) {
       const directMat = await RawMaterial.findOne({
@@ -361,8 +363,10 @@ const updateConsumption = asyncHandler(async (req, res) => {
       const product = await Product.findById(item.product)
         .populate('ingredients.material', 'name unit unitCost');
       if (!product) { res.status(404); throw new Error(`Product not found: ${item.product}`); }
-      const recipeCost = (product.ingredients || []).reduce((s, ing) =>
-        s + (ing.material?.unitCost ?? 0) * ing.quantity, 0);
+      const recipeCost = (product.ingredients || []).reduce((s, ing) => {
+        const baseQty = convertUnit(ing.quantity || 0, ing.unit || ing.material?.unit, ing.material?.unit);
+        return s + (ing.material?.unitCost ?? 0) * baseQty;
+      }, 0);
       const totalCost = recipeCost * Number(item.quantity);
       totalRecipeCost += totalCost;
       resolvedItems.push({ product: product._id, quantity: Number(item.quantity), recipeCost, totalCost });

@@ -7,10 +7,12 @@ import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import UnitSelect from '../components/ui/UnitSelect';
 import ProductImageModal from '../components/products/ProductImageModal';
 import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
 import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
+import { convertUnit, getConversionPreview } from '../utils/units';
 
 const emptyForm = {
   code: '',
@@ -730,7 +732,10 @@ const Products = () => {
   };
 
   const recipeCost = (p) =>
-    p.ingredients?.reduce((sum, ing) => sum + (ing.material?.unitCost ?? 0) * ing.quantity, 0) ?? 0;
+    p.ingredients?.reduce((sum, ing) => {
+      const baseQty = convertUnit(ing.quantity || 0, ing.unit || ing.material?.unit, ing.material?.unit);
+      return sum + (ing.material?.unitCost ?? 0) * baseQty;
+    }, 0) ?? 0;
 
   const exportData = useMemo(() => {
     return filteredProducts.map(p => ({
@@ -1281,165 +1286,165 @@ const Products = () => {
               {pagedProducts.map((p) => {
                 const conflict = productConflicts.byId.get(String(p._id));
                 return (
-                <tr
-                  key={p._id}
-                  className={`hover:bg-ink-50/50 ${conflict?.hasWarning ? 'bg-amber-50/50' : ''} ${selected.has(p._id) ? 'bg-blue-50/60' : ''}`}
-                >
-                  {canDelete && (
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(p._id)}
-                        onChange={() => toggleOne(p._id)}
-                        className="h-4 w-4 rounded border-ink-300 accent-blue-600 cursor-pointer"
-                      />
+                  <tr
+                    key={p._id}
+                    className={`hover:bg-ink-50/50 ${conflict?.hasWarning ? 'bg-amber-50/50' : ''} ${selected.has(p._id) ? 'bg-blue-50/60' : ''}`}
+                  >
+                    {canDelete && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p._id)}
+                          onChange={() => toggleOne(p._id)}
+                          className="h-4 w-4 rounded border-ink-300 accent-blue-600 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-400">
+                      <div>{p.code || '—'}</div>
                     </td>
-                  )}
-                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-400">
-                    <div>{p.code || '—'}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col items-start gap-1">
-                      <button onClick={() => openDetail(p)} className="font-medium text-blue-700 hover:underline text-left">
-                        {p.name}
-                      </button>
-                      {conflict?.hasWarning && (
-                        <RowWarningFlag conflict={conflict} canEdit={canEdit} onEdit={() => openEdit(p)} />
-                      )}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-ink-700">
-                    {p.category}
-                    {p.parentCategory && <span className="ml-1 text-xs text-ink-400">/ {p.parentCategory}</span>}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-ink-500">{p.uom || 'Pcs'}</td>
-                  <td className="whitespace-nowrap px-3 py-3 text-center">
-                    {p.createdAt ? (
-                      <div className="inline-flex flex-col items-center">
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-medium font-mono border border-slate-200" title={`Registered: ${new Date(p.createdAt).toLocaleString('en-US')}${p.updatedAt ? `\nLast Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}` : ''}`}>
-                          <Calendar size={11} className="text-blue-600" />
-                          {new Date(p.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
-                        </span>
-                        {p.updatedAt && new Date(p.updatedAt).toDateString() !== new Date(p.createdAt).toDateString() && (
-                          <span className="text-[10px] text-ink-400 font-mono mt-0.5" title={`Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}`}>
-                            upd {new Date(p.updatedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
-                          </span>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <button onClick={() => openDetail(p)} className="font-medium text-blue-700 hover:underline text-left">
+                          {p.name}
+                        </button>
+                        {conflict?.hasWarning && (
+                          <RowWarningFlag conflict={conflict} canEdit={canEdit} onEdit={() => openEdit(p)} />
                         )}
                       </div>
-                    ) : (
-                      <span className="text-xs text-ink-300 font-mono">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {p.ingredients && p.ingredients.length > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                        <ChefHat size={12} className="text-emerald-600" />
-                        {p.ingredients.length} item{p.ingredients.length !== 1 ? 's' : ''}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
-                        0 items (no recipe)
-                      </span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium tabular">
-                    ETB {p.sellingPrice !== undefined && p.sellingPrice !== null
-                      ? Number(p.sellingPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
-                      : '0.00'}
-                  </td>
-                  {/* Photo / Image column */}
-                  <td className="whitespace-nowrap px-4 py-2 text-center">
-                    {p.imageUrl ? (
-                      <div className="relative group inline-flex items-center justify-center">
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          onClick={() => setImageModalProduct(p)}
-                          className="h-10 w-10 rounded-lg object-cover border border-slate-200 shadow-2xs cursor-pointer transition hover:scale-105 hover:ring-2 hover:ring-blue-500"
-                          title="Click to view or edit image"
-                          onError={(e) => {
-                            e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-                          }}
-                        />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-ink-700">
+                      {p.category}
+                      {p.parentCategory && <span className="ml-1 text-xs text-ink-400">/ {p.parentCategory}</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-ink-500">{p.uom || 'Pcs'}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-center">
+                      {p.createdAt ? (
+                        <div className="inline-flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 font-medium font-mono border border-slate-200" title={`Registered: ${new Date(p.createdAt).toLocaleString('en-US')}${p.updatedAt ? `\nLast Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}` : ''}`}>
+                            <Calendar size={11} className="text-blue-600" />
+                            {new Date(p.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                          </span>
+                          {p.updatedAt && new Date(p.updatedAt).toDateString() !== new Date(p.createdAt).toDateString() && (
+                            <span className="text-[10px] text-ink-400 font-mono mt-0.5" title={`Updated: ${new Date(p.updatedAt).toLocaleString('en-US')}`}>
+                              upd {new Date(p.updatedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-ink-300 font-mono">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {p.ingredients && p.ingredients.length > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                          <ChefHat size={12} className="text-emerald-600" />
+                          {p.ingredients.length} item{p.ingredients.length !== 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                          0 items (no recipe)
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 font-medium tabular">
+                      ETB {p.sellingPrice !== undefined && p.sellingPrice !== null
+                        ? Number(p.sellingPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                        : '0.00'}
+                    </td>
+                    {/* Photo / Image column */}
+                    <td className="whitespace-nowrap px-4 py-2 text-center">
+                      {p.imageUrl ? (
+                        <div className="relative group inline-flex items-center justify-center">
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            onClick={() => setImageModalProduct(p)}
+                            className="h-10 w-10 rounded-lg object-cover border border-slate-200 shadow-2xs cursor-pointer transition hover:scale-105 hover:ring-2 hover:ring-blue-500"
+                            title="Click to view or edit image"
+                            onError={(e) => {
+                              e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                            }}
+                          />
+                          {canEdit && (
+                            <button
+                              onClick={() => setImageModalProduct(p)}
+                              className="absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 shadow-sm border border-slate-200 text-slate-500 hover:text-blue-600 transition"
+                              title="Change image"
+                            >
+                              <Pencil size={10} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1">
+                          {canEdit ? (
+                            <>
+                              <button
+                                onClick={() => handleQuickGenerateAi(p)}
+                                disabled={generatingAiRowId === p._id}
+                                className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/90 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:from-indigo-100 hover:to-purple-100 shadow-2xs transition disabled:opacity-50"
+                                title="Detect food name and generate image with AI"
+                              >
+                                {generatingAiRowId === p._id ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin text-indigo-600" />
+                                    <span className="text-[10px]">AI...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={12} className="text-amber-500 animate-pulse" />
+                                    <span>AI Photo</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleTriggerQuickUpload(p)}
+                                disabled={generatingAiRowId === p._id}
+                                className="rounded-lg bg-slate-50 border border-slate-200 p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition"
+                                title="Upload image from computer"
+                              >
+                                <Upload size={12} />
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">No image</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openDetail(p)}
+                          className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
+                          title="View product & security audit details"
+                        >
+                          <Eye size={15} />
+                        </button>
                         {canEdit && (
                           <button
                             onClick={() => setImageModalProduct(p)}
-                            className="absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 shadow-sm border border-slate-200 text-slate-500 hover:text-blue-600 transition"
-                            title="Change image"
+                            className="rounded-md p-1.5 text-ink-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                            title="Import / Edit Image (Upload or AI)"
                           >
-                            <Pencil size={10} />
+                            <Camera size={15} />
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button onClick={() => openEdit(p)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Edit">
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => handleDelete(p._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <div className="inline-flex items-center gap-1">
-                        {canEdit ? (
-                          <>
-                            <button
-                              onClick={() => handleQuickGenerateAi(p)}
-                              disabled={generatingAiRowId === p._id}
-                              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/90 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:from-indigo-100 hover:to-purple-100 shadow-2xs transition disabled:opacity-50"
-                              title="Detect food name and generate image with AI"
-                            >
-                              {generatingAiRowId === p._id ? (
-                                <>
-                                  <Loader2 size={12} className="animate-spin text-indigo-600" />
-                                  <span className="text-[10px]">AI...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles size={12} className="text-amber-500 animate-pulse" />
-                                  <span>AI Photo</span>
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleTriggerQuickUpload(p)}
-                              disabled={generatingAiRowId === p._id}
-                              className="rounded-lg bg-slate-50 border border-slate-200 p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition"
-                              title="Upload image from computer"
-                            >
-                              <Upload size={12} />
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">No image</span>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(p)}
-                        className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
-                        title="View product & security audit details"
-                      >
-                        <Eye size={15} />
-                      </button>
-                      {canEdit && (
-                        <button
-                          onClick={() => setImageModalProduct(p)}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
-                          title="Import / Edit Image (Upload or AI)"
-                        >
-                          <Camera size={15} />
-                        </button>
-                      )}
-                      {canEdit && (
-                        <button onClick={() => openEdit(p)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Edit">
-                          <Pencil size={15} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => handleDelete(p._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete">
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -1482,10 +1487,13 @@ const Products = () => {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">UOM</label>
-              <input value={form.uom} onChange={(e) => setForm({ ...form, uom: e.target.value })}
+              <label className="mb-1 block text-sm font-medium text-ink-600">UOM (International Unit)</label>
+              <UnitSelect
+                value={form.uom}
+                onChange={(val) => setForm({ ...form, uom: val })}
                 placeholder="Pcs"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+              />
             </div>
             <div className="col-span-2">
               <label className="mb-1 block text-sm font-medium text-ink-600">Product name *</label>
@@ -1670,54 +1678,83 @@ const Products = () => {
             <div className="space-y-2">
               {form.ingredients.map((ing, idx) => {
                 const mat = materials.find((m) => m._id === ing.material);
+                const ingUnit = ing.unit || mat?.unit || '';
+                const convPreview = mat ? getConversionPreview(ing.quantity, ingUnit, mat.unit) : null;
+                const baseQty = mat ? convertUnit(Number(ing.quantity) || 0, ingUnit, mat.unit) : 0;
+                const lineCost = mat ? baseQty * (mat.unitCost ?? 0) : 0;
                 return (
-                  <div key={idx} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                    <div>
-                      <SearchableSelect
-                        required
-                        placeholder="Select raw material or prepared item…"
-                        options={materials.map(m => ({
-                          ...m,
-                          name: `${m.name} (${m.unit})${m.isProduced ? (m.productionStation === 'bar' ? ' ☕ [Bar Prepared]' : ' 🍳 [Kitchen Prepared]') : ''}`
-                        }))}
-                        value={ing.material}
-                        onChange={(val) => updateIngredient(idx, 'material', val)}
-                      />
-                      {mat?.isProduced && (
-                        <span className="text-[10px] text-amber-700 font-bold ml-1">
-                          ★ Prepared in {mat.productionStation === 'bar' ? 'Bar Store' : 'Kitchen Store'} (Will deduct prepared stock, not raw ingredients)
-                        </span>
-                      )}
+                  <div key={idx} className="rounded-lg border border-ink-100 bg-ink-50/40 p-2 space-y-1.5">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                      <div className="w-full sm:w-auto flex-1 min-w-[180px]">
+                        <SearchableSelect
+                          required
+                          placeholder="Select raw material or prepared item…"
+                          options={materials.map(m => ({
+                            ...m,
+                            name: `${m.name} (${m.unit})${m.isProduced ? (m.productionStation === 'bar' ? ' ☕ [Bar Prepared]' : ' 🍳 [Kitchen Prepared]') : ''}`
+                          }))}
+                          value={ing.material}
+                          onChange={(val) => updateIngredient(idx, 'material', val)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                        <input type="number" step="any" min="0" required value={ing.quantity}
+                          onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
+                          className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-2 text-sm outline-none focus:border-blue-500 text-center font-bold"
+                          placeholder="Qty" />
+                        <UnitSelect
+                          compact
+                          value={ing.unit || mat?.unit || ''}
+                          baseUnit={mat?.unit || ''}
+                          placeholder="Unit"
+                          onChange={(val) => updateIngredient(idx, 'unit', val)}
+                          title="Recipe ingredient unit (auto-converts to material stock unit)"
+                        />
+                        <button type="button" onClick={() => removeIngredient(idx)}
+                          className="rounded-md p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500 shrink-0">
+                          <X size={15} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <input type="number" step="any" min="0" required value={ing.quantity}
-                        onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
-                        className="w-20 rounded-lg border border-ink-200 px-2 py-2 text-sm outline-none focus:border-blue-500 text-center font-bold"
-                        placeholder="Qty" />
-                      <input
-                        type="text"
-                        value={ing.unit || mat?.unit || ''}
-                        onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
-                        className="w-14 rounded-lg border border-ink-200 px-1 py-2 text-xs text-center font-semibold text-ink-700"
-                        placeholder="Unit"
-                        title="Recipe unit (e.g. g, kg, ml, pcs)"
-                      />
-                    </div>
-                    <button type="button" onClick={() => removeIngredient(idx)}
-                      className="rounded-md p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
-                      <X size={15} />
-                    </button>
+                    {(mat?.isProduced || convPreview || mat) && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {mat && (
+                            <span className="text-ink-500">
+                              Stock unit: <strong className="text-ink-700">{mat.unit}</strong>
+                            </span>
+                          )}
+                          {convPreview && (
+                            <span className={`inline-flex items-center rounded px-1.5 py-0.5 font-semibold ${convPreview.compatible ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-800'}`}>
+                              {convPreview.text}
+                            </span>
+                          )}
+                          {mat?.isProduced && (
+                            <span className="text-[10px] text-amber-700 font-bold">
+                              ★ Prepared in {mat.productionStation === 'bar' ? 'Bar Store' : 'Kitchen Store'}
+                            </span>
+                          )}
+                        </div>
+                        {mat && (
+                          <span className="font-semibold text-ink-700 tabular-nums">
+                            ETB {lineCost.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
             {(form.ingredients?.length > 0) && (
-              <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-sm">
-                <span className="text-ink-500">Estimated recipe cost: </span>
+              <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-sm flex items-center justify-between">
+                <span className="text-ink-500">Estimated recipe cost (unit-converted): </span>
                 <span className="font-semibold text-blue-700">
                   ETB {(form.ingredients || []).reduce((sum, ing) => {
                     const mat = materials.find((m) => m._id === ing.material);
-                    return sum + (mat?.unitCost ?? 0) * ing.quantity;
+                    if (!mat) return sum;
+                    const baseQty = convertUnit(Number(ing.quantity) || 0, ing.unit || mat.unit, mat.unit);
+                    return sum + (mat.unitCost ?? 0) * baseQty;
                   }, 0).toFixed(2)}
                 </span>
               </div>
@@ -1787,7 +1824,14 @@ const Products = () => {
                       return (
                         <tr key={i} className="border-b border-ink-50">
                           <td className="py-1.5 font-medium text-ink-800">{ing.material?.name ?? '—'}</td>
-                          <td className="py-1.5 text-right tabular">{ing.quantity} {ing.material?.unit}</td>
+                          <td className="py-1.5 text-right tabular">
+                            {ing.quantity} {ing.unit || ing.material?.unit}
+                            {ingDetail && ing.unit && ing.material?.unit && ingDetail.baseQuantity !== ing.quantity && (
+                              <span className="block text-[10px] text-ink-400">
+                                (= {ingDetail.baseQuantity} {ing.material.unit})
+                              </span>
+                            )}
+                          </td>
                           <td className="py-1.5 text-right tabular text-ink-600">
                             ETB {unitCost.toFixed(2)}
                             {isAdjusted && (

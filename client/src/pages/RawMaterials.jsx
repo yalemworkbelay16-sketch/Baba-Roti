@@ -17,32 +17,12 @@ import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { exportToExcel } from '../utils/exportUtils';
 import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
 import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
+import {
+  RAW_MATERIAL_UNIT_GROUPS as UNITS,
+  isDiscreteUnit,
+  formatUnitQty as formatQty,
+} from '../utils/units';
 
-const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
-
-const isDiscreteUnit = (unit = '', name = '') => {
-  const u = String(unit || '').trim();
-  if (DISCRETE_UNITS_REGEX.test(u)) return true;
-  const n = String(name || '').toLowerCase();
-  if (/\b(egg|eggs|injera|bread|bun|buns|can|bottle)\b/i.test(n) && !/^(kg|kilogram|g|gram|gm|mg|l|ltr|liter|litre|ml|cl|dl)$/i.test(u)) {
-    return true;
-  }
-  return false;
-};
-
-const formatQty = (val, unit = '', name = '') => {
-  const num = Number(val);
-  if (isNaN(num)) return '0';
-  if (isDiscreteUnit(unit, name)) {
-    return String(Math.round(num));
-  }
-  if (Math.abs(num) < 0.00001) return '0';
-  const r2 = Math.round((num + Number.EPSILON) * 100) / 100;
-  if (Math.abs(num - r2) < 0.005) {
-    return String(r2);
-  }
-  return String(Math.round((num + Number.EPSILON) * 1000) / 1000);
-};
 const emptyForm = {
   code: '',
   name: '',
@@ -57,14 +37,6 @@ const emptyForm = {
   storeLocation: 'Main Store',
 };
 
-// Common units for hospitality / kitchen / store
-const UNITS = [
-  { group: 'Volume', items: ['Litre (L)', 'Millilitre (ml)', 'Gallon', 'Fluid oz'] },
-  { group: 'Weight', items: ['Kilogram (kg)', 'Gram (g)', 'Pound (lb)', 'Ounce (oz)'] },
-  { group: 'Count', items: ['Piece (Pcs)', 'Dozen', 'Pack', 'Box', 'Carton', 'Bag', 'Bottle', 'Can', 'Roll', 'Sheet'] },
-  { group: 'Length', items: ['Metre (m)', 'Centimetre (cm)'] },
-  { group: 'Other', items: ['Portion', 'Serving', 'Tray', 'Batch', 'Pair', 'Set'] },
-];
 // Common categories for hospitality / kitchen / store
 const CATEGORIES = [
   { group: 'Food & Kitchen', items: ['Produce', 'Meat & Poultry', 'Fish & Seafood', 'Dairy & Eggs', 'Bakery & Pastry', 'Grains', 'Spices & Seasonings', 'Pantry', 'Frozen Foods'] },

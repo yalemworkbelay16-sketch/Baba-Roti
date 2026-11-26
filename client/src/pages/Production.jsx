@@ -11,36 +11,21 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import UnitSelect from '../components/ui/UnitSelect';
 import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
 import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
+import {
+  convertUnit,
+  formatUnitQty as sharedFormatUnitQty,
+  getConversionPreview,
+  isDiscreteUnit as sharedIsDiscreteUnit,
+} from '../utils/units';
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
+const isDiscreteUnit = (unit = '', name = '') => sharedIsDiscreteUnit(unit, name);
 
-const isDiscreteUnit = (unit = '', name = '') => {
-  const u = String(unit || '').trim();
-  if (DISCRETE_UNITS_REGEX.test(u)) return true;
-  const n = String(name || '').toLowerCase();
-  if (/\b(egg|eggs|injera|bread|bun|buns|can|bottle)\b/i.test(n) && !/^(kg|kilogram|g|gram|gm|mg|l|ltr|liter|litre|ml|cl|dl)$/i.test(u)) {
-    return true;
-  }
-  return false;
-};
-
-const formatUnitQty = (val, unit = '', name = '') => {
-  const num = Number(val);
-  if (isNaN(num)) return '0';
-  if (isDiscreteUnit(unit, name)) {
-    return String(Math.round(num));
-  }
-  if (Math.abs(num) < 0.00001) return '0';
-  const r2 = Math.round((num + Number.EPSILON) * 100) / 100;
-  if (Math.abs(num - r2) < 0.005) {
-    return String(r2);
-  }
-  return String(Math.round((num + Number.EPSILON) * 1000) / 1000);
-};
+const formatUnitQty = (val, unit = '', name = '') => sharedFormatUnitQty(val, unit, name);
 
 export default function Production() {
   const { user, can, hasRole } = useAuth();
@@ -335,7 +320,7 @@ export default function Production() {
         yieldQuantity: 1,
         yieldUnit: 'kg',
         instructions: '',
-        ingredients: [{ material: '', quantity: 1, unit: 'kg', notes: '' }],
+        ingredients: [{ material: '', quantity: 1, unit: '', notes: '' }],
       });
     }
     setRecipeModalOpen(true);
@@ -1641,12 +1626,11 @@ export default function Production() {
                       placeholder="New Item Name * (e.g. Chili Sauce)"
                       className="sm:col-span-2 rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
                     />
-                    <input
-                      type="text"
+                    <UnitSelect
                       value={recipeForm.newMaterialUnit}
-                      onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialUnit: e.target.value })}
-                      placeholder="Unit (kg, ltr, pcs)"
-                      className="rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
+                      onChange={(val) => setRecipeForm({ ...recipeForm, newMaterialUnit: val })}
+                      placeholder="Unit *"
+                      className="rounded-xl border border-ink-200 px-2.5 py-1.5 text-xs text-ink-900 bg-white font-semibold outline-none focus:border-blue-500"
                     />
                   </div>
                   <LiveConflictAlert
@@ -1671,7 +1655,11 @@ export default function Production() {
                     raw: m,
                   }))}
                   value={recipeForm.targetMaterial}
-                  onChange={(val) => setRecipeForm({ ...recipeForm, targetMaterial: val })}
+                  onChange={(val, raw) => setRecipeForm({
+                    ...recipeForm,
+                    targetMaterial: val,
+                    yieldUnit: raw?.unit || recipeForm.yieldUnit,
+                  })}
                   placeholder="Search and choose produced item..."
                 />
               )}
@@ -1696,22 +1684,22 @@ export default function Production() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink-700 mb-1">
-                  Yield Unit *
+                  Yield Unit (International UOM) *
                 </label>
-                <input
-                  type="text"
+                <UnitSelect
                   required
                   value={recipeForm.yieldUnit}
-                  onChange={(e) => setRecipeForm({ ...recipeForm, yieldUnit: e.target.value })}
-                  placeholder="kg, ltr, pcs, batch"
-                  className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-900 font-bold"
+                  baseUnit={rawMaterials.find(m => m._id === recipeForm.targetMaterial)?.unit || recipeForm.newMaterialUnit}
+                  onChange={(val) => setRecipeForm({ ...recipeForm, yieldUnit: val })}
+                  placeholder="Select unit…"
+                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs text-ink-900 font-bold outline-none focus:border-blue-500"
                 />
               </div>
             </div>
 
             {/* Dynamic Ingredients */}
             <div className="space-y-2 pt-2 border-t border-ink-100">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-bold text-ink-800">
                   Recipe Ingredients (Amount needed per Standard Yield)
                 </label>
@@ -1719,79 +1707,129 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeForm({
                     ...recipeForm,
-                    ingredients: [...recipeForm.ingredients, { material: '', quantity: 1, unit: 'kg', notes: '' }]
+                    ingredients: [...recipeForm.ingredients, { material: '', quantity: 1, unit: '', notes: '' }]
                   })}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer shrink-0"
                 >
                   <Plus size={13} /> Add Ingredient
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-72 overflow-visible pr-1">
-                {recipeForm.ingredients.map((ing, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-ink-50 p-2 rounded-xl border border-ink-100 text-xs">
-                    <div className="flex-1 min-w-[200px]">
-                      <SearchableSelect
-                        size="sm"
-                        options={rawMaterials.map(m => ({
-                          value: m._id,
-                          label: `${m.name} (${m.unit})`,
-                          sublabel: `Cost: ${etb(m.unitCost)} • Stock: Kitchen ${m.kitchenStock || 0} | Main ${m.mainStoreStock || 0}${m.isProduced ? ' ★ [Produced]' : ''}`,
-                          category: m.category,
-                          raw: m,
-                        }))}
-                        value={ing.material}
-                        onChange={(val, raw) => {
-                          const next = [...recipeForm.ingredients];
-                          next[idx].material = val;
-                          if (raw && !next[idx].unit) next[idx].unit = raw.unit;
-                          setRecipeForm({ ...recipeForm, ingredients: next });
-                        }}
-                        placeholder="Search & choose raw material..."
-                      />
+              <div className="space-y-2 max-h-72 overflow-y-auto overflow-x-visible pr-1">
+                {recipeForm.ingredients.map((ing, idx) => {
+                  const selectedMat = rawMaterials.find(m => m._id === ing.material);
+                  const ingUnit = ing.unit || selectedMat?.unit || '';
+                  const convPreview = selectedMat ? getConversionPreview(ing.quantity, ingUnit, selectedMat.unit) : null;
+                  const baseQty = selectedMat ? convertUnit(Number(ing.quantity) || 0, ingUnit, selectedMat.unit) : 0;
+                  const estLineCost = selectedMat ? baseQty * (Number(selectedMat.unitCost) || 0) : 0;
+                  return (
+                    <div key={idx} className="bg-ink-50 p-2 rounded-xl border border-ink-100 text-xs space-y-1.5">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                        <div className="w-full sm:w-auto flex-1 min-w-[180px]">
+                          <SearchableSelect
+                            size="sm"
+                            options={rawMaterials.map(m => ({
+                              value: m._id,
+                              label: `${m.name} (${m.unit})`,
+                              sublabel: `Cost: ${etb(m.unitCost)} • Stock: Kitchen ${m.kitchenStock || 0} | Main ${m.mainStoreStock || 0}${m.isProduced ? ' ★ [Produced]' : ''}`,
+                              category: m.category,
+                              raw: m,
+                            }))}
+                            value={ing.material}
+                            onChange={(val, raw) => {
+                              const next = [...recipeForm.ingredients];
+                              const prevMat = rawMaterials.find(m => m._id === next[idx].material);
+                              next[idx].material = val;
+                              if (raw && (!next[idx].unit || (prevMat && next[idx].unit === prevMat.unit))) {
+                                next[idx].unit = raw.unit;
+                              }
+                              setRecipeForm({ ...recipeForm, ingredients: next });
+                            }}
+                            placeholder="Search & choose raw material..."
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                          <input
+                            type="number"
+                            min="0.0001"
+                            step="any"
+                            placeholder="Qty"
+                            value={ing.quantity}
+                            onChange={(e) => {
+                              const next = [...recipeForm.ingredients];
+                              next[idx].quantity = e.target.value;
+                              setRecipeForm({ ...recipeForm, ingredients: next });
+                            }}
+                            className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-xs text-ink-900 text-center font-bold"
+                          />
+
+                          <UnitSelect
+                            compact
+                            value={ing.unit}
+                            baseUnit={selectedMat?.unit || ''}
+                            placeholder="Unit"
+                            onChange={(val) => {
+                              const next = [...recipeForm.ingredients];
+                              next[idx].unit = val;
+                              setRecipeForm({ ...recipeForm, ingredients: next });
+                            }}
+                          />
+
+                          {recipeForm.ingredients.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = recipeForm.ingredients.filter((_, i) => i !== idx);
+                                setRecipeForm({ ...recipeForm, ingredients: next });
+                              }}
+                              className="p-1 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer shrink-0"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {selectedMat && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]">
+                          <span className="text-ink-500">
+                            Stock unit: <strong className="text-ink-700">{selectedMat.unit}</strong>
+                            {convPreview && (
+                              <span className={`ml-2 inline-flex items-center rounded-md px-1.5 py-0.5 font-semibold ${convPreview.compatible ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-800'}`}>
+                                {convPreview.text}
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-semibold text-ink-700 tabular-nums">
+                            Est. Cost: {etb(estLineCost)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    <input
-                      type="number"
-                      min="0.0001"
-                      step="any"
-                      placeholder="Qty"
-                      value={ing.quantity}
-                      onChange={(e) => {
-                        const next = [...recipeForm.ingredients];
-                        next[idx].quantity = e.target.value;
-                        setRecipeForm({ ...recipeForm, ingredients: next });
-                      }}
-                      className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-xs text-ink-900 text-center font-bold"
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Unit"
-                      value={ing.unit}
-                      onChange={(e) => {
-                        const next = [...recipeForm.ingredients];
-                        next[idx].unit = e.target.value;
-                        setRecipeForm({ ...recipeForm, ingredients: next });
-                      }}
-                      className="w-16 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-xs text-ink-900 text-center font-semibold"
-                    />
-
-                    {recipeForm.ingredients.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = recipeForm.ingredients.filter((_, i) => i !== idx);
-                          setRecipeForm({ ...recipeForm, ingredients: next });
-                        }}
-                        className="p-1 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {recipeForm.ingredients.some(i => i.material) && (() => {
+                const totalBatchEst = recipeForm.ingredients.reduce((sum, ing) => {
+                  const mat = rawMaterials.find(m => m._id === ing.material);
+                  if (!mat) return sum;
+                  const baseQty = convertUnit(Number(ing.quantity) || 0, ing.unit || mat.unit, mat.unit);
+                  return sum + baseQty * (Number(mat.unitCost) || 0);
+                }, 0);
+                const yQty = Math.max(0.0001, Number(recipeForm.yieldQuantity) || 1);
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-blue-50/80 border border-blue-100 px-3 py-2 text-[11px]">
+                    <span className="text-blue-900 font-semibold">
+                      Estimated Formula Cost: <strong className="font-black">{etb(totalBatchEst)}</strong>
+                    </span>
+                    <span className="text-blue-800 font-semibold">
+                      Cost per {recipeForm.yieldUnit || 'unit'}: <strong className="font-black">{etb(totalBatchEst / yQty)}</strong>
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Preparation Notes */}

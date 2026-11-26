@@ -321,19 +321,19 @@ const calculateBatchRequirements = asyncHandler(async (req, res) => {
 
   const ingredientRequirements = (recipe.ingredients || []).map((ing) => {
     const mat = ing.material;
-    const isDiscrete = isDiscreteUnit(ing.unit, mat?.name) || isDiscreteUnit(mat?.unit, mat?.name);
-
     const recipeUnit = (ing.unit || mat?.unit || '').trim();
     const baseUnit = mat?.unit || recipeUnit;
+    const isRecipeDiscrete = isDiscreteUnit(recipeUnit, mat?.name);
+    const isBaseDiscrete = isDiscreteUnit(baseUnit, mat?.name);
 
     const rawReqRecipeQty = (Number(ing.quantity) || 0) * ratio;
-    const reqRecipeQty = isDiscrete
+    const reqRecipeQty = isRecipeDiscrete
       ? Math.max(1, Math.round(rawReqRecipeQty))
       : cleanQuantity(rawReqRecipeQty, recipeUnit, mat?.name);
 
     // Convert required qty from recipe unit to material base unit
     const rawReqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
-    const reqBaseQty = isDiscrete
+    const reqBaseQty = isBaseDiscrete
       ? Math.max(1, Math.round(rawReqBaseQty))
       : cleanQuantity(rawReqBaseQty, baseUnit, mat?.name);
 
@@ -440,18 +440,18 @@ const produceBatch = asyncHandler(async (req, res) => {
     const mat = ing.material;
     if (!mat) continue;
 
-    const isDiscrete = isDiscreteUnit(ing.unit, mat.name) || isDiscreteUnit(mat.unit, mat.name);
-
     const recipeUnit = (ing.unit || mat.unit || '').trim();
     const baseUnit = mat.unit || recipeUnit;
+    const isRecipeDiscrete = isDiscreteUnit(recipeUnit, mat.name);
+    const isBaseDiscrete = isDiscreteUnit(baseUnit, mat.name);
 
     const rawReqRecipeQty = (Number(ing.quantity) || 0) * ratio;
-    const reqRecipeQty = isDiscrete
+    const reqRecipeQty = isRecipeDiscrete
       ? Math.max(1, Math.round(rawReqRecipeQty))
       : cleanQuantity(rawReqRecipeQty, recipeUnit, mat.name);
 
     const rawReqBaseQty = convertUnit(reqRecipeQty, recipeUnit, baseUnit);
-    const reqBaseQty = isDiscrete
+    const reqBaseQty = isBaseDiscrete
       ? Math.max(1, Math.round(rawReqBaseQty))
       : cleanQuantity(rawReqBaseQty, baseUnit, mat.name);
 
@@ -509,13 +509,22 @@ const produceBatch = asyncHandler(async (req, res) => {
     });
   }
 
-  // 3. Atomically add finished production item to Kitchen or Bar Store
-  const incProduced = station === 'bar'
-    ? { barStock: prodQty, currentStock: prodQty }
-    : { kitchenStock: prodQty, currentStock: prodQty };
+  // 3. Atomically add finished production item to Kitchen or Bar Store (converted to target material base unit)
+  const producedUnitStr = (recipe.yieldUnit || targetMat.unit || 'kg').trim();
+  const producedBaseQty = cleanQuantity(
+    convertUnit(prodQty, producedUnitStr, targetMat.unit),
+    targetMat.unit,
+    targetMat.name
+  );
 
-  // Calculate new unit cost (weighted average or latest batch cost)
-  const calculatedUnitCost = prodQty > 0 ? Math.round((totalBatchCost / prodQty) * 100) / 100 : (targetMat.unitCost || 0);
+  const incProduced = station === 'bar'
+    ? { barStock: producedBaseQty, currentStock: producedBaseQty }
+    : { kitchenStock: producedBaseQty, currentStock: producedBaseQty };
+
+  // Calculate new unit cost per target material unit
+  const calculatedUnitCost = producedBaseQty > 0
+    ? Math.round((totalBatchCost / producedBaseQty) * 100) / 100
+    : (targetMat.unitCost || 0);
 
   await RawMaterial.findByIdAndUpdate(targetMat._id, {
     $inc: incProduced,
@@ -715,11 +724,15 @@ const voidProductionBatch = asyncHandler(async (req, res) => {
 
   const station = batch.station;
   const prodQty = Number(batch.producedQuantity || 0);
+  const targetMatDoc = await RawMaterial.findById(batch.targetMaterial).select('unit name').lean();
+  const prodBaseQty = targetMatDoc?.unit
+    ? cleanQuantity(convertUnit(prodQty, batch.producedUnit || targetMatDoc.unit, targetMatDoc.unit), targetMatDoc.unit, targetMatDoc.name)
+    : prodQty;
 
   // 1. Deduct finished product back from station stock
   const incReverseProduced = station === 'bar'
-    ? { barStock: -prodQty, currentStock: -prodQty }
-    : { kitchenStock: -prodQty, currentStock: -prodQty };
+    ? { barStock: -prodBaseQty, currentStock: -prodBaseQty }
+    : { kitchenStock: -prodBaseQty, currentStock: -prodBaseQty };
 
   await RawMaterial.findByIdAndUpdate(batch.targetMaterial, {
     $inc: incReverseProduced,
