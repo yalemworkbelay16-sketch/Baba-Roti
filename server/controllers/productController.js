@@ -935,6 +935,9 @@ const toggleMenuVisibility = asyncHandler(async (req, res) => {
   if (isAvailableOnMenu !== undefined) product.isAvailableOnMenu = !!isAvailableOnMenu;
   if (manualOutOfStock !== undefined) product.manualOutOfStock = !!manualOutOfStock;
   if (isFeatured !== undefined) product.isFeatured = !!isFeatured;
+  product.updatedBy = req.user?._id || null;
+  product.updatedByName = req.user?.name || product.updatedByName;
+  product.updatedByRole = req.user?.role || product.updatedByRole;
 
   await product.save();
   invalidateDashboardCache();
@@ -971,6 +974,9 @@ const generateProductAiImage = asyncHandler(async (req, res) => {
   const result = await generateAndSaveProductImage(product, prompt);
 
   product.imageUrl = result.imageUrl;
+  product.updatedBy = req.user?._id || null;
+  product.updatedByName = req.user?.name || product.updatedByName;
+  product.updatedByRole = req.user?.role || product.updatedByRole;
   await product.save();
   invalidateDashboardCache();
 
@@ -1022,6 +1028,9 @@ const uploadProductImageManual = asyncHandler(async (req, res) => {
 
   // 3. Update product imageUrl
   product.imageUrl = `/api/upload/${filename}`;
+  product.updatedBy = req.user?._id || null;
+  product.updatedByName = req.user?.name || product.updatedByName;
+  product.updatedByRole = req.user?.role || product.updatedByRole;
   await product.save();
   invalidateDashboardCache();
 
@@ -1066,6 +1075,9 @@ const bulkGenerateAiImages = asyncHandler(async (req, res) => {
     try {
       const result = await generateAndSaveProductImage(prod);
       prod.imageUrl = result.imageUrl;
+      prod.updatedBy = req.user?._id || null;
+      prod.updatedByName = req.user?.name || prod.updatedByName;
+      prod.updatedByRole = req.user?.role || prod.updatedByRole;
       await prod.save();
       updatedCount++;
       results.push({ id: prod._id, name: prod.name, imageUrl: result.imageUrl, status: 'success' });
@@ -1101,6 +1113,9 @@ const deleteProductImage = asyncHandler(async (req, res) => {
   }
 
   product.imageUrl = '';
+  product.updatedBy = req.user?._id || null;
+  product.updatedByName = req.user?.name || product.updatedByName;
+  product.updatedByRole = req.user?.role || product.updatedByRole;
   await product.save();
   invalidateDashboardCache();
 

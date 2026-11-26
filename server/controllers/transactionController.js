@@ -571,6 +571,11 @@ const advanceTransaction = asyncHandler(async (req, res) => {
           mat.mainStoreStock = Math.max(0, (mat.mainStoreStock || 0) - item.quantity);
           mat.currentStock = Math.max(0, (mat.currentStock || 0) - item.quantity);
         }
+        if (req.user) {
+          mat.updatedBy = req.user._id || null;
+          mat.updatedByName = req.user.name || mat.updatedByName;
+          mat.updatedByRole = req.user.role || mat.updatedByRole;
+        }
         await mat.save();
       }
     }

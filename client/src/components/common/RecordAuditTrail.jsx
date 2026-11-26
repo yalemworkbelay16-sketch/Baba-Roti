@@ -56,17 +56,23 @@ export default function RecordAuditTrail({ record, showRecipeAudit = false }) {
   const sourceInfo = SOURCE_CONFIG[sourceKey] || SOURCE_CONFIG.manual;
   const SourceIcon = sourceInfo.Icon;
 
-  const creatorName = record.createdByName || 'Initial / Legacy Import';
-  const creatorRole = fmtRole(record.createdByRole);
+  const hasCreatorName = Boolean(record.createdByName && record.createdByName.trim());
+  const creatorName = hasCreatorName
+    ? record.createdByName
+    : (sourceKey === 'excel_import' ? 'Excel Catalog Import (Pre-Audit)' : 'Pre-Audit Setup');
+  const creatorRole = hasCreatorName ? fmtRole(record.createdByRole) : '';
 
-  const hasUpdates = Boolean(
-    record.updatedByName ||
-    (record.updatedAt && record.createdAt && Math.abs(new Date(record.updatedAt) - new Date(record.createdAt)) > 2000)
+  const hasUpdaterName = Boolean(record.updatedByName && record.updatedByName.trim());
+  const hasTimestampUpdate = Boolean(
+    record.updatedAt && record.createdAt && Math.abs(new Date(record.updatedAt) - new Date(record.createdAt)) > 2000
   );
-  const updaterName = record.updatedByName || (hasUpdates ? 'System / Staff' : '');
-  const updaterRole = fmtRole(record.updatedByRole);
+  const hasUpdates = hasUpdaterName || hasTimestampUpdate;
+  const updaterName = hasUpdaterName ? record.updatedByName : 'Updated (Pre-Audit Log)';
+  const updaterRole = hasUpdaterName ? fmtRole(record.updatedByRole) : '';
 
   const hasRecipe = Array.isArray(record.ingredients) && record.ingredients.length > 0;
+  const recipeAuthor = record.recipeAddedByName || record.updatedByName || record.createdByName || '';
+  const recipeAuthorRole = record.recipeAddedByRole || (record.recipeAddedByName ? '' : (record.updatedByRole || record.createdByRole || ''));
   const recipeSourceLabel = record.recipeSource === 'excel_import' ? 'Imported via Excel' : 'Added Manually';
 
   return (
@@ -89,7 +95,7 @@ export default function RecordAuditTrail({ record, showRecipeAudit = false }) {
             {sourceKey === 'excel_import' ? 'Imported By' : 'Registered By'}
           </p>
           <p className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
-            <span>{creatorName}</span>
+            <span className={hasCreatorName ? 'text-slate-900' : 'text-slate-500 italic'}>{creatorName}</span>
             {creatorRole && (
               <span className="rounded bg-blue-50 border border-blue-200 px-1.5 py-0.2 text-[10px] font-bold text-blue-700">
                 {creatorRole}
@@ -110,7 +116,7 @@ export default function RecordAuditTrail({ record, showRecipeAudit = false }) {
           {hasUpdates ? (
             <>
               <p className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                <span>{updaterName}</span>
+                <span className={hasUpdaterName ? 'text-slate-900' : 'text-slate-500 italic'}>{updaterName}</span>
                 {updaterRole && (
                   <span className="rounded bg-amber-50 border border-amber-200 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">
                     {updaterRole}
@@ -147,13 +153,17 @@ export default function RecordAuditTrail({ record, showRecipeAudit = false }) {
               <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                 <p className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
                   <span>Added / Updated by:</span>
-                  <span className="text-emerald-800">
-                    {record.recipeAddedByName || record.updatedByName || record.createdByName || 'Prior System Entry'}
-                  </span>
-                  {(record.recipeAddedByRole || record.updatedByRole || record.createdByRole) && (
-                    <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700">
-                      {fmtRole(record.recipeAddedByRole || record.updatedByRole || record.createdByRole)}
-                    </span>
+                  {recipeAuthor ? (
+                    <>
+                      <span className="text-emerald-800">{recipeAuthor}</span>
+                      {recipeAuthorRole && (
+                        <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700">
+                          {fmtRole(recipeAuthorRole)}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-500 italic">Added prior to user audit tracking</span>
                   )}
                 </p>
                 <p className="text-[11px] text-slate-500 flex items-center gap-1">

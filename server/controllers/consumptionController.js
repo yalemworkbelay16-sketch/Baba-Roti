@@ -17,7 +17,7 @@ const generateVoucherNo = async () => {
 };
 
 // ── Helper: deduct raw materials based on product recipes ─────────
-async function applyConsumptionStock(items, reverse = false) {
+async function applyConsumptionStock(items, reverse = false, actor = null) {
   let settings = null;
   try {
     settings = await Setting.findOne().lean();
@@ -49,6 +49,11 @@ async function applyConsumptionStock(items, reverse = false) {
           mat.mainStoreStock = Math.max(0, Number(mat.mainStoreStock || 0) + (reverse ? qty : -qty));
         }
         mat.currentStock = Math.max(0, (mat.mainStoreStock || 0) + (mat.kitchenStock || 0) + (mat.barStock || 0));
+        if (actor) {
+          mat.updatedBy = actor._id || null;
+          mat.updatedByName = actor.name || mat.updatedByName;
+          mat.updatedByRole = actor.role || mat.updatedByRole;
+        }
         await mat.save();
       }
     } else {
@@ -76,6 +81,11 @@ async function applyConsumptionStock(items, reverse = false) {
           directMat.mainStoreStock = Math.max(0, Number(directMat.mainStoreStock || 0) + (reverse ? qty : -qty));
         }
         directMat.currentStock = Math.max(0, (directMat.mainStoreStock || 0) + (directMat.kitchenStock || 0) + (directMat.barStock || 0));
+        if (actor) {
+          directMat.updatedBy = actor._id || null;
+          directMat.updatedByName = actor.name || directMat.updatedByName;
+          directMat.updatedByRole = actor.role || directMat.updatedByRole;
+        }
         await directMat.save();
       }
     }
@@ -301,7 +311,7 @@ const createConsumption = asyncHandler(async (req, res) => {
 
   // Automatically deduct raw materials from Kitchen / Bar station stock when auto-approved
   if (shouldAutoApprove) {
-    await applyConsumptionStock(record.items);
+    await applyConsumptionStock(record.items, false, req.user);
   }
 
   const populated = await Consumption.findById(record._id)
@@ -385,7 +395,7 @@ const approveConsumption = asyncHandler(async (req, res) => {
   }
 
   // Deduct raw materials from stock
-  await applyConsumptionStock(record.items);
+  await applyConsumptionStock(record.items, false, req.user);
 
   record.status = 'approved';
   record.approvedBy = req.user._id;
@@ -413,7 +423,7 @@ const voidConsumption = asyncHandler(async (req, res) => {
 
   // Reverse stock only if it was approved
   if (record.status === 'approved') {
-    await applyConsumptionStock(record.items, true); // reverse = true
+    await applyConsumptionStock(record.items, true, req.user); // reverse = true
   }
 
   record.status = 'voided';

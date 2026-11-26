@@ -63,7 +63,7 @@ const generateVoucherNo = async () => {
 // 1. Kitchen issue: Main Store stock decreases, Kitchen stock increases
 // 2. Bar issue: Main Store stock decreases, Bar stock increases
 // 3. Other (Housekeeping/Laundry/etc.): Direct consumption from Main Store
-async function executeStockTransfer(items, department, reverse = false) {
+async function executeStockTransfer(items, department, reverse = false, actor = null) {
   const dept = String(department || '').toLowerCase();
   const isKitchen = ['kitchen', 'restaurant', 'pastry & bakery store', 'pastry', 'bakery'].some(d => dept.includes(d));
   const isBar = ['bar', 'barista', 'beverage', 'drinks'].some(d => dept.includes(d));
@@ -110,6 +110,11 @@ async function executeStockTransfer(items, department, reverse = false) {
       }
     }
 
+    if (actor) {
+      mat.updatedBy = actor._id || null;
+      mat.updatedByName = actor.name || mat.updatedByName;
+      mat.updatedByRole = actor.role || mat.updatedByRole;
+    }
     await mat.save();
   }
 }
@@ -278,7 +283,7 @@ const createStockRequest = asyncHandler(async (req, res) => {
 
   // Execute internal transfer from Main Store to Kitchen / Bar immediately for direct issue
   if (isDirectIssue) {
-    await executeStockTransfer(resolved, department, false);
+    await executeStockTransfer(resolved, department, false, req.user);
   }
 
   const populated = await StockRequest.findById(newRequest._id)
@@ -463,7 +468,7 @@ const issueStock = asyncHandler(async (req, res) => {
   await request.save();
 
   // Execute internal stock transfer from Main Store to Kitchen / Bar
-  await executeStockTransfer(request.items, request.department, false);
+  await executeStockTransfer(request.items, request.department, false, req.user);
 
   const populated = await StockRequest.findById(request._id)
     .populate('items.material', 'name unit unitCost currentStock mainStoreStock kitchenStock barStock')
