@@ -15,6 +15,8 @@ import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { exportToExcel } from '../utils/exportUtils';
+import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
+import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
 
 const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
 
@@ -286,15 +288,24 @@ const RawMaterials = () => {
     return { all: materials.length, main: materials.length, kitchen, bar };
   }, [materials, stationMapping]);
 
-  // Filtered materials by status, category, and station
+  const materialConflicts = useMemo(() => buildConflictMap(materials), [materials]);
+  const liveMaterialConflicts = useMemo(
+    () => (modalOpen ? findLiveConflicts(materials, { code: form.code, name: form.name, excludeId: editing?._id }) : null),
+    [modalOpen, materials, form.code, form.name, editing]
+  );
+
+  // Filtered materials by status, warnings, category, and station
   const filteredMaterials = useMemo(() => {
     return stationSubset.filter((m) => {
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
+      if (statusFilter === 'warnings') {
+        return Boolean(materialConflicts.byId.get(String(m._id))?.hasWarning);
+      }
       const s = getMaterialStatusForStation(m, stationFilter);
       if (statusFilter !== 'all' && s !== statusFilter) return false;
       return true;
     });
-  }, [stationSubset, statusFilter, categoryFilter, stationFilter]);
+  }, [stationSubset, statusFilter, categoryFilter, stationFilter, materialConflicts]);
 
   /* ── selection ── */
   const allIds = filteredMaterials.map(m => m._id);
@@ -657,23 +668,29 @@ const RawMaterials = () => {
       {
         key: 'name',
         header: 'Material',
-        render: (r) => (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => { setDetailItem(r); setDetailOpen(true); }}
-              className="font-semibold text-blue-700 hover:underline text-left cursor-pointer"
-            >
-              {r.name}
-            </button>
-            {r.isProduced && (
-              <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                }`}>
-                {r.productionStation === 'bar' ? '☕ Bar Produced' : '🍳 Kitchen Produced'}
-              </span>
-            )}
-          </div>
-        ),
+        render: (r) => {
+          const conflict = materialConflicts.byId.get(String(r._id));
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => { setDetailItem(r); setDetailOpen(true); }}
+                className="font-semibold text-blue-700 hover:underline text-left cursor-pointer"
+              >
+                {r.name}
+              </button>
+              {r.isProduced && (
+                <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                  {r.productionStation === 'bar' ? '☕ Bar Produced' : '🍳 Kitchen Produced'}
+                </span>
+              )}
+              {conflict?.hasWarning && (
+                <RowWarningFlag conflict={conflict} canEdit={canEdit} onEdit={() => openEdit(r)} />
+              )}
+            </div>
+          );
+        },
       },
       { key: 'category', header: 'Category' },
 
@@ -821,7 +838,7 @@ const RawMaterials = () => {
         ),
       },
     ];
-  }, [stationFilter, allChecked, someChecked, selected, canEdit, canDelete]);
+  }, [stationFilter, allChecked, someChecked, selected, canEdit, canDelete, materialConflicts]);
 
   const exportData = useMemo(() => {
     const isKitchen = stationFilter === 'kitchen';
@@ -1175,6 +1192,26 @@ const RawMaterials = () => {
               {counts.outOfStock}
             </span>
           </button>
+
+          {/* Duplicate / Missing Code Warnings */}
+          {materialConflicts.flaggedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'warnings' ? 'all' : 'warnings')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${statusFilter === 'warnings'
+                ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
+                : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+              title="Show items with duplicate name, duplicate code, or missing code"
+            >
+              <AlertTriangle size={13} className={statusFilter === 'warnings' ? 'text-white' : 'text-rose-600'} />
+              <span>Warnings</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusFilter === 'warnings' ? 'bg-white/25 text-white' : 'bg-rose-200 text-rose-900'
+                }`}>
+                {materialConflicts.flaggedCount}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Quick Category Filter */}
@@ -1288,6 +1325,7 @@ const RawMaterials = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
           </div>
+          <LiveConflictAlert live={liveMaterialConflicts} canEdit={canEdit} onEditExisting={(item) => openEdit(item)} />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Category</label>

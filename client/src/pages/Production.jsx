@@ -11,6 +11,8 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
+import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -281,6 +283,18 @@ export default function Production() {
     const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
     return `RM-${String(next).padStart(4, '0')}`;
   }, [rawMaterials]);
+
+  const recipeConflicts = useMemo(() => buildConflictMap(recipes), [recipes]);
+  const liveRecipeConflicts = useMemo(
+    () => (recipeModalOpen ? findLiveConflicts(recipes, { name: recipeForm.name, code: recipeForm.code, excludeId: editingRecipeId }) : null),
+    [recipeModalOpen, recipes, recipeForm.name, recipeForm.code, editingRecipeId]
+  );
+  const liveNewMatConflicts = useMemo(
+    () => (recipeModalOpen && recipeForm.isCreatingNewMaterial
+      ? findLiveConflicts(rawMaterials, { code: recipeForm.newMaterialCode, name: recipeForm.newMaterialName })
+      : null),
+    [recipeModalOpen, recipeForm.isCreatingNewMaterial, recipeForm.newMaterialCode, recipeForm.newMaterialName, rawMaterials]
+  );
 
   // ── Open Create / Edit Recipe Modal ──
   const handleOpenRecipeModal = (recipe = null) => {
@@ -965,8 +979,8 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeStationTab('all')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'all'
-                      ? 'bg-white text-ink-900 shadow-2xs'
-                      : 'text-ink-600 hover:text-ink-900'
+                    ? 'bg-white text-ink-900 shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900'
                     }`}
                 >
                   All
@@ -975,8 +989,8 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeStationTab('kitchen')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'kitchen'
-                      ? 'bg-white text-amber-900 shadow-2xs'
-                      : 'text-ink-600 hover:text-ink-900'
+                    ? 'bg-white text-amber-900 shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900'
                     }`}
                 >
                   🍳 Kitchen
@@ -985,8 +999,8 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeStationTab('bar')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeStationTab === 'bar'
-                      ? 'bg-white text-emerald-900 shadow-2xs'
-                      : 'text-ink-600 hover:text-ink-900'
+                    ? 'bg-white text-emerald-900 shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900'
                     }`}
                 >
                   ☕ Bar
@@ -999,8 +1013,8 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeViewMode('table')}
                   className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeViewMode === 'table'
-                      ? 'bg-white text-blue-700 shadow-2xs'
-                      : 'text-ink-600 hover:text-ink-900'
+                    ? 'bg-white text-blue-700 shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900'
                     }`}
                   title="Compact Table View"
                 >
@@ -1011,8 +1025,8 @@ export default function Production() {
                   type="button"
                   onClick={() => setRecipeViewMode('grid')}
                   className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${recipeViewMode === 'grid'
-                      ? 'bg-white text-blue-700 shadow-2xs'
-                      : 'text-ink-600 hover:text-ink-900'
+                    ? 'bg-white text-blue-700 shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900'
                     }`}
                   title="Card Grid View"
                 >
@@ -1048,8 +1062,10 @@ export default function Production() {
                       </td>
                     </tr>
                   ) : (
-                    recipesForTab.map((r) => (
-                      <tr key={r._id} className="hover:bg-ink-50/50 transition">
+                    recipesForTab.map((r) => {
+                      const conflict = recipeConflicts.byId.get(String(r._id));
+                      return (
+                      <tr key={r._id} className={`hover:bg-ink-50/50 transition ${conflict?.hasWarning ? 'bg-amber-50/40' : ''}`}>
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className="font-mono font-bold text-[11px] text-ink-700 bg-ink-100 px-2 py-0.5 rounded-md">
                             {r.code || '—'}
@@ -1061,11 +1077,16 @@ export default function Production() {
                             <span>Produces:</span>
                             <strong className="text-ink-800 font-semibold">{r.targetMaterial?.name || '—'}</strong>
                           </div>
+                          {conflict?.hasWarning && (
+                            <div className="mt-1">
+                              <RowWarningFlag conflict={conflict} canEdit={isManagerOrAdmin} onEdit={() => handleOpenRecipeModal(r)} />
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3.5 text-center whitespace-nowrap">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}>
                             {r.station}
                           </span>
@@ -1135,7 +1156,8 @@ export default function Production() {
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1159,8 +1181,8 @@ export default function Production() {
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-amber-100 text-amber-800'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
                             }`}>
                             {r.station}
                           </span>
@@ -1569,6 +1591,8 @@ export default function Production() {
               </div>
             </div>
 
+            <LiveConflictAlert live={liveRecipeConflicts} canEdit={isManagerOrAdmin} onEditExisting={(r) => handleOpenRecipeModal(r)} />
+
             {/* Target Produced Item */}
             <div className="p-3.5 rounded-xl border border-ink-100 bg-ink-50/50 space-y-2.5">
               <div className="flex items-center justify-between">
@@ -1589,39 +1613,51 @@ export default function Production() {
               </div>
 
               {recipeForm.isCreatingNewMaterial ? (
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                  <div className="flex items-center gap-1">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        required
+                        value={recipeForm.newMaterialCode || ''}
+                        onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialCode: e.target.value })}
+                        placeholder="Code * (RM-0174)"
+                        className="w-full rounded-xl border border-ink-200 px-2.5 py-1.5 text-xs font-mono text-ink-900 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRecipeForm({ ...recipeForm, newMaterialCode: getNextNewMaterialCode() })}
+                        title="Auto-generate code"
+                        className="shrink-0 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
+                      >
+                        Auto
+                      </button>
+                    </div>
                     <input
                       type="text"
                       required
-                      value={recipeForm.newMaterialCode || ''}
-                      onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialCode: e.target.value })}
-                      placeholder="Code * (RM-0174)"
-                      className="w-full rounded-xl border border-ink-200 px-2.5 py-1.5 text-xs font-mono text-ink-900 bg-white"
+                      value={recipeForm.newMaterialName}
+                      onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialName: e.target.value })}
+                      placeholder="New Item Name * (e.g. Chili Sauce)"
+                      className="sm:col-span-2 rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setRecipeForm({ ...recipeForm, newMaterialCode: getNextNewMaterialCode() })}
-                      title="Auto-generate code"
-                      className="shrink-0 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
-                    >
-                      Auto
-                    </button>
+                    <input
+                      type="text"
+                      value={recipeForm.newMaterialUnit}
+                      onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialUnit: e.target.value })}
+                      placeholder="Unit (kg, ltr, pcs)"
+                      className="rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={recipeForm.newMaterialName}
-                    onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialName: e.target.value })}
-                    placeholder="New Item Name * (e.g. Chili Sauce)"
-                    className="sm:col-span-2 rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
-                  />
-                  <input
-                    type="text"
-                    value={recipeForm.newMaterialUnit}
-                    onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialUnit: e.target.value })}
-                    placeholder="Unit (kg, ltr, pcs)"
-                    className="rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
+                  <LiveConflictAlert
+                    live={liveNewMatConflicts}
+                    canEdit
+                    onEditExisting={(m) => setRecipeForm({
+                      ...recipeForm,
+                      isCreatingNewMaterial: false,
+                      targetMaterial: m._id,
+                      yieldUnit: m.unit || recipeForm.yieldUnit,
+                    })}
                   />
                 </div>
               ) : (

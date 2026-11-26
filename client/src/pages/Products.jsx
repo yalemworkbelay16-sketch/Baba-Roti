@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle, Calendar, RotateCcw, Eye, Filter } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ChefHat, X, Upload, Download, Zap, Sparkles, Camera, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle, AlertTriangle, Calendar, RotateCcw, Eye, Filter } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
@@ -9,6 +9,8 @@ import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import ProductImageModal from '../components/products/ProductImageModal';
 import RecordAuditTrail from '../components/common/RecordAuditTrail';
+import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
+import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
 
 const emptyForm = {
   code: '',
@@ -188,16 +190,27 @@ const Products = () => {
     };
   }, [products]);
 
-  // Filtered products by recipe status and category
+  // Duplicate / Missing Code conflict detection across catalog
+  const productConflicts = useMemo(() => buildConflictMap(products), [products]);
+  const liveProductConflicts = useMemo(
+    () => (modalOpen ? findLiveConflicts(products, { code: form.code, name: form.name, excludeId: editing?._id }) : null),
+    [modalOpen, products, form.code, form.name, editing]
+  );
+
+  // Filtered products by recipe status, warnings, and category
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const hasRec = Boolean(p.ingredients && p.ingredients.length > 0);
-      if (recipeFilter === 'has_recipe' && !hasRec) return false;
-      if (recipeFilter === 'no_recipe' && hasRec) return false;
+      if (recipeFilter === 'warnings') {
+        if (!productConflicts.byId.get(String(p._id))?.hasWarning) return false;
+      } else {
+        const hasRec = Boolean(p.ingredients && p.ingredients.length > 0);
+        if (recipeFilter === 'has_recipe' && !hasRec) return false;
+        if (recipeFilter === 'no_recipe' && hasRec) return false;
+      }
       if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
       return true;
     });
-  }, [products, recipeFilter, categoryFilter]);
+  }, [products, recipeFilter, categoryFilter, productConflicts]);
 
   // ── Selection helpers ──
   const allIds = filteredProducts.map((p) => p._id);
@@ -851,8 +864,8 @@ const Products = () => {
                     type="button"
                     onClick={() => applyDatePreset(preset.id)}
                     className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${datePreset === preset.id
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                       }`}
                   >
                     {preset.label}
@@ -1126,6 +1139,25 @@ const Products = () => {
               {recipeCounts.noRecipe}
             </span>
           </button>
+
+          {productConflicts.flaggedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setRecipeFilter(recipeFilter === 'warnings' ? 'all' : 'warnings')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${recipeFilter === 'warnings'
+                ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40'
+                : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+              title="Show products with duplicate name, duplicate code, or missing code"
+            >
+              <AlertTriangle size={13} className={recipeFilter === 'warnings' ? 'text-white' : 'text-rose-600'} />
+              <span>Warnings</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${recipeFilter === 'warnings' ? 'bg-white/25 text-white' : 'bg-rose-200 text-rose-900'
+                }`}>
+                {productConflicts.flaggedCount}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Quick Category Filter */}
@@ -1246,10 +1278,12 @@ const Products = () => {
                   </td>
                 </tr>
               )}
-              {pagedProducts.map((p) => (
+              {pagedProducts.map((p) => {
+                const conflict = productConflicts.byId.get(String(p._id));
+                return (
                 <tr
                   key={p._id}
-                  className={`hover:bg-ink-50/50 ${selected.has(p._id) ? 'bg-blue-50/60' : ''}`}
+                  className={`hover:bg-ink-50/50 ${conflict?.hasWarning ? 'bg-amber-50/50' : ''} ${selected.has(p._id) ? 'bg-blue-50/60' : ''}`}
                 >
                   {canDelete && (
                     <td className="px-4 py-3">
@@ -1261,11 +1295,18 @@ const Products = () => {
                       />
                     </td>
                   )}
-                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-400">{p.code || '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <button onClick={() => openDetail(p)} className="font-medium text-blue-700 hover:underline text-left">
-                      {p.name}
-                    </button>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-400">
+                    <div>{p.code || '—'}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <button onClick={() => openDetail(p)} className="font-medium text-blue-700 hover:underline text-left">
+                        {p.name}
+                      </button>
+                      {conflict?.hasWarning && (
+                        <RowWarningFlag conflict={conflict} canEdit={canEdit} onEdit={() => openEdit(p)} />
+                      )}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink-700">
                     {p.category}
@@ -1399,7 +1440,8 @@ const Products = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>{/* end overflow-x-auto */}
@@ -1450,6 +1492,9 @@ const Products = () => {
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Baba Roti  CaféBurger"
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            </div>
+            <div className="col-span-2">
+              <LiveConflictAlert live={liveProductConflicts} canEdit={canEdit} onEditExisting={(item) => openEdit(item)} />
             </div>
             <div>
               <div className="mb-1 flex items-center justify-between">
