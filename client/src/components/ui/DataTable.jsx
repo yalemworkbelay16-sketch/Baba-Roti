@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Pagination from './Pagination';
+import useHighlightRow from '../../hooks/useHighlightRow';
 
 const DataTable = ({
   columns,
@@ -12,6 +13,13 @@ const DataTable = ({
 
   // Reset to page 1 when data changes (e.g. after search)
   useEffect(() => { setPage(1); }, [data.length]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: data,
+    displayed: data,
+    pageSize,
+    setPage,
+  });
 
   const total     = data.length;
   const paginated = data.slice((page - 1) * pageSize, page * pageSize);
@@ -46,7 +54,8 @@ const DataTable = ({
             {paginated.map((row, i) => (
               <tr
                 key={row._id || i}
-                className="hover:bg-blue-50/30 transition-colors"
+                ref={setRowRef(row)}
+                className={rowClass(row, 'hover:bg-blue-50/30 transition-colors')}
                 style={{ borderBottom: '1px solid #f1f5f9' }}
               >
                 {columns.map((col) => (

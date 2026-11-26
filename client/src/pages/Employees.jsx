@@ -14,6 +14,7 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { normalizeFileUrl } from '../utils/fileUrl';
 import { useAuth } from '../context/AuthContext';
+import useHighlightRow from '../hooks/useHighlightRow';
 
 const DEPARTMENTS = [
   'Bar', 'Kitchen', 'Waiter', 'Food & Beverage', 'Front Office', 'Housekeeping',
@@ -107,6 +108,14 @@ export default function Employees() {
       e.department?.toLowerCase().includes(q)
     );
   }, [employees, search]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: employees,
+    displayed: filtered,
+    pageSize,
+    setPage,
+    onEnsureVisible: () => { setFilterStatus(''); setSearch(''); },
+  });
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -390,7 +399,7 @@ export default function Employees() {
                 const st = STATUS_CONFIG[emp.status] || STATUS_CONFIG.active;
                 const StIcon = st.icon;
                 return (
-                  <tr key={emp._id} className="hover:bg-blue-50/20 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={emp._id} ref={setRowRef(emp)} className={rowClass(emp, 'hover:bg-blue-50/20 transition-colors')} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td className="px-4 py-3 font-mono text-xs text-blue-600 whitespace-nowrap">{emp.employeeId || '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">

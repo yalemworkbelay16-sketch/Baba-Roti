@@ -14,6 +14,7 @@ import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { posPrint } from '../utils/posPrint';
 import { dispatchPrint } from '../utils/localPrintDispatcher';
+import useHighlightRow from '../hooks/useHighlightRow';
 
 /* ── Category config ─────────────────────────────────────────────── */
 const CATEGORIES = [
@@ -194,6 +195,14 @@ export default function Consumption() {
       r.department?.toLowerCase().includes(q)
     );
   }, [records, search, isPrivileged, user, currentUserEmployee]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: records,
+    displayed: filtered,
+    pageSize,
+    setPage,
+    onEnsureVisible: () => { setFilterCat(''); setSearch(''); },
+  });
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -806,7 +815,7 @@ export default function Consumption() {
                 const cat = catByKey[r.category] || CATEGORIES[0];
                 const CatIcon = cat.icon;
                 return (
-                  <tr key={r._id} className="hover:bg-blue-50/20 transition-colors" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={r._id} ref={setRowRef(r)} className={rowClass(r, 'hover:bg-blue-50/20 transition-colors')} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">
                       {new Date(r.date).toLocaleString()}
                     </td>

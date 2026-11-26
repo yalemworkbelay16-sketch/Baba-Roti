@@ -1518,27 +1518,76 @@ const TYPE_ICONS = {
   stock_request: '📦',
   transaction: '↔️',
   consumption: '🍽️',
+  expense: '💸',
   material: '🧱',
   employee: '👷',
   user: '👤',
+  production: '🍳',
+  pos: '🧾',
   system: '⚙️',
   low_stock: '⚠️',
 };
 
 const NotificationBell = () => {
+  const { user, canSeeNav, hasRole, hasCapability } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const bellRef = useRef(null);
   const navigate = useNavigate();
 
+  const isAllowedForRole = useCallback((n) => {
+    const role = user?.role;
+    if (!role || role === 'dev' || role === 'admin') return true;
+    if (Array.isArray(n.allowedRoles) && n.allowedRoles.length > 0 && !n.allowedRoles.includes(role)) {
+      return false;
+    }
+    switch (n.type) {
+      case 'stock_request': return canSeeNav('stockRequests');
+      case 'transaction': return canSeeNav('stockMovements');
+      case 'consumption': return canSeeNav('consumption');
+      case 'purchase': return hasRole('admin', 'manager', 'supervisor', 'dev');
+      case 'expense': return canSeeNav('expenses');
+      case 'material':
+      case 'low_stock': return canSeeNav('rawMaterials');
+      case 'production': return canSeeNav('production');
+      case 'pos': return canSeeNav('pos');
+      case 'employee':
+      case 'user': return canSeeNav('staffAccounts') || hasCapability('manageAccounts');
+      case 'system': return hasRole('admin', 'manager', 'supervisor', 'dev');
+      default: return true;
+    }
+  }, [user?.role, canSeeNav, hasRole, hasCapability]);
+
+  const resolveNotificationTarget = useCallback((n) => {
+    const rawLink = n?.link || '';
+    if (!rawLink) return null;
+    if (!isAllowedForRole(n)) return null;
+
+    if (n.entityId) {
+      if (rawLink.includes('highlight=')) return rawLink;
+      return `${rawLink}${rawLink.includes('?') ? '&' : '?'}highlight=${encodeURIComponent(n.entityId)}`;
+    }
+    if (n.voucherNo) {
+      if (rawLink.includes('voucher=')) return rawLink;
+      return `${rawLink}${rawLink.includes('?') ? '&' : '?'}voucher=${encodeURIComponent(n.voucherNo)}`;
+    }
+    // Fallback for legacy notifications containing voucher code in message text (e.g. REQ-00012 / CONS-00005 / GRV-...)
+    const voucherMatch = String(n.message || '').match(/\b([A-Z]{2,5}-\d{3,6})\b/);
+    if (voucherMatch) {
+      return `${rawLink}${rawLink.includes('?') ? '&' : '?'}voucher=${encodeURIComponent(voucherMatch[1])}`;
+    }
+    return rawLink;
+  }, [isAllowedForRole]);
+
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await api.get('/notifications');
-      setNotifications(res.data.notifications || []);
-      setUnread(res.data.unread || 0);
+      const visible = (res.data.notifications || []).filter(isAllowedForRole);
+      setNotifications(visible);
+      setUnread(visible.length > 0 ? Math.min(res.data.unread || visible.length, visible.length) : 0);
     } catch { /* silent */ }
-  }, []);
+  }, [isAllowedForRole]);
 
   // Poll every 30 seconds
   useEffect(() => {
@@ -1556,13 +1605,16 @@ const NotificationBell = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Click = remove instantly from UI + delete from DB
+  // Click = dismiss for this user + redirect with marked row target according to role
   const handleClick = (n) => {
     setNotifications(prev => prev.filter(x => x._id !== n._id));
     setUnread(prev => Math.max(0, prev - 1));
     api.delete(`/notifications/${n._id}`).catch(() => { });
     setOpen(false);
-    if (n.link) navigate(n.link);
+    if (n.link !== null) {
+      const target = resolveNotificationTarget(n);
+      if (target) navigate(target);
+    }
   };
 
   // Clear all

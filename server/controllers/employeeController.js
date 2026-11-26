@@ -64,7 +64,16 @@ const createEmployee = asyncHandler(async (req, res) => {
   });
 
   tg.notifyEmployeeCreated(emp, req.user);
-  notify.push({ type: 'employee', title: 'New Employee Added', message: `${req.user?.name || 'Staff'} added ${emp.firstName} ${emp.lastName} to ${emp.department}`, icon: '👷', link: '/employees', severity: 'info', userId: req.user?._id });
+  notify.push({
+    type: 'employee',
+    title: 'New Employee Added',
+    message: `${req.user?.name || 'Staff'} added ${emp.firstName} ${emp.lastName} to ${emp.department}`,
+    icon: '👷',
+    link: '/employees',
+    entityId: emp._id,
+    severity: 'info',
+    userId: req.user?._id,
+  });
 
   try {
     logActivity(req, {
@@ -116,7 +125,16 @@ const updateEmployee = asyncHandler(async (req, res) => {
   }
 
   tg.notifyEmployeeUpdated(emp, req.user);
-  notify.push({ type: 'employee', title: 'Employee Updated', message: `${req.user?.name || 'Staff'} updated ${emp.firstName} ${emp.lastName}`, icon: '✏️', link: '/employees', severity: 'info', userId: req.user?._id });
+  notify.push({
+    type: 'employee',
+    title: 'Employee Updated',
+    message: `${req.user?.name || 'Staff'} updated ${emp.firstName} ${emp.lastName}`,
+    icon: '✏️',
+    link: '/employees',
+    entityId: emp._id,
+    severity: 'info',
+    userId: req.user?._id,
+  });
 
   try {
     logActivity(req, {

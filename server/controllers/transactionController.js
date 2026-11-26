@@ -175,7 +175,17 @@ const createTransaction = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
   tg.notifyTransaction(populated, req.user);
-  notify.push({ type: 'transaction', title: 'New Stock Transaction', message: `${req.user.name} recorded a ${populated.voucherType?.replace('_', ' ')} — ${populated.items?.length || 1} item(s)`, icon: populated.type === 'in' ? '📥' : '📤', link: '/transactions', severity: 'info', userId: req.user._id });
+  notify.push({
+    type: 'transaction',
+    title: 'New Stock Transaction',
+    message: `${req.user.name} recorded a ${populated.voucherType?.replace('_', ' ')} — ${populated.items?.length || 1} item(s)`,
+    icon: populated.type === 'in' ? '📥' : '📤',
+    link: '/transactions',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    severity: 'info',
+    userId: req.user._id,
+  });
 
   try {
     const vLabel = populated.voucherType?.toUpperCase().replace('_', ' ') || 'TRANSACTION';
@@ -632,7 +642,17 @@ const advanceTransaction = asyncHandler(async (req, res) => {
 
   tg.notifyTransactionAdvanced(populated, action, actor);
   if (['void', 'approve'].includes(action)) {
-    notify.push({ type: 'transaction', title: `Voucher ${action}d`, message: `${actor.name} ${action}d ${populated.voucherNo || 'voucher'}`, icon: action === 'void' ? '🔴' : '🟣', link: '/transactions', severity: action === 'void' ? 'error' : 'success', userId: actor._id });
+    notify.push({
+      type: 'transaction',
+      title: `Voucher ${action}d`,
+      message: `${actor.name} ${action}d ${populated.voucherNo || 'voucher'}`,
+      icon: action === 'void' ? '🔴' : '🟣',
+      link: '/transactions',
+      entityId: populated._id,
+      voucherNo: populated.voucherNo,
+      severity: action === 'void' ? 'error' : 'success',
+      userId: actor._id,
+    });
   }
   res.json({ message: `Voucher moved from "${prev}" → "${rule.to}"`, transaction: populated });
 });

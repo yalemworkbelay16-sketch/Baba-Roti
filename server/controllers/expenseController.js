@@ -236,6 +236,7 @@ const createExpense = asyncHandler(async (req, res) => {
     message: `${req.user.name} recorded ETB ${numAmount.toFixed(2)} for "${title}" (${category}).`,
     icon: '💸',
     link: '/expenses',
+    entityId: populated._id,
     severity: 'info',
     userId: req.user._id,
   });

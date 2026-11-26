@@ -11,6 +11,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import useHighlightRow from '../hooks/useHighlightRow';
 
 // ── Constants ────────────────────────────────────────────────────
 const DEPARTMENTS = [
@@ -332,6 +333,12 @@ export default function StockIssueRequest() {
       return true;
     });
   }, [requests, filterStatus, filterDept, search, isStationRestricted, userStation]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: requests,
+    displayed: filtered,
+    onEnsureVisible: () => { setFilterStatus(''); setFilterDept(''); setSearch(''); },
+  });
 
   // ── Form helpers ─────────────────────────────────────────────
   const openCreate = () => {
@@ -718,7 +725,7 @@ export default function StockIssueRequest() {
               </thead>
               <tbody className="divide-y divide-ink-50">
                 {filtered.map(req => (
-                  <tr key={req._id} className="hover:bg-ink-50/50 transition group">
+                  <tr key={req._id} ref={setRowRef(req)} className={rowClass(req, 'hover:bg-ink-50/50 transition group')}>
                     <td className="px-4 py-3 font-bold text-blue-700">
                       <div>{req.voucherNo}</div>
                       <div className="text-[9px] text-ink-400 font-normal">Internal Hand-off</div>

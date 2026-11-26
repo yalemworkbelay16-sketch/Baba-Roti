@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import useHighlightRow from '../hooks/useHighlightRow';
 import {
   Receipt,
   PlusCircle,
@@ -481,6 +482,17 @@ export default function Expenses() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: expenses,
+    displayed: expenses,
+    onEnsureVisible: () => {
+      setDatePreset('all');
+      setSelectedCategory('ALL');
+      setSelectedPayment('ALL');
+      setSearchQuery('');
+    },
+  });
 
   // Reset form to defaults
   const openNewExpenseModal = (template = null) => {
@@ -1013,7 +1025,7 @@ export default function Expenses() {
                   const CatIcon = catCfg.icon;
 
                   return (
-                    <tr key={exp._id} className="hover:bg-blue-50/30 transition-colors">
+                    <tr key={exp._id} ref={setRowRef(exp)} className={rowClass(exp, 'hover:bg-blue-50/30 transition-colors')}>
                       {/* Date */}
                       <td className="px-4 py-3 whitespace-nowrap text-ink-600 font-mono text-[11px]">
                         {exp.date ? new Date(exp.date).toLocaleDateString() : '—'}

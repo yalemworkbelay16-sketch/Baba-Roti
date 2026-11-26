@@ -295,7 +295,17 @@ const createStockRequest = asyncHandler(async (req, res) => {
 
   // Telegram notification
   tg.notifyStockRequestCreated && tg.notifyStockRequestCreated(populated, req.user);
-  notify.push({ type: 'stock_request', title: isDirectIssue ? 'Direct Stock Issue' : 'New Stock Request', message: `${req.user.name} submitted a ${isDirectIssue ? 'direct issue' : 'request'} for ${department} — ${populated.items?.length} item(s)`, icon: isDirectIssue ? '📤' : '📋', link: '/stock-requests', severity: isDirectIssue ? 'success' : 'info', userId: req.user._id });
+  notify.push({
+    type: 'stock_request',
+    title: isDirectIssue ? 'Direct Stock Issue' : 'New Stock Request',
+    message: `${req.user.name} submitted a ${isDirectIssue ? 'direct issue' : 'request'} for ${department} — ${populated.items?.length} item(s)`,
+    icon: isDirectIssue ? '📤' : '📋',
+    link: '/stock-requests',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    severity: isDirectIssue ? 'success' : 'info',
+    userId: req.user._id,
+  });
 
   logActivity(req, {
     action: isDirectIssue ? 'DIRECT_ISSUE' : 'STOCK_REQUEST',
@@ -381,7 +391,18 @@ const approveStockRequest = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
   tg.notifyStockRequestApproved && tg.notifyStockRequestApproved(populated, req.user);
-  notify.push({ type: 'stock_request', title: 'Stock Request Approved', message: `${req.user.name} approved request ${populated.voucherNo} for ${populated.department}`, icon: '✅', link: '/stock-requests', severity: 'success', userId: req.user._id });
+  notify.push({
+    type: 'stock_request',
+    title: 'Stock Request Approved',
+    message: `${req.user.name} approved request ${populated.voucherNo} for ${populated.department}`,
+    icon: '✅',
+    link: '/stock-requests',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    targetUserId: populated.requestedBy?._id || populated.requestedBy || null,
+    severity: 'success',
+    userId: req.user._id,
+  });
 
   logActivity(req, {
     action: 'APPROVE_REQUEST',
@@ -477,7 +498,18 @@ const issueStock = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
   tg.notifyStockIssued && tg.notifyStockIssued(populated, req.user);
-  notify.push({ type: 'stock_request', title: 'Stock Issued', message: `${req.user.name} issued stock for ${populated.department} — ETB ${Number(populated.totalCost || 0).toLocaleString()} (Transferred from Main Store to ${populated.department})`, icon: '📦', link: '/stock-requests', severity: 'success', userId: req.user._id });
+  notify.push({
+    type: 'stock_request',
+    title: 'Stock Issued',
+    message: `${req.user.name} issued stock for ${populated.department} — ETB ${Number(populated.totalCost || 0).toLocaleString()} (Transferred from Main Store to ${populated.department})`,
+    icon: '📦',
+    link: '/stock-requests',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    targetUserId: populated.requestedBy?._id || populated.requestedBy || null,
+    severity: 'success',
+    userId: req.user._id,
+  });
 
   logActivity(req, {
     action: 'ISSUE_STOCK',
@@ -525,7 +557,18 @@ const rejectStockRequest = asyncHandler(async (req, res) => {
 
   await request.save();
   tg.notifyStockRequestRejected && tg.notifyStockRequestRejected(request, req.user);
-  notify.push({ type: 'stock_request', title: 'Stock Request Rejected', message: `${req.user.name} rejected request ${request.voucherNo} for ${request.department}${reason ? ': ' + reason : ''}`, icon: '❌', link: '/stock-requests', severity: 'error', userId: req.user._id });
+  notify.push({
+    type: 'stock_request',
+    title: 'Stock Request Rejected',
+    message: `${req.user.name} rejected request ${request.voucherNo} for ${request.department}${reason ? ': ' + reason : ''}`,
+    icon: '❌',
+    link: '/stock-requests',
+    entityId: request._id,
+    voucherNo: request.voucherNo,
+    targetUserId: request.requestedBy || null,
+    severity: 'error',
+    userId: req.user._id,
+  });
 
   logActivity(req, {
     action: 'REJECT_REQUEST',
@@ -566,7 +609,17 @@ const cancelStockRequest = asyncHandler(async (req, res) => {
   await request.save();
   res.json({ message: 'Request cancelled.', request });
   tg.notifyStockRequestCancelled && tg.notifyStockRequestCancelled(request, req.user);
-  notify.push({ type: 'stock_request', title: 'Stock Request Cancelled', message: `${req.user.name} cancelled request ${request.voucherNo} for ${request.department}`, icon: '🚫', link: '/stock-requests', severity: 'warning', userId: req.user._id });
+  notify.push({
+    type: 'stock_request',
+    title: 'Stock Request Cancelled',
+    message: `${req.user.name} cancelled request ${request.voucherNo} for ${request.department}`,
+    icon: '🚫',
+    link: '/stock-requests',
+    entityId: request._id,
+    voucherNo: request.voucherNo,
+    severity: 'warning',
+    userId: req.user._id,
+  });
 });
 
 // ── DELETE /api/stock-requests/:id ───────────────────────────────

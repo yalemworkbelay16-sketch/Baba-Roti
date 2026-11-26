@@ -88,7 +88,17 @@ const createPurchase = asyncHandler(async (req, res) => {
     { path: 'recordedBy', select: 'name role' },
   ]);
   tg.notifyPurchaseCreated(populated.toObject ? populated.toObject() : populated, req.user);
-  notify.push({ type: 'purchase', title: 'New Purchase Order', message: `${req.user.name} created a draft PO for ${populated.supplier?.name || 'supplier'} — ${populated.totalAmount ? 'ETB ' + Number(populated.totalAmount).toLocaleString() : ''}`, icon: '📝', link: '/purchases', severity: 'info', userId: req.user._id });
+  notify.push({
+    type: 'purchase',
+    title: 'New Purchase Order',
+    message: `${req.user.name} created a draft PO for ${populated.supplier?.name || 'supplier'} — ${populated.totalAmount ? 'ETB ' + Number(populated.totalAmount).toLocaleString() : ''}`,
+    icon: '📝',
+    link: '/purchases',
+    entityId: populated._id,
+    allowedRoles: ['admin', 'manager', 'supervisor', 'dev'],
+    severity: 'info',
+    userId: req.user._id,
+  });
   res.status(201).json(populated);
 });
 
@@ -169,7 +179,17 @@ const advancePurchase = asyncHandler(async (req, res) => {
   tg.notifyPurchaseAdvanced(populated, action, actor);
   const actionLabels = { check: 'checked', approve: 'approved', receive: 'received — stock added', cancel: 'cancelled' };
   const sev = action === 'receive' ? 'success' : action === 'cancel' ? 'warning' : 'info';
-  notify.push({ type: 'purchase', title: `Purchase ${actionLabels[action] || action}`, message: `${actor.name} ${actionLabels[action] || action} PO for ${populated.supplier?.name || 'supplier'}`, icon: action === 'receive' ? '📦' : action === 'cancel' ? '🔴' : '✅', link: '/purchases', severity: sev, userId: actor._id });
+  notify.push({
+    type: 'purchase',
+    title: `Purchase ${actionLabels[action] || action}`,
+    message: `${actor.name} ${actionLabels[action] || action} PO for ${populated.supplier?.name || 'supplier'}`,
+    icon: action === 'receive' ? '📦' : action === 'cancel' ? '🔴' : '✅',
+    link: '/purchases',
+    entityId: populated._id,
+    allowedRoles: ['admin', 'manager', 'supervisor', 'dev'],
+    severity: sev,
+    userId: actor._id,
+  });
 });
 
 // ── DELETE /api/purchases/:id ─────────────────────────────────────────

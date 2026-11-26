@@ -335,8 +335,11 @@ const createConsumption = asyncHandler(async (req, res) => {
     message: `${req.user.name} ordered staff meal ${populated.voucherNo} — auto-approved, stock deducted`,
     icon: '🍽️',
     link: '/consumption',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    targetUserId: req.user._id,
     severity: shouldAutoApprove ? 'success' : 'info',
-    userId: req.user._id
+    userId: req.user._id,
   });
   res.status(201).json(populated);
 });
@@ -410,7 +413,18 @@ const approveConsumption = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
   tg.notifyConsumptionApproved(populated, req.user);
-  notify.push({ type: 'consumption', title: 'Consumption Approved', message: `${req.user.name} approved ${populated.voucherNo} — stock deducted`, icon: '✅', link: '/consumption', severity: 'success', userId: req.user._id });
+  notify.push({
+    type: 'consumption',
+    title: 'Consumption Approved',
+    message: `${req.user.name} approved ${populated.voucherNo} — stock deducted`,
+    icon: '✅',
+    link: '/consumption',
+    entityId: populated._id,
+    voucherNo: populated.voucherNo,
+    targetUserId: populated.performedBy?._id || populated.performedBy || null,
+    severity: 'success',
+    userId: req.user._id,
+  });
   res.json({ message: 'Consumption approved and stock deducted.', record: populated });
 });
 
@@ -432,7 +446,18 @@ const voidConsumption = asyncHandler(async (req, res) => {
 
   invalidateDashboardCache();
   tg.notifyConsumptionVoided(record, req.user);
-  notify.push({ type: 'consumption', title: 'Consumption Voided', message: `${req.user.name} voided voucher ${record.voucherNo}`, icon: '🔴', link: '/consumption', severity: 'warning', userId: req.user._id });
+  notify.push({
+    type: 'consumption',
+    title: 'Consumption Voided',
+    message: `${req.user.name} voided voucher ${record.voucherNo}`,
+    icon: '🔴',
+    link: '/consumption',
+    entityId: record._id,
+    voucherNo: record.voucherNo,
+    targetUserId: record.performedBy || null,
+    severity: 'warning',
+    userId: req.user._id,
+  });
   res.json({ message: 'Consumption voided.', record });
 });
 

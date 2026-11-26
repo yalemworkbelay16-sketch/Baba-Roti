@@ -16,6 +16,7 @@ import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import useHighlightRow from '../hooks/useHighlightRow';
 
 // ── Voucher config ────────────────────────────────────────────────────
 const VOUCHERS = [
@@ -193,6 +194,19 @@ export default function StockTransactions({ defaultVoucher } = {}) {
   const [pageSize, setPageSize] = useState(10);
   // Reset to page 1 whenever search, filter, voucher type, or date changes
   React.useEffect(() => { setPage(1); }, [search, filterType, fromDate, toDate, quickVoucherFilter]);
+
+  const { setRowRef, rowClass } = useHighlightRow({
+    items: transactions,
+    displayed,
+    pageSize,
+    setPage,
+    onEnsureVisible: () => {
+      clearDateFilter();
+      setQuickVoucherFilter('all');
+      setSearch('');
+    },
+  });
+
   const paginated = displayed.slice((page - 1) * pageSize, page * pageSize);
 
   // Export Data for Excel & CSV
@@ -633,7 +647,7 @@ export default function StockTransactions({ defaultVoucher } = {}) {
                   : `${t.material?.name ?? '—'}${t.quantity ? ' ×' + t.quantity : ''}`;
                 const acts = actionsFor(t);
                 return (
-                  <tr key={t._id} className={`hover:bg-ink-50/40 ${selected.has(t._id) ? 'bg-red-50/40' : ''}`}>
+                  <tr key={t._id} ref={setRowRef(t)} className={rowClass(t, `hover:bg-ink-50/40 ${selected.has(t._id) ? 'bg-red-50/40' : ''}`)}>
                     {canDelete && (
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selected.has(t._id)}
