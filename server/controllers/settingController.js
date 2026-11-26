@@ -70,7 +70,6 @@ function buildSettingsDiff(before, after, body = {}) {
       changes.push({ label, from: fmtSettingVal(oldVal), to: fmtSettingVal(newVal) });
     }
   }
-
   // Diff nested permission maps (rolePermissions, navVisibility)
   const diffBoolMap = (prefix, oldMap = {}, newMap = {}) => {
     const keys = new Set([...Object.keys(oldMap || {}), ...Object.keys(newMap || {})]);
@@ -219,11 +218,14 @@ function sanitizeSettingsResponse(settingsDoc) {
   const envKey = String(process.env.PAYO_API_KEY || '').trim();
   const effectiveKey = rawKey || envKey;
   const rawSecret = String(payo.webhookSecret || '').trim();
+  const normalizedBaseUrl = (!payo.apiBaseUrl || /^https?:\/\/(checkout\.|www\.)?payment\.et$/i.test(String(payo.apiBaseUrl).trim()) || /^https?:\/\/api\.pygate\.et$/i.test(String(payo.apiBaseUrl).trim()))
+    ? 'https://dashboard.payment.et'
+    : String(payo.apiBaseUrl).trim().replace(/\/+$/, '');
   obj.payoSettings = {
     enabled: Boolean(payo.enabled),
     enableInPos: payo.enableInPos !== false,
     enableInDigitalMenu: payo.enableInDigitalMenu !== false,
-    apiBaseUrl: payo.apiBaseUrl || 'https://checkout.payment.et',
+    apiBaseUrl: normalizedBaseUrl,
     apiKeyConfigured: Boolean(effectiveKey),
     apiKeySource: rawKey ? 'settings' : (envKey ? 'env' : 'none'),
     apiKeyMasked: rawKey ? `${rawKey.slice(0, 8)}...${rawKey.slice(-4)}` : (envKey ? 'Configured via ENV' : ''),
@@ -578,7 +580,10 @@ const updateSettings = asyncHandler(async (req, res) => {
       enabled: incoming.enabled !== undefined ? Boolean(incoming.enabled) : Boolean(existingPayo.enabled),
       enableInPos: incoming.enableInPos !== undefined ? Boolean(incoming.enableInPos) : (existingPayo.enableInPos !== false),
       enableInDigitalMenu: incoming.enableInDigitalMenu !== undefined ? Boolean(incoming.enableInDigitalMenu) : (existingPayo.enableInDigitalMenu !== false),
-      apiBaseUrl: String(incoming.apiBaseUrl || existingPayo.apiBaseUrl || 'https://checkout.payment.et').trim().replace(/\/+$/, ''),
+      apiBaseUrl: (() => {
+        const raw = String(incoming.apiBaseUrl || existingPayo.apiBaseUrl || 'https://dashboard.payment.et').trim().replace(/\/+$/, '');
+        return (!raw || /^https?:\/\/(checkout\.|www\.)?payment\.et$/i.test(raw) || /^https?:\/\/api\.pygate\.et$/i.test(raw)) ? 'https://dashboard.payment.et' : raw;
+      })(),
       apiKey: existingPayo.apiKey || '',
       webhookSecret: existingPayo.webhookSecret || '',
     };

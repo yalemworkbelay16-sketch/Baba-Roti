@@ -14,7 +14,11 @@ async function getPayoRuntimeConfig() {
   const payo = settings?.payoSettings || {};
   const apiKey = String(payo.apiKey || process.env.PAYO_API_KEY || '').trim();
   const webhookSecret = String(payo.webhookSecret || apiKey).trim();
-  const apiBaseUrl = String(payo.apiBaseUrl || process.env.PAYO_API_BASE_URL || 'https://checkout.payment.et').trim().replace(/\/+$/, '');
+  let apiBaseUrl = String(payo.apiBaseUrl || process.env.PAYO_API_BASE_URL || 'https://dashboard.payment.et').trim().replace(/\/+$/, '');
+  // Migrate older checkout/landing/placeholder URLs automatically to Payo's live API host
+  if (!apiBaseUrl || /^https?:\/\/(checkout\.|www\.)?payment\.et$/i.test(apiBaseUrl) || /^https?:\/\/api\.pygate\.et$/i.test(apiBaseUrl)) {
+    apiBaseUrl = 'https://dashboard.payment.et';
+  }
   return {
     enabled: Boolean(payo.enabled),
     enableInPos: payo.enableInPos !== false,
@@ -57,66 +61,62 @@ async function payoJsonRequest(url, { method = 'GET', headers = {}, body = null,
 }
 
 async function callPayoCreateOrder({ apiBaseUrl, apiKey, payload }) {
-  const url = `${apiBaseUrl}/api/v1/orders`;
-  const headersList = [
-    {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    {
+  const ordersPath = apiBaseUrl.endsWith('/api/v1') ? '/orders' : '/api/v1/orders';
+  const url = `${apiBaseUrl}${ordersPath}`;
+  const res = await payoJsonRequest(url, {
+    method: 'POST',
+    headers: {
       'x-api-key': apiKey,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+      'content-type': 'application/json',
+      accept: 'application/json',
+      ...(payload?.reference ? { 'Idempotency-Key': String(payload.reference) } : {}),
     },
-  ];
+    body: {
+      amount: payload.amount,
+      description: payload.description,
+      callbackUrl: payload.callbackUrl,
+      ...(payload.currency ? { currency: payload.currency } : {}),
+      ...(payload.reference ? { reference: payload.reference } : {}),
+      ...(payload.returnUrl ? { returnUrl: payload.returnUrl } : {}),
+    },
+    timeoutMs: 15000,
+  });
 
-  let lastResp = null;
-  for (let i = 0; i < headersList.length; i++) {
-    const res = await payoJsonRequest(url, {
-      method: 'POST',
-      headers: headersList[i],
-      body: payload,
-      timeoutMs: 15000,
-    });
-    if (res.ok) return res.data;
-    lastResp = res;
-    if (i === 0 && (res.status === 401 || res.status === 403)) {
-      continue;
-    }
-    const err = new Error(res.data?.message || res.data?.error || `Payo HTTP ${res.status}`);
-    err.statusCode = res.status;
-    err.responseData = res.data;
-    throw err;
-  }
-  const err = new Error(lastResp?.data?.message || lastResp?.data?.error || `Payo HTTP ${lastResp?.status || 502}`);
-  err.statusCode = lastResp?.status || 502;
-  err.responseData = lastResp?.data;
+  if (res.ok) return res.data;
+  const err = new Error(res.data?.message || res.data?.error || `Payo HTTP ${res.status}`);
+  err.statusCode = res.status;
+  err.responseData = res.data;
   throw err;
 }
 
 function extractPayoCheckoutDetails(data = {}) {
   const root = data?.data && typeof data.data === 'object' ? data.data : data;
-  const checkoutUrl =
-    root?.checkout_url ||
+  const payoOrderId = String(
+    root?.orderId ||
+    root?.order_id ||
+    root?.id ||
+    data?.orderId ||
+    data?.order_id ||
+    data?.id ||
+    root?.reference ||
+    ''
+  ).trim();
+  let checkoutUrl = String(
     root?.checkoutUrl ||
-    root?.payment_url ||
+    root?.checkout_url ||
     root?.paymentUrl ||
+    root?.payment_url ||
     root?.paymentLinkUrl ||
     root?.url ||
-    data?.checkout_url ||
     data?.checkoutUrl ||
+    data?.checkout_url ||
     data?.url ||
-    '';
-  const payoOrderId =
-    root?.id ||
-    root?.order_id ||
-    root?.orderId ||
-    root?.reference ||
-    data?.id ||
-    data?.order_id ||
-    '';
-  return { checkoutUrl: String(checkoutUrl || ''), payoOrderId: String(payoOrderId || '') };
+    ''
+  ).trim();
+  if (!checkoutUrl && payoOrderId) {
+    checkoutUrl = `https://checkout.payment.et/pay/${encodeURIComponent(payoOrderId)}`;
+  }
+  return { checkoutUrl, payoOrderId };
 }
 
 function isApprovedPayoStatus(rawStatus = '') {
@@ -464,13 +464,15 @@ const handlePayoWebhook = asyncHandler(async (req, res) => {
     const rawPayload = req.rawBody && Buffer.isBuffer(req.rawBody)
       ? req.rawBody
       : Buffer.from(JSON.stringify(req.body || {}));
-    const expected = crypto
+    const expectedHex = crypto
       .createHmac('sha256', cfg.webhookSecret)
       .update(rawPayload)
       .digest('hex');
 
-    const sigBuf = Buffer.from(signature);
-    const expBuf = Buffer.from(expected);
+    // Payo signs x-pygate-signature as "sha256=<hex>" (also accept raw hex)
+    const cleanSigHex = signature.replace(/^sha256=/i, '').trim().toLowerCase();
+    const sigBuf = Buffer.from(cleanSigHex);
+    const expBuf = Buffer.from(expectedHex.toLowerCase());
     if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
       return res.status(401).json({ message: 'Invalid webhook signature' });
     }
@@ -534,9 +536,10 @@ const getPayoStatus = asyncHandler(async (req, res) => {
     try {
       const cfg = await getPayoRuntimeConfig();
       if (cfg.apiKey) {
-        const resp = await payoJsonRequest(`${cfg.apiBaseUrl}/api/v1/orders/${encodeURIComponent(txn.payoOrderId)}`, {
+        const ordersPath = cfg.apiBaseUrl.endsWith('/api/v1') ? '/orders' : '/api/v1/orders';
+        const resp = await payoJsonRequest(`${cfg.apiBaseUrl}${ordersPath}/${encodeURIComponent(txn.payoOrderId)}`, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${cfg.apiKey}`, 'x-api-key': cfg.apiKey, Accept: 'application/json' },
+          headers: { 'x-api-key': cfg.apiKey, accept: 'application/json' },
           timeoutMs: 6000,
         }).catch(() => null);
         const remoteStatus = resp?.data?.status || resp?.data?.data?.status || resp?.data?.payment_status || '';
@@ -610,22 +613,28 @@ const testPayoConnection = asyncHandler(async (req, res) => {
   }
 
   try {
-    const resp = await payoJsonRequest(`${cfg.apiBaseUrl}/api/v1/orders`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'x-api-key': cfg.apiKey, Accept: 'application/json' },
+    const ordersPath = cfg.apiBaseUrl.endsWith('/api/v1') ? '/orders' : '/api/v1/orders';
+    const resp = await payoJsonRequest(`${cfg.apiBaseUrl}${ordersPath}`, {
+      method: 'POST',
+      headers: { 'x-api-key': cfg.apiKey, 'content-type': 'application/json', accept: 'application/json' },
+      body: {},
       timeoutMs: 8000,
     });
     if (resp.status === 401 || resp.status === 403) {
       res.status(400);
       throw new Error(`Payo rejected the API key (HTTP ${resp.status}). Please double-check your API key.`);
     }
+    if (resp.status === 404) {
+      res.status(400);
+      throw new Error(`Payo endpoint ${cfg.apiBaseUrl}${ordersPath} returned HTTP 404. Set Payo API Base URL to https://dashboard.payment.et and Save.`);
+    }
     res.json({
       success: true,
       enabled: cfg.enabled,
       status: resp.status,
       message: cfg.enabled
-        ? `Payo server reachable at ${cfg.apiBaseUrl} (HTTP ${resp.status}). Payo is Active in ${cfg.enableInPos ? 'POS' : ''}${cfg.enableInPos && cfg.enableInDigitalMenu ? ' & ' : ''}${cfg.enableInDigitalMenu ? 'Digital Menu' : ''}.`
-        : `Connected to ${cfg.apiBaseUrl} (HTTP ${resp.status}), BUT the Payo Gateway toggle is still OFF — switch it Active at top-right and Save to show Payo buttons in POS & Digital Menu.`,
+        ? `Payo API Key verified at ${cfg.apiBaseUrl}${ordersPath} (HTTP ${resp.status}). Payo is Active in ${cfg.enableInPos ? 'POS' : ''}${cfg.enableInPos && cfg.enableInDigitalMenu ? ' & ' : ''}${cfg.enableInDigitalMenu ? 'Digital Menu' : ''}.`
+        : `Payo API Key verified at ${cfg.apiBaseUrl}${ordersPath}, BUT the Payo Gateway toggle is still OFF — switch it Active at top-right and Save to show Payo buttons in POS & Digital Menu.`,
     });
   } catch (err) {
     if (err.statusCode === 400) throw err;

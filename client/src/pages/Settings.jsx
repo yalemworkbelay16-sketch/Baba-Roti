@@ -255,7 +255,7 @@ export default function Settings() {
     enabled: false,
     enableInPos: true,
     enableInDigitalMenu: true,
-    apiBaseUrl: 'https://checkout.payment.et',
+    apiBaseUrl: 'https://dashboard.payment.et',
     apiKey: '',
     webhookSecret: '',
     apiKeyConfigured: false,
@@ -4925,7 +4925,7 @@ export default function Settings() {
                 type="url"
                 value={payoForm.apiBaseUrl}
                 onChange={(e) => setPayoForm((p) => ({ ...p, apiBaseUrl: e.target.value }))}
-                placeholder="https://checkout.payment.et"
+                placeholder="https://dashboard.payment.et"
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm font-mono text-ink-900 outline-none focus:border-emerald-500"
               />
             </div>

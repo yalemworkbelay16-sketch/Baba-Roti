@@ -107,7 +107,7 @@ const settingSchema = new mongoose.Schema(
         enabled: false,
         enableInPos: true,
         enableInDigitalMenu: true,
-        apiBaseUrl: 'https://checkout.payment.et',
+        apiBaseUrl: 'https://dashboard.payment.et',
         apiKey: '',
         webhookSecret: '',
       },
