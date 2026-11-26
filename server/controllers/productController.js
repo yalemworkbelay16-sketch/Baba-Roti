@@ -204,49 +204,35 @@ const getProductById = asyncHandler(async (req, res) => {
 const createProduct = asyncHandler(async (req, res) => {
   const { name, category, description, sellingPrice, ingredients, code, uom, parentCategory, imageUrl } = req.body;
 
-  if (!name?.trim()) { res.status(400); throw new Error('Product name is required.'); }
+  if (!name?.trim()) { res.status(400); throw new Error('Product / menu name is required.'); }
+  const trimmedCode = (code || '').trim();
+  if (!trimmedCode) {
+    res.status(400);
+    throw new Error('Product / menu code is required.');
+  }
   if (sellingPrice !== undefined && Number(sellingPrice) < 0) {
     res.status(400);
     throw new Error('Selling price cannot be negative.');
   }
 
-  // Product code handling: auto-generate next sequential code if blank
-  let trimmedCode = (code || '').trim();
-  if (!trimmedCode) {
-    const allProducts = await Product.find({ code: { $regex: /^P-?\d+$/i } }, 'code').lean();
-    let maxNum = 0;
-    let detectedPad = 4;
-    allProducts.forEach((p) => {
-      const match = String(p.code || '').match(/^P-?(\d+)$/i);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) {
-          maxNum = num;
-          detectedPad = match[1].length;
-        }
-      }
-    });
-    const nextNum = maxNum + 1;
-    trimmedCode = `P-${String(nextNum).padStart(Math.max(detectedPad, 3), '0')}`;
-  } else {
-    const existing = await Product.findOne({
-      code: { $regex: `^${trimmedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-*$`, $options: 'i' },
-      isActive: true,
-    });
-    if (existing) {
-      res.status(400);
-      throw new Error(`Product code "${trimmedCode}" is already used by "${existing.name}". Please use a different code.`);
-    }
+  const escapedCode = trimmedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const existing = await Product.findOne({
+    code: { $regex: `^${escapedCode}$`, $options: 'i' },
+    isActive: true,
+  });
+  if (existing) {
+    res.status(400);
+    throw new Error(`Product code "${trimmedCode}" is already used by "${existing.name}". Duplicate code is not allowed.`);
   }
 
-  // Duplicate name check
+  // Duplicate name check (case-insensitive)
   const existingName = await Product.findOne({
     name: { $regex: `^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
     isActive: true,
   });
   if (existingName) {
     res.status(400);
-    throw new Error(`A product named "${name.trim()}" already exists (Code: ${existingName.code || 'no code'}). Use a different name.`);
+    throw new Error(`A product named "${name.trim()}" already exists (Code: ${existingName.code || '—'}). Duplicate name is not allowed.`);
   }
 
   const hasRecipe = Array.isArray(ingredients) && ingredients.length > 0;
@@ -301,32 +287,37 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   const { name, category, description, sellingPrice, ingredients, code, uom, parentCategory, imageUrl } = req.body;
 
-  // Duplicate code check — only if code is being changed to a non-empty value
-  const trimmedCode = code !== undefined ? (code || '').trim() : null;
-  if (trimmedCode && trimmedCode !== (product.code || '').trim()) {
-    const conflict = await Product.findOne({
-      _id: { $ne: product._id },
-      code: { $regex: `^${trimmedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-*$`, $options: 'i' },
-      isActive: true,
-    });
-    if (conflict) {
-      res.status(400);
-      throw new Error(`Product code "${trimmedCode}" is already used by "${conflict.name}". Choose a different code.`);
-    }
+  // Code is mandatory & unique (case-insensitive)
+  const trimmedCode = code !== undefined ? (code || '').trim() : (product.code || '').trim();
+  if (!trimmedCode) {
+    res.status(400);
+    throw new Error('Product / menu code is required.');
+  }
+  const escapedCode = trimmedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const conflict = await Product.findOne({
+    _id: { $ne: product._id },
+    code: { $regex: `^${escapedCode}$`, $options: 'i' },
+    isActive: true,
+  });
+  if (conflict) {
+    res.status(400);
+    throw new Error(`Product code "${trimmedCode}" is already used by "${conflict.name}". Duplicate code is not allowed.`);
   }
 
-  // Duplicate name check — only if name is being changed to something different
-  const trimmedName = name !== undefined ? (name || '').trim() : null;
-  if (trimmedName && trimmedName.toLowerCase() !== product.name.trim().toLowerCase()) {
-    const nameConflict = await Product.findOne({
-      _id: { $ne: product._id },
-      name: { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
-      isActive: true,
-    });
-    if (nameConflict) {
-      res.status(400);
-      throw new Error(`A product named "${trimmedName}" already exists. Use a different name.`);
-    }
+  // Duplicate name check (case-insensitive)
+  const trimmedName = name !== undefined ? (name || '').trim() : product.name.trim();
+  if (!trimmedName) {
+    res.status(400);
+    throw new Error('Product name is required.');
+  }
+  const nameConflict = await Product.findOne({
+    _id: { $ne: product._id },
+    name: { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    isActive: true,
+  });
+  if (nameConflict) {
+    res.status(400);
+    throw new Error(`A product named "${trimmedName}" already exists. Duplicate name is not allowed.`);
   }
 
   // Track price & recipe changes before overwriting

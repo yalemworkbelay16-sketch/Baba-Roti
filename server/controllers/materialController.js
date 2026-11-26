@@ -41,21 +41,48 @@ const getMaterialById = asyncHandler(async (req, res) => {
 });
 
 const createMaterial = asyncHandler(async (req, res) => {
-  const { name, unit, unitCost } = req.body;
-  if (!name || !name.trim()) {
+  const { name, unit, unitCost, code } = req.body;
+  const trimmedName = (name || '').trim();
+  const trimmedCode = (code || '').trim();
+  if (!trimmedCode) {
     res.status(400);
-    throw new Error('Material name is required');
+    throw new Error('Item / material code is required.');
+  }
+  if (!trimmedName) {
+    res.status(400);
+    throw new Error('Material name is required.');
   }
   if (!unit || !unit.trim()) {
     res.status(400);
-    throw new Error('Unit of measurement is required');
+    throw new Error('Unit of measurement is required.');
   }
   if (unitCost !== undefined && Number(unitCost) < 0) {
     res.status(400);
-    throw new Error('Unit cost cannot be negative');
+    throw new Error('Unit cost cannot be negative.');
   }
 
-  const payload = { ...req.body };
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const dupCode = await RawMaterial.findOne({
+    deletedAt: null,
+    isActive: { $ne: false },
+    code: { $regex: `^${escapeRegex(trimmedCode)}$`, $options: 'i' },
+  }).lean();
+  if (dupCode) {
+    res.status(400);
+    throw new Error(`Item code "${trimmedCode}" is already used by "${dupCode.name}". Duplicate code is not allowed.`);
+  }
+
+  const dupName = await RawMaterial.findOne({
+    deletedAt: null,
+    isActive: { $ne: false },
+    name: { $regex: `^${escapeRegex(trimmedName)}$`, $options: 'i' },
+  }).lean();
+  if (dupName) {
+    res.status(400);
+    throw new Error(`An item named "${trimmedName}" already exists (Code: ${dupName.code || '—'}). Duplicate name is not allowed.`);
+  }
+
+  const payload = { ...req.body, code: trimmedCode, name: trimmedName };
   let main = payload.mainStoreStock !== undefined ? Number(payload.mainStoreStock) : undefined;
   let kitchen = payload.kitchenStock !== undefined ? Number(payload.kitchenStock) : 0;
   let bar = payload.barStock !== undefined ? Number(payload.barStock) : 0;
@@ -117,6 +144,49 @@ const updateMaterial = asyncHandler(async (req, res) => {
   if (!before) { res.status(404); throw new Error('Raw material not found'); }
 
   const payload = { ...req.body };
+  const isFullMetaEdit = payload.name !== undefined || payload.code !== undefined;
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  if (payload.code !== undefined) {
+    const trimmedCode = String(payload.code || '').trim();
+    if (!trimmedCode) {
+      res.status(400);
+      throw new Error('Item / material code is required.');
+    }
+    const dupCode = await RawMaterial.findOne({
+      _id: { $ne: req.params.id },
+      deletedAt: null,
+      isActive: { $ne: false },
+      code: { $regex: `^${escapeRegex(trimmedCode)}$`, $options: 'i' },
+    }).lean();
+    if (dupCode) {
+      res.status(400);
+      throw new Error(`Item code "${trimmedCode}" is already used by "${dupCode.name}". Duplicate code is not allowed.`);
+    }
+    payload.code = trimmedCode;
+  } else if (isFullMetaEdit && !String(before.code || '').trim()) {
+    res.status(400);
+    throw new Error('Item / material code is required.');
+  }
+
+  if (payload.name !== undefined) {
+    const trimmedName = String(payload.name || '').trim();
+    if (!trimmedName) {
+      res.status(400);
+      throw new Error('Material name is required.');
+    }
+    const dupName = await RawMaterial.findOne({
+      _id: { $ne: req.params.id },
+      deletedAt: null,
+      isActive: { $ne: false },
+      name: { $regex: `^${escapeRegex(trimmedName)}$`, $options: 'i' },
+    }).lean();
+    if (dupName) {
+      res.status(400);
+      throw new Error(`An item named "${trimmedName}" already exists (Code: ${dupName.code || '—'}). Duplicate name is not allowed.`);
+    }
+    payload.name = trimmedName;
+  }
   if (payload.mainStoreStock !== undefined || payload.kitchenStock !== undefined || payload.barStock !== undefined) {
     const main = Number(payload.mainStoreStock !== undefined ? payload.mainStoreStock : before.mainStoreStock ?? before.currentStock ?? 0);
     const kitchen = Number(payload.kitchenStock !== undefined ? payload.kitchenStock : before.kitchenStock ?? 0);
@@ -637,6 +707,7 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
           finalCode = `RM-${String(nextCodeNum++).padStart(4, '0')}`;
         }
         processedCodes.add(finalCode.toLowerCase());
+        nameMap.set(cleanName, { _id: new mongoose.Types.ObjectId(), name: updateData.name, code: finalCode });
         updateData.code = finalCode;
         updateData.createdBy = req.user?._id || null;
         updateData.createdByName = req.user?.name || 'System';

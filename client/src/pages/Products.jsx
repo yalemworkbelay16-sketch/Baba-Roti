@@ -462,33 +462,39 @@ const Products = () => {
     e.preventDefault();
     setFormError(''); setSaving(true);
 
-    // Client-side duplicate code check (skip self when editing)
-    const trimCode = (form.code || '').trim().replace(/-+$/, '').toLowerCase();
-    if (trimCode) {
-      const conflict = products.find(p => {
-        if (editing && String(p._id) === String(editing._id)) return false;
-        return (p.code || '').replace(/-+$/, '').toLowerCase() === trimCode;
-      });
-      if (conflict) {
-        setFormError(`Code "${form.code}" is already used by "${conflict.name}". Choose a different code.`);
-        setSaving(false);
-        return;
-      }
+    // Client-side mandatory code & duplicate code check
+    const rawCode = (form.code || '').trim();
+    if (!rawCode) {
+      setFormError('Product / Menu Code is required.');
+      setSaving(false);
+      return;
+    }
+    const trimCode = rawCode.toLowerCase();
+    const conflict = products.find(p => {
+      if (editing && String(p._id) === String(editing._id)) return false;
+      return (p.code || '').trim().toLowerCase() === trimCode;
+    });
+    if (conflict) {
+      setFormError(`Code "${rawCode}" is already used by "${conflict.name}". Duplicate code is not allowed.`);
+      setSaving(false);
+      return;
     }
 
-    // Client-side duplicate name check (only when name actually changed)
+    // Client-side duplicate name check
     const trimName = (form.name || '').trim().toLowerCase();
-    const originalName = (editing?.name || '').trim().toLowerCase();
-    if (trimName !== originalName) {
-      const nameConflict = products.find(p => {
-        if (editing && String(p._id) === String(editing._id)) return false;
-        return p.name.trim().toLowerCase() === trimName;
-      });
-      if (nameConflict) {
-        setFormError(`A product named "${form.name.trim()}" already exists (Code: ${nameConflict.code || 'no code'}). Use a different name.`);
-        setSaving(false);
-        return;
-      }
+    if (!trimName) {
+      setFormError('Product name is required.');
+      setSaving(false);
+      return;
+    }
+    const nameConflict = products.find(p => {
+      if (editing && String(p._id) === String(editing._id)) return false;
+      return p.name.trim().toLowerCase() === trimName;
+    });
+    if (nameConflict) {
+      setFormError(`A product named "${form.name.trim()}" already exists (Code: ${nameConflict.code || 'no code'}). Duplicate name is not allowed.`);
+      setSaving(false);
+      return;
     }
 
     const payload = {
@@ -1413,9 +1419,10 @@ const Products = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Code</label>
+              <label className="mb-1 block text-sm font-medium text-ink-600">Code *</label>
               <div className="flex items-center gap-1.5">
                 <input
+                  required
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   placeholder="e.g. P-0013"

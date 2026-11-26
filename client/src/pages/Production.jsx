@@ -271,6 +271,17 @@ export default function Production() {
     }
   };
 
+  const getNextNewMaterialCode = useCallback(() => {
+    const nums = rawMaterials
+      .map(m => {
+        const match = String(m.code || '').match(/^RM-?(\d+)$/i);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+    return `RM-${String(next).padStart(4, '0')}`;
+  }, [rawMaterials]);
+
   // ── Open Create / Edit Recipe Modal ──
   const handleOpenRecipeModal = (recipe = null) => {
     if (recipe) {
@@ -281,6 +292,7 @@ export default function Production() {
         station: recipe.station || 'kitchen',
         targetMaterial: recipe.targetMaterial?._id || recipe.targetMaterial || '',
         isCreatingNewMaterial: false,
+        newMaterialCode: '',
         newMaterialName: '',
         newMaterialCategory: recipe.station === 'bar' ? 'Bar' : 'Kitchen',
         newMaterialUnit: recipe.yieldUnit || 'kg',
@@ -302,6 +314,7 @@ export default function Production() {
         station: stationFilter === 'bar' ? 'bar' : 'kitchen',
         targetMaterial: '',
         isCreatingNewMaterial: false,
+        newMaterialCode: getNextNewMaterialCode(),
         newMaterialName: '',
         newMaterialCategory: stationFilter === 'bar' ? 'Bar' : 'Kitchen',
         newMaterialUnit: 'kg',
@@ -317,8 +330,18 @@ export default function Production() {
   // ── Save Recipe Form ──
   const handleSaveRecipe = async (e) => {
     e.preventDefault();
-    if (!recipeForm.name.trim()) {
+    const trimRecipeName = recipeForm.name.trim();
+    if (!trimRecipeName) {
       showError('Recipe name is required');
+      return;
+    }
+
+    const dupFormula = recipes.find(r => {
+      if (editingRecipeId && String(r._id) === String(editingRecipeId)) return false;
+      return String(r.name || '').trim().toLowerCase() === trimRecipeName.toLowerCase();
+    });
+    if (dupFormula) {
+      showError(`A production formula named "${trimRecipeName}" already exists (${dupFormula.code}). Duplicate name is not allowed.`);
       return;
     }
 
@@ -326,13 +349,30 @@ export default function Production() {
 
     // If user clicked create new material
     if (recipeForm.isCreatingNewMaterial) {
-      if (!recipeForm.newMaterialName.trim()) {
+      const trimMatCode = (recipeForm.newMaterialCode || '').trim();
+      const trimMatName = (recipeForm.newMaterialName || '').trim();
+      if (!trimMatCode) {
+        showError('Item code is required for the new production item');
+        return;
+      }
+      if (!trimMatName) {
         showError('Please enter a name for the new production item');
+        return;
+      }
+      const dupMatCode = rawMaterials.find(m => String(m.code || '').trim().toLowerCase() === trimMatCode.toLowerCase());
+      if (dupMatCode) {
+        showError(`Item code "${trimMatCode}" is already used by "${dupMatCode.name}". Duplicate code is not allowed.`);
+        return;
+      }
+      const dupMatName = rawMaterials.find(m => String(m.name || '').trim().toLowerCase() === trimMatName.toLowerCase());
+      if (dupMatName) {
+        showError(`An item named "${trimMatName}" already exists (Code: ${dupMatName.code || '—'}). Select it instead of creating a duplicate.`);
         return;
       }
       try {
         const createMatRes = await api.post('/materials', {
-          name: recipeForm.newMaterialName.trim(),
+          code: trimMatCode,
+          name: trimMatName,
           unit: recipeForm.newMaterialUnit.trim() || 'kg',
           category: recipeForm.newMaterialCategory || (recipeForm.station === 'bar' ? 'Bar' : 'Kitchen'),
           storeLocation: recipeForm.station === 'bar' ? 'Bar Station' : 'Kitchen Station',
@@ -1537,7 +1577,11 @@ export default function Production() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => setRecipeForm({ ...recipeForm, isCreatingNewMaterial: !recipeForm.isCreatingNewMaterial })}
+                  onClick={() => setRecipeForm({
+                    ...recipeForm,
+                    isCreatingNewMaterial: !recipeForm.isCreatingNewMaterial,
+                    newMaterialCode: recipeForm.newMaterialCode || getNextNewMaterialCode(),
+                  })}
                   className="text-[11px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
                 >
                   {recipeForm.isCreatingNewMaterial ? '← Select Existing Item' : '+ Create New Production Item'}
@@ -1545,13 +1589,31 @@ export default function Production() {
               </div>
 
               {recipeForm.isCreatingNewMaterial ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      required
+                      value={recipeForm.newMaterialCode || ''}
+                      onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialCode: e.target.value })}
+                      placeholder="Code * (RM-0174)"
+                      className="w-full rounded-xl border border-ink-200 px-2.5 py-1.5 text-xs font-mono text-ink-900 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setRecipeForm({ ...recipeForm, newMaterialCode: getNextNewMaterialCode() })}
+                      title="Auto-generate code"
+                      className="shrink-0 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
+                    >
+                      Auto
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
                     value={recipeForm.newMaterialName}
                     onChange={(e) => setRecipeForm({ ...recipeForm, newMaterialName: e.target.value })}
-                    placeholder="New Item Name (e.g. Mayonnaise)"
+                    placeholder="New Item Name * (e.g. Chili Sauce)"
                     className="sm:col-span-2 rounded-xl border border-ink-200 px-3 py-1.5 text-xs text-ink-900 bg-white"
                   />
                   <input

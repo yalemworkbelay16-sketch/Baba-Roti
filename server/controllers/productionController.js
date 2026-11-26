@@ -74,6 +74,26 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Recipe name is required');
   }
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const dupRecipeName = await ProductionRecipe.findOne({
+    isActive: true,
+    name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' },
+  }).lean();
+  if (dupRecipeName) {
+    res.status(400);
+    throw new Error(`A production recipe named "${name.trim()}" already exists (Code: ${dupRecipeName.code}). Duplicate name is not allowed.`);
+  }
+  const rawCode = req.body.code?.trim();
+  if (rawCode) {
+    const dupRecipeCode = await ProductionRecipe.findOne({
+      isActive: true,
+      code: { $regex: `^${escapeRegex(rawCode)}$`, $options: 'i' },
+    }).lean();
+    if (dupRecipeCode) {
+      res.status(400);
+      throw new Error(`Production code "${rawCode}" is already used by "${dupRecipeCode.name}". Duplicate code is not allowed.`);
+    }
+  }
   if (!targetMaterial) {
     res.status(400);
     throw new Error('Target produced material is required');
@@ -166,7 +186,24 @@ const updateProductionRecipe = asyncHandler(async (req, res) => {
     isActive,
   } = req.body;
 
-  if (name !== undefined) recipe.name = name.trim();
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (name !== undefined) {
+    const trimmedName = String(name || '').trim();
+    if (!trimmedName) {
+      res.status(400);
+      throw new Error('Recipe name is required');
+    }
+    const dupName = await ProductionRecipe.findOne({
+      _id: { $ne: recipe._id },
+      isActive: true,
+      name: { $regex: `^${escapeRegex(trimmedName)}$`, $options: 'i' },
+    }).lean();
+    if (dupName) {
+      res.status(400);
+      throw new Error(`A production recipe named "${trimmedName}" already exists (Code: ${dupName.code}). Duplicate name is not allowed.`);
+    }
+    recipe.name = trimmedName;
+  }
   if (station !== undefined) recipe.station = station;
   if (yieldQuantity !== undefined) recipe.yieldQuantity = Number(yieldQuantity);
   if (yieldUnit !== undefined) recipe.yieldUnit = yieldUnit.trim();

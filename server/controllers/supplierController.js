@@ -23,12 +23,21 @@ const getSupplierById = asyncHandler(async (req, res) => {
 });
 
 const createSupplier = asyncHandler(async (req, res) => {
-  if (!req.body.name || !req.body.name.trim()) {
+  const trimmedName = (req.body.name || '').trim();
+  if (!trimmedName) {
     res.status(400);
     throw new Error('Supplier name is required');
   }
+  const dup = await Supplier.findOne({
+    name: { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+  }).lean();
+  if (dup) {
+    res.status(400);
+    throw new Error(`Supplier "${trimmedName}" already exists. Duplicate name is not allowed.`);
+  }
   const supplier = await Supplier.create({
     ...req.body,
+    name: trimmedName,
     createdBy: req.user?._id || null,
     createdByName: req.user?.name || 'System',
     createdByRole: req.user?.role || '',
@@ -50,6 +59,23 @@ const createSupplier = asyncHandler(async (req, res) => {
 const updateSupplier = asyncHandler(async (req, res) => {
   const before = await Supplier.findById(req.params.id).lean();
   if (!before) { res.status(404); throw new Error('Supplier not found'); }
+
+  if (req.body.name !== undefined) {
+    const trimmedName = String(req.body.name || '').trim();
+    if (!trimmedName) {
+      res.status(400);
+      throw new Error('Supplier name is required');
+    }
+    const dup = await Supplier.findOne({
+      _id: { $ne: req.params.id },
+      name: { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    }).lean();
+    if (dup) {
+      res.status(400);
+      throw new Error(`Supplier "${trimmedName}" already exists. Duplicate name is not allowed.`);
+    }
+    req.body.name = trimmedName;
+  }
 
   const supplier = await Supplier.findByIdAndUpdate(
     req.params.id,

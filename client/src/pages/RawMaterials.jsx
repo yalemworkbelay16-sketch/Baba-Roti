@@ -101,6 +101,7 @@ const RawMaterials = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState('');
   const [unitCustom, setUnitCustom] = useState(false);
   const [categoryCustom, setCategoryCustom] = useState(false);
 
@@ -328,8 +329,20 @@ const RawMaterials = () => {
     };
   }, [stationSubset]);
 
+  const getNextMaterialCode = () => {
+    const nums = materials
+      .map(m => {
+        const match = String(m.code || '').match(/^RM-?(\d+)$/i);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+    return `RM-${String(next).padStart(4, '0')}`;
+  };
+
   const openCreate = () => {
     setEditing(null);
+    setFormError('');
     const initialLocation = stationFilter === 'kitchen'
       ? 'Kitchen Station'
       : stationFilter === 'bar'
@@ -337,6 +350,7 @@ const RawMaterials = () => {
         : 'Main Store';
     setForm({
       ...emptyForm,
+      code: getNextMaterialCode(),
       storeLocation: initialLocation,
     });
     setUnitCustom(false);
@@ -344,6 +358,7 @@ const RawMaterials = () => {
     setModalOpen(true);
   };
   const openEdit = (m) => {
+    setFormError('');
     // Check if stored unit is in the preset list
     const allUnits = UNITS.flatMap(g => g.items);
     const isPresetUnit = allUnits.includes(m.unit);
@@ -352,6 +367,7 @@ const RawMaterials = () => {
     setEditing(m);
     setForm({
       ...m,
+      code: m.code || '',
       mainStoreStock: m.mainStoreStock !== undefined ? m.mainStoreStock : m.currentStock || 0,
       kitchenStock: m.kitchenStock || 0,
       barStock: m.barStock || 0,
@@ -364,25 +380,54 @@ const RawMaterials = () => {
 
   // Auto-generate next sequential RM-XXXX code
   const generateCode = () => {
-    const nums = materials
-      .map(m => {
-        const match = String(m.code || '').match(/^RM-?(\d+)$/i);
-        return match ? parseInt(match[1], 10) : 0;
-      })
-      .filter(n => n > 0);
-    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-    setForm(f => ({ ...f, code: `RM-${String(next).padStart(4, '0')}` }));
+    setForm(f => ({ ...f, code: getNextMaterialCode() }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editing) {
-      await api.put(`/materials/${editing._id}`, form);
-    } else {
-      await api.post('/materials', form);
+    setFormError('');
+
+    const rawCode = (form.code || '').trim();
+    const rawName = (form.name || '').trim();
+    if (!rawCode) {
+      setFormError('Item / Material Code is required.');
+      return;
     }
-    setModalOpen(false);
-    load();
+    if (!rawName) {
+      setFormError('Item / Material Name is required.');
+      return;
+    }
+
+    const codeConflict = materials.find(m => {
+      if (editing && String(m._id) === String(editing._id)) return false;
+      return String(m.code || '').trim().toLowerCase() === rawCode.toLowerCase();
+    });
+    if (codeConflict) {
+      setFormError(`Code "${rawCode}" is already used by "${codeConflict.name}". Duplicate code is not allowed.`);
+      return;
+    }
+
+    const nameConflict = materials.find(m => {
+      if (editing && String(m._id) === String(editing._id)) return false;
+      return String(m.name || '').trim().toLowerCase() === rawName.toLowerCase();
+    });
+    if (nameConflict) {
+      setFormError(`An item named "${rawName}" already exists (Code: ${nameConflict.code || '—'}). Duplicate name is not allowed.`);
+      return;
+    }
+
+    try {
+      const payload = { ...form, code: rawCode, name: rawName };
+      if (editing) {
+        await api.put(`/materials/${editing._id}`, payload);
+      } else {
+        await api.post('/materials', payload);
+      }
+      setModalOpen(false);
+      load();
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Failed to save item.');
+    }
   };
 
   const openTransfer = (m) => {
@@ -1210,11 +1255,17 @@ const RawMaterials = () => {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit material' : 'Add raw material'}>
         <form onSubmit={handleSubmit} className="space-y-3">
+          {formError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              ⚠ {formError}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Code</label>
+              <label className="mb-1 block text-sm font-medium text-ink-600">Code *</label>
               <div className="flex items-center gap-1.5">
                 <input
+                  required
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   placeholder="e.g. RM-0001"
@@ -1232,7 +1283,7 @@ const RawMaterials = () => {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Name</label>
+              <label className="mb-1 block text-sm font-medium text-ink-600">Name *</label>
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
             </div>
