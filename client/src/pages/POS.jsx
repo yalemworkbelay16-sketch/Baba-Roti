@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api from "../api/axios";
 import { posPrint } from "../utils/posPrint";
 import { dispatchPrint } from "../utils/localPrintDispatcher";
