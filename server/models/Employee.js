@@ -40,6 +40,14 @@ const employeeSchema = new mongoose.Schema(
         maxPerDay: { type: Number, default: 1, min: 1 },
       },
     ],
+    // Security & Audit Trail
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdByName: { type: String, trim: true, default: '' },
+    createdByRole: { type: String, trim: true, default: '' },
+    registrationSource: { type: String, enum: ['manual', 'staff_sync', 'excel_import', 'system'], default: 'manual' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedByName: { type: String, trim: true, default: '' },
+    updatedByRole: { type: String, trim: true, default: '' },
     // Soft delete
     deletedAt: { type: Date, default: null },
     deletedBy: { type: String, default: null },

@@ -25,6 +25,19 @@ const productSchema = new mongoose.Schema(
     descriptionAmharic: { type: String, trim: true, default: '' },   // Amharic food description
     manualOutOfStock: { type: Boolean, default: false },             // Manual "Sold Out / Shortage" override
     ingredients: [ingredientSchema],
+    // Security & Audit Trail
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdByName: { type: String, trim: true, default: '' },
+    createdByRole: { type: String, trim: true, default: '' },
+    registrationSource: { type: String, enum: ['manual', 'excel_import', 'system'], default: 'manual' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedByName: { type: String, trim: true, default: '' },
+    updatedByRole: { type: String, trim: true, default: '' },
+    recipeAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    recipeAddedByName: { type: String, trim: true, default: '' },
+    recipeAddedByRole: { type: String, trim: true, default: '' },
+    recipeUpdatedAt: { type: Date, default: null },
+    recipeSource: { type: String, enum: ['manual', 'excel_import', ''], default: '' },
     isActive: { type: Boolean, default: true },
     deletedAt:   { type: Date, default: null },
     deletedBy:   { type: String, default: null },

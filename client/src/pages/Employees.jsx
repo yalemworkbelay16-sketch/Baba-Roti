@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   Plus, Search, Pencil, Trash2, X, RefreshCw,
   UserCheck, UserX, Clock, Users, Building2, Phone, Mail, Calendar,
-  ChevronDown, Camera, Upload, Check, Award, UtensilsCrossed,
+  ChevronDown, Camera, Upload, Check, Award, UtensilsCrossed, Eye,
 } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/ui/Modal';
@@ -11,6 +11,7 @@ import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
 import EmployeeIdBadgeModal from '../components/employee/EmployeeIdBadgeModal';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { normalizeFileUrl } from '../utils/fileUrl';
 import { useAuth } from '../context/AuthContext';
 
@@ -69,6 +70,8 @@ export default function Employees() {
 
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailEmp, setDetailEmp] = useState(null);
 
   /* ── load ── */
   const load = useCallback(async () => {
@@ -435,6 +438,14 @@ export default function Employees() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <button
+                          type="button"
+                          onClick={() => { setDetailEmp(emp); setDetailOpen(true); }}
+                          className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
+                          title="View employee & security audit details"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
                           onClick={() => {
                             setBadgeEmployee(emp);
                             setIsNewlyCreated(false);
@@ -777,6 +788,47 @@ export default function Employees() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* ══ Employee Detail & Security Audit Modal ══ */}
+      <Modal
+        open={detailOpen}
+        onClose={() => { setDetailOpen(false); setDetailEmp(null); }}
+        title={detailEmp ? `${detailEmp.firstName} ${detailEmp.lastName} (${detailEmp.employeeId || 'No ID'})` : 'Employee Details'}
+        width="max-w-lg"
+      >
+        {detailEmp && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 text-sm rounded-xl border border-slate-200 bg-white p-3.5">
+              <div><p className="text-[11px] text-ink-400">Employee ID</p><p className="font-mono font-semibold">{detailEmp.employeeId || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Department</p><p className="font-semibold">{detailEmp.department || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Position / Role</p><p className="font-semibold">{detailEmp.position || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Station</p><p className="font-medium uppercase">{detailEmp.assignedStation || 'all'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Phone</p><p className="font-medium">{detailEmp.phone || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Email</p><p className="font-medium">{detailEmp.email || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Hire Date</p><p className="font-medium">{fmt(detailEmp.hireDate)}</p></div>
+              <div><p className="text-[11px] text-ink-400">Status</p><p className="font-semibold capitalize">{detailEmp.status || 'active'}</p></div>
+              {detailEmp.notes && (
+                <div className="col-span-2"><p className="text-[11px] text-ink-400">Notes</p><p className="font-medium">{detailEmp.notes}</p></div>
+              )}
+            </div>
+
+            <RecordAuditTrail record={detailEmp} />
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setDetailOpen(false)}
+                className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50">
+                Close
+              </button>
+              {canEdit && (
+                <button type="button" onClick={() => { setDetailOpen(false); openEdit(detailEmp); }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-semibold text-white">
+                  <Pencil size={14} /> Edit
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* ══ Digital Staff ID Badge Modal ══ */}

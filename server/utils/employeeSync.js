@@ -111,6 +111,7 @@ async function syncUserToEmployee(user) {
       if (user.allowedProducts?.length) emp.allowedProducts = user.allowedProducts;
       if (user.dailyMealLimit) emp.dailyMealLimit = user.dailyMealLimit;
       if (user.mealLimits?.length) emp.mealLimits = user.mealLimits;
+      emp.updatedByName = emp.updatedByName || 'Staff Account Sync';
       await emp.save();
       return emp;
     }
@@ -131,6 +132,9 @@ async function syncUserToEmployee(user) {
       allowedProducts: user.allowedProducts || [],
       dailyMealLimit: user.dailyMealLimit || 1,
       mealLimits: user.mealLimits || [],
+      createdByName: 'Staff Account Sync',
+      createdByRole: 'system',
+      registrationSource: 'staff_sync',
     });
 
     return emp;

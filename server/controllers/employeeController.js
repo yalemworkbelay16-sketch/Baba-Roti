@@ -57,6 +57,10 @@ const createEmployee = asyncHandler(async (req, res) => {
     allowedProducts: Array.isArray(allowedProducts) ? allowedProducts : [],
     dailyMealLimit:  Number(dailyMealLimit) || 1,
     mealLimits:      Array.isArray(mealLimits) ? mealLimits : [],
+    createdBy: req.user?._id || null,
+    createdByName: req.user?.name || 'System',
+    createdByRole: req.user?.role || '',
+    registrationSource: 'manual',
   });
 
   tg.notifyEmployeeCreated(emp, req.user);
@@ -86,6 +90,9 @@ const updateEmployee = asyncHandler(async (req, res) => {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];
     }
   });
+  emp.updatedBy = req.user?._id || null;
+  emp.updatedByName = req.user?.name || 'System';
+  emp.updatedByRole = req.user?.role || '';
 
   await emp.save();
 

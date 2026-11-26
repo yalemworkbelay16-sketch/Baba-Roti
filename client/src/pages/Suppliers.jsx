@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Truck, X } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Truck, X, Eye } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/ui/DataTable';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import RecordAuditTrail from '../components/common/RecordAuditTrail';
 
 const emptyForm = { name: '', contactPerson: '', phone: '', email: '', category: '', address: '' };
 
@@ -16,6 +17,8 @@ const Suppliers = () => {
   const [selected, setSelected] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager');
@@ -113,14 +116,34 @@ const Suppliers = () => {
           className="h-4 w-4 rounded accent-blue-600 cursor-pointer" />
       ),
     }] : []),
-    { key: 'name', header: 'Supplier' },
+    {
+      key: 'name',
+      header: 'Supplier',
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => { setDetailItem(r); setDetailOpen(true); }}
+          className="font-semibold text-blue-700 hover:underline text-left cursor-pointer"
+        >
+          {r.name}
+        </button>
+      ),
+    },
     { key: 'category', header: 'Category' },
     { key: 'contactPerson', header: 'Contact person' },
     { key: 'phone', header: 'Phone' },
-    ...((canEdit || canDelete) ? [{
-      key: 'actions', header: '',
+    {
+      key: 'actions', header: 'Actions',
       render: (r) => (
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 items-center">
+          <button
+            type="button"
+            onClick={() => { setDetailItem(r); setDetailOpen(true); }}
+            className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
+            title="View supplier & security audit details"
+          >
+            <Eye size={15} />
+          </button>
           {canEdit && (
             <button onClick={() => openEdit(r)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700" title="Edit"><Pencil size={15} /></button>
           )}
@@ -129,7 +152,7 @@ const Suppliers = () => {
           )}
         </div>
       ),
-    }] : []),
+    },
   ];
 
   return (
@@ -294,6 +317,41 @@ const Suppliers = () => {
             <Button type="submit" variant="brass">{editing ? 'Save changes' : 'Add supplier'}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Supplier Detail & Security Audit Modal ── */}
+      <Modal
+        open={detailOpen}
+        onClose={() => { setDetailOpen(false); setDetailItem(null); }}
+        title={detailItem?.name || 'Supplier Details'}
+        width="max-w-lg"
+      >
+        {detailItem && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 text-sm rounded-xl border border-slate-200 bg-white p-3.5">
+              <div><p className="text-[11px] text-ink-400">Supplier Name</p><p className="font-semibold">{detailItem.name || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Category</p><p className="font-semibold">{detailItem.category || 'General'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Contact Person</p><p className="font-medium">{detailItem.contactPerson || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Phone</p><p className="font-medium">{detailItem.phone || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Email</p><p className="font-medium">{detailItem.email || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Address</p><p className="font-medium">{detailItem.address || '—'}</p></div>
+              {detailItem.notes && (
+                <div className="col-span-2"><p className="text-[11px] text-ink-400">Notes</p><p className="font-medium">{detailItem.notes}</p></div>
+              )}
+            </div>
+
+            <RecordAuditTrail record={detailItem} />
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
+              {canEdit && (
+                <Button variant="brass" onClick={() => { setDetailOpen(false); openEdit(detailItem); }}>
+                  <Pencil size={14} /> Edit
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

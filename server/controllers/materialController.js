@@ -89,6 +89,11 @@ const createMaterial = asyncHandler(async (req, res) => {
     payload.currentStock = kitchen + bar;
   }
 
+  payload.createdBy = req.user?._id || null;
+  payload.createdByName = req.user?.name || 'System';
+  payload.createdByRole = req.user?.role || '';
+  payload.registrationSource = 'manual';
+
   const material = await RawMaterial.create(payload);
   tg.notifyMaterialCreated(material, req.user);
   invalidateDashboardCache();
@@ -124,6 +129,10 @@ const updateMaterial = asyncHandler(async (req, res) => {
     const diff = Number(payload.currentStock) - Number(before.currentStock || 0);
     payload.mainStoreStock = Math.max(0, Number(before.mainStoreStock ?? before.currentStock ?? 0) + diff);
   }
+
+  payload.updatedBy = req.user?._id || null;
+  payload.updatedByName = req.user?.name || 'System';
+  payload.updatedByRole = req.user?.role || '';
 
   const material = await RawMaterial.findByIdAndUpdate(req.params.id, payload, {
     new: true,
@@ -608,6 +617,9 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
 
       if (matched) {
         if (code && !matched.code) updateData.code = code;
+        updateData.updatedBy = req.user?._id || null;
+        updateData.updatedByName = req.user?.name || 'System';
+        updateData.updatedByRole = req.user?.role || '';
         bulkOps.push({
           updateOne: {
             filter: { _id: matched._id },
@@ -626,6 +638,10 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
         }
         processedCodes.add(finalCode.toLowerCase());
         updateData.code = finalCode;
+        updateData.createdBy = req.user?._id || null;
+        updateData.createdByName = req.user?.name || 'System';
+        updateData.createdByRole = req.user?.role || '';
+        updateData.registrationSource = 'excel_import';
 
         bulkOps.push({
           insertOne: {

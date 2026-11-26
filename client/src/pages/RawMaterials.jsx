@@ -4,7 +4,7 @@ import {
   Plus, Search, Pencil, Trash2, Upload, Download, X, Zap,
   Boxes, CheckCircle2, AlertTriangle, AlertCircle, Warehouse,
   UtensilsCrossed, Coffee, Sliders, ArrowRightLeft, Send, ArrowRight,
-  Factory, ChevronDown, Layers
+  Factory, ChevronDown, Layers, Eye
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
+import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { exportToExcel } from '../utils/exportUtils';
 
 const DISCRETE_UNITS_REGEX = /^(pcs|pc|piece|pieces|egg|eggs|unit|units|item|items|bottle|bottles|can|cans|pack|packs|package|packages|packet|packets|box|boxes|roll|rolls|portion|portions|serving|servings|plate|plates|cup|cups|shot|shots|loaf|loaves|slice|slices)$/i;
@@ -108,6 +109,8 @@ const RawMaterials = () => {
   const [transferItem, setTransferItem] = useState(null);
   const [transferForm, setTransferForm] = useState({ toStation: 'kitchen', quantity: 1 });
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
   const importRef = useRef();
@@ -611,7 +614,13 @@ const RawMaterials = () => {
         header: 'Material',
         render: (r) => (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-ink-900">{r.name}</span>
+            <button
+              type="button"
+              onClick={() => { setDetailItem(r); setDetailOpen(true); }}
+              className="font-semibold text-blue-700 hover:underline text-left cursor-pointer"
+            >
+              {r.name}
+            </button>
             {r.isProduced && (
               <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-tight ${r.productionStation === 'bar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
@@ -735,10 +744,18 @@ const RawMaterials = () => {
           return statusBadge(s);
         },
       },
-      ...((canEdit || canDelete) ? [{
-        key: 'actions', header: '',
+      {
+        key: 'actions', header: 'Actions',
         render: (r) => (
-          <div className="flex gap-1.5 items-center">
+          <div className="flex gap-1.5 items-center justify-end">
+            <button
+              type="button"
+              onClick={() => { setDetailItem(r); setDetailOpen(true); }}
+              className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
+              title="View material & security audit details"
+            >
+              <Eye size={15} />
+            </button>
             {canEdit && (
               <button
                 type="button"
@@ -757,7 +774,7 @@ const RawMaterials = () => {
             )}
           </div>
         ),
-      }] : []),
+      },
     ];
   }, [stationFilter, allChecked, someChecked, selected, canEdit, canDelete]);
 
@@ -1605,6 +1622,42 @@ const RawMaterials = () => {
               </Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* ── Material Detail & Security Audit Modal ── */}
+      <Modal
+        open={detailOpen}
+        onClose={() => { setDetailOpen(false); setDetailItem(null); }}
+        title={detailItem ? `${detailItem.name} (${detailItem.code || 'No Code'})` : 'Material Details'}
+        width="max-w-lg"
+      >
+        {detailItem && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm rounded-xl border border-slate-200 bg-white p-3.5">
+              <div><p className="text-[11px] text-ink-400">Code</p><p className="font-mono font-semibold">{detailItem.code || '—'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Category</p><p className="font-semibold">{detailItem.category || 'General'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Unit</p><p className="font-semibold">{detailItem.unit || 'pcs'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Unit Cost</p><p className="font-bold text-blue-700">ETB {Number(detailItem.unitCost || 0).toFixed(2)}</p></div>
+              <div><p className="text-[11px] text-ink-400">Total Stock</p><p className="font-bold">{formatQty(detailItem.currentStock, detailItem.unit, detailItem.name)} {detailItem.unit}</p></div>
+              <div><p className="text-[11px] text-ink-400">Reorder Level</p><p className="font-medium">{detailItem.reorderLevel} {detailItem.unit}</p></div>
+              <div><p className="text-[11px] text-ink-400">Main Store</p><p className="font-semibold text-blue-700">{formatQty(detailItem.mainStoreStock ?? detailItem.currentStock, detailItem.unit, detailItem.name)} {detailItem.unit}</p></div>
+              <div><p className="text-[11px] text-ink-400">Kitchen Stock</p><p className="font-semibold text-amber-700">{formatQty(detailItem.kitchenStock || 0, detailItem.unit, detailItem.name)} {detailItem.unit}</p></div>
+              <div><p className="text-[11px] text-ink-400">Bar Stock</p><p className="font-semibold text-emerald-700">{formatQty(detailItem.barStock || 0, detailItem.unit, detailItem.name)} {detailItem.unit}</p></div>
+              <div className="col-span-2 sm:col-span-3"><p className="text-[11px] text-ink-400">Store Location</p><p className="font-medium">{detailItem.storeLocation || 'Main Store'}</p></div>
+            </div>
+
+            <RecordAuditTrail record={detailItem} />
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
+              {canEdit && (
+                <Button variant="brass" onClick={() => { setDetailOpen(false); openEdit(detailItem); }}>
+                  <Pencil size={14} /> Edit
+                </Button>
+              )}
+            </div>
+          </div>
         )}
       </Modal>
     </div>

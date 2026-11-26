@@ -249,6 +249,11 @@ const createProduct = asyncHandler(async (req, res) => {
     throw new Error(`A product named "${name.trim()}" already exists (Code: ${existingName.code || 'no code'}). Use a different name.`);
   }
 
+  const hasRecipe = Array.isArray(ingredients) && ingredients.length > 0;
+  const actorId = req.user?._id || null;
+  const actorName = req.user?.name || 'System';
+  const actorRole = req.user?.role || '';
+
   const product = await Product.create({
     code: trimmedCode,
     name: name.trim(),
@@ -259,6 +264,17 @@ const createProduct = asyncHandler(async (req, res) => {
     sellingPrice,
     ingredients,
     imageUrl: imageUrl ? imageUrl.trim() : '',
+    createdBy: actorId,
+    createdByName: actorName,
+    createdByRole: actorRole,
+    registrationSource: 'manual',
+    ...(hasRecipe ? {
+      recipeAddedBy: actorId,
+      recipeAddedByName: actorName,
+      recipeAddedByRole: actorRole,
+      recipeUpdatedAt: new Date(),
+      recipeSource: 'manual',
+    } : {}),
   });
   const populated = await product.populate('ingredients.material', 'name unit unitCost');
   tg.notifyProductCreated(populated, req.user);
@@ -313,9 +329,10 @@ const updateProduct = asyncHandler(async (req, res) => {
     }
   }
 
-  // Track price change before overwriting
+  // Track price & recipe changes before overwriting
   const oldPrice = product.sellingPrice;
   const oldIngCount = product.ingredients?.length || 0;
+  const oldIngSig = JSON.stringify((product.ingredients || []).map(i => ({ m: String(i.material), q: Number(i.quantity), u: i.unit || '' })));
 
   if (trimmedCode !== null) product.code = trimmedCode;
   if (trimmedName) product.name = trimmedName;
@@ -326,6 +343,22 @@ const updateProduct = asyncHandler(async (req, res) => {
   product.sellingPrice = sellingPrice ?? product.sellingPrice;
   product.ingredients = ingredients ?? product.ingredients;
   if (imageUrl !== undefined) product.imageUrl = imageUrl ? imageUrl.trim() : '';
+
+  // Record audit trail for updater & recipe author
+  product.updatedBy = req.user?._id || null;
+  product.updatedByName = req.user?.name || 'System';
+  product.updatedByRole = req.user?.role || '';
+
+  if (ingredients !== undefined) {
+    const newIngSig = JSON.stringify((ingredients || []).map(i => ({ m: String(i.material?._id || i.material), q: Number(i.quantity), u: i.unit || '' })));
+    if (ingredients.length > 0 && (newIngSig !== oldIngSig || !product.recipeAddedByName)) {
+      product.recipeAddedBy = req.user?._id || null;
+      product.recipeAddedByName = req.user?.name || 'System';
+      product.recipeAddedByRole = req.user?.role || '';
+      product.recipeUpdatedAt = new Date();
+      product.recipeSource = 'manual';
+    }
+  }
 
   const updated = await product.save();
   const populated = await updated.populate('ingredients.material', 'name unit unitCost');
@@ -541,12 +574,23 @@ const importProductsExcel = asyncHandler(async (req, res) => {
         existing.sellingPrice = data.sellingPrice;
         existing.description = data.description || existing.description;
         existing.isActive = true;
+        existing.updatedBy = req.user?._id || null;
+        existing.updatedByName = req.user?.name || 'System';
+        existing.updatedByRole = req.user?.role || '';
+        if (!existing.registrationSource) existing.registrationSource = 'excel_import';
         await existing.save();
         processedIds.add(existing._id.toString()); // Mark as processed
         updated++;
       } else {
         // No match found (or already updated this run) — create a brand-new product
-        const created_ = await Product.create({ ...data, ingredients: [] });
+        const created_ = await Product.create({
+          ...data,
+          ingredients: [],
+          createdBy: req.user?._id || null,
+          createdByName: req.user?.name || 'System',
+          createdByRole: req.user?.role || '',
+          registrationSource: 'excel_import',
+        });
         processedIds.add(created_._id.toString());
         created++;
       }
@@ -568,6 +612,15 @@ const importProductsExcel = asyncHandler(async (req, res) => {
   }
 
   invalidateDashboardCache();
+  try {
+    logActivity(req, {
+      action: 'IMPORT_PRODUCTS_EXCEL',
+      module: 'Products',
+      description: `Imported products from Excel: ${created} created, ${updated} updated, ${skipped} skipped`,
+      status: 'success',
+      details: { created, updated, skipped, total },
+    });
+  } catch (_) { }
   send({ type: 'done', created, updated, skipped, errors, total });
   res.end();
 });
@@ -736,6 +789,16 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
 
       // Replace the product's ingredient list
       product.ingredients = ingredients;
+      product.updatedBy = req.user?._id || null;
+      product.updatedByName = req.user?.name || 'System';
+      product.updatedByRole = req.user?.role || '';
+      if (ingredients.length > 0) {
+        product.recipeAddedBy = req.user?._id || null;
+        product.recipeAddedByName = req.user?.name || 'System';
+        product.recipeAddedByRole = req.user?.role || '';
+        product.recipeUpdatedAt = new Date();
+        product.recipeSource = 'excel_import';
+      }
       await product.save();
       updated++;
     } catch (err) {
@@ -755,6 +818,15 @@ const importRecipesExcel = asyncHandler(async (req, res) => {
   }
 
   invalidateDashboardCache();
+  try {
+    logActivity(req, {
+      action: 'IMPORT_RECIPES_EXCEL',
+      module: 'Products',
+      description: `Imported recipes from Excel: ${updated} product(s) updated, ${skipped} skipped`,
+      status: 'success',
+      details: { updated, skipped, total: productGroups.size },
+    });
+  } catch (_) { }
   send({ type: 'done', updated, skipped, errors, total: productGroups.size });
   res.end();
 });

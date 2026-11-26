@@ -8,6 +8,7 @@ import ExportDropdown from '../components/ui/ExportDropdown';
 import Pagination from '../components/ui/Pagination';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import ProductImageModal from '../components/products/ProductImageModal';
+import RecordAuditTrail from '../components/common/RecordAuditTrail';
 
 const emptyForm = {
   code: '',
@@ -843,11 +844,10 @@ const Products = () => {
                     key={preset.id}
                     type="button"
                     onClick={() => applyDatePreset(preset.id)}
-                    className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
-                      datePreset === preset.id
+                    className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${datePreset === preset.id
                         ? 'bg-blue-600 text-white shadow-2xs'
                         : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                    }`}
+                      }`}
                   >
                     {preset.label}
                   </button>
@@ -1205,13 +1205,13 @@ const Products = () => {
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Ingredients</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Selling Price</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Photo / Image</th>
-                {(canEdit || canDelete) && <th className="whitespace-nowrap px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>}
+                <th className="whitespace-nowrap px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-blue-100" style={{ borderBottom: '1px solid rgba(147,197,253,0.3)' }}>Actions</th>
               </tr>
             </thead>
             <tbody style={{ borderTop: 'none' }}>
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={(canDelete ? 1 : 0) + 8 + (canEdit || canDelete ? 1 : 0)} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={(canDelete ? 1 : 0) + 9} className="px-4 py-10 text-center text-ink-400">
                     {recipeFilter === 'has_recipe'
                       ? 'No products with recipes found.'
                       : recipeFilter === 'no_recipe'
@@ -1361,31 +1361,37 @@ const Products = () => {
                       </div>
                     )}
                   </td>
-                  {(canEdit || canDelete) && (
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {canEdit && (
-                          <button
-                            onClick={() => setImageModalProduct(p)}
-                            className="rounded-md p-1.5 text-ink-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
-                            title="Import / Edit Image (Upload or AI)"
-                          >
-                            <Camera size={15} />
-                          </button>
-                        )}
-                        {canEdit && (
-                          <button onClick={() => openEdit(p)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Edit">
-                            <Pencil size={15} />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => handleDelete(p._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete">
-                            <Trash2 size={15} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                  <td className="whitespace-nowrap px-3 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openDetail(p)}
+                        className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer"
+                        title="View product & security audit details"
+                      >
+                        <Eye size={15} />
+                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => setImageModalProduct(p)}
+                          className="rounded-md p-1.5 text-ink-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                          title="Import / Edit Image (Upload or AI)"
+                        >
+                          <Camera size={15} />
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button onClick={() => openEdit(p)} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Edit">
+                          <Pencil size={15} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(p._id)} className="rounded-md p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1699,6 +1705,10 @@ const Products = () => {
               </div>
               <div className="col-span-2"><p className="text-xs text-ink-400">Description</p><p className="font-medium">{selectedProduct.description || '—'}</p></div>
             </div>
+
+            {/* Security & Audit Record */}
+            <RecordAuditTrail record={selectedProduct} showRecipeAudit={true} />
+
             <div>
               <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink-700">
                 <ChefHat size={15} className="text-blue-600" /> Recipe
@@ -1796,21 +1806,23 @@ const Products = () => {
                 </div>
               )}
             </div>
-            {canEdit && (
-              <div className="flex justify-end gap-2 pt-1">
-                <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
-                <Button
-                  style={{ background: 'linear-gradient(135deg,#4f46e5,#3730a3)', color: 'white' }}
-                  onClick={() => { setDetailOpen(false); setImageModalProduct(selectedProduct); }}
-                >
-                  <Camera size={14} /> Manage Image
-                </Button>
-                <Button style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}
-                  onClick={() => { setDetailOpen(false); openEdit(selectedProduct); }}>
-                  <Pencil size={14} /> Edit
-                </Button>
-              </div>
-            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
+              {canEdit && (
+                <>
+                  <Button
+                    style={{ background: 'linear-gradient(135deg,#4f46e5,#3730a3)', color: 'white' }}
+                    onClick={() => { setDetailOpen(false); setImageModalProduct(selectedProduct); }}
+                  >
+                    <Camera size={14} /> Manage Image
+                  </Button>
+                  <Button style={{ background: 'linear-gradient(135deg,#1a56db,#0d2d80)', color: 'white' }}
+                    onClick={() => { setDetailOpen(false); openEdit(selectedProduct); }}>
+                    <Pencil size={14} /> Edit
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </Modal>

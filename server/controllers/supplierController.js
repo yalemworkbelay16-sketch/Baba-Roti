@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Supplier = require('../models/Supplier');
 const tg = require('../utils/telegramNotifier');
+const { logActivity } = require('../utils/activityLogger');
 
 const getSuppliers = asyncHandler(async (req, res) => {
   const { search } = req.query;
@@ -26,8 +27,23 @@ const createSupplier = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Supplier name is required');
   }
-  const supplier = await Supplier.create(req.body);
+  const supplier = await Supplier.create({
+    ...req.body,
+    createdBy: req.user?._id || null,
+    createdByName: req.user?.name || 'System',
+    createdByRole: req.user?.role || '',
+    registrationSource: 'manual',
+  });
   tg.notifySupplierCreated(supplier, req.user);
+  try {
+    logActivity(req, {
+      action: 'CREATE_SUPPLIER',
+      module: 'Suppliers',
+      description: `Registered supplier "${supplier.name}" (${supplier.category || 'General'})`,
+      status: 'success',
+      details: { id: supplier._id, name: supplier.name },
+    });
+  } catch (_) {}
   res.status(201).json(supplier);
 });
 
@@ -35,10 +51,16 @@ const updateSupplier = asyncHandler(async (req, res) => {
   const before = await Supplier.findById(req.params.id).lean();
   if (!before) { res.status(404); throw new Error('Supplier not found'); }
 
-  const supplier = await Supplier.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const supplier = await Supplier.findByIdAndUpdate(
+    req.params.id,
+    {
+      ...req.body,
+      updatedBy: req.user?._id || null,
+      updatedByName: req.user?.name || 'System',
+      updatedByRole: req.user?.role || '',
+    },
+    { new: true, runValidators: true }
+  );
 
   // Diff key fields
   const changes = ['name','category','contactPerson','phone','email'].reduce((acc, k) => {
@@ -48,6 +70,15 @@ const updateSupplier = asyncHandler(async (req, res) => {
   }, []);
 
   if (changes.length) tg.notifySupplierUpdated(supplier, req.user, changes);
+  try {
+    logActivity(req, {
+      action: 'UPDATE_SUPPLIER',
+      module: 'Suppliers',
+      description: `Updated supplier "${supplier.name}"`,
+      status: 'success',
+      details: { id: supplier._id, name: supplier.name, changes },
+    });
+  } catch (_) {}
   res.json(supplier);
 });
 
