@@ -113,7 +113,9 @@ export default function Settings() {
   const { timeoutMinutes, setTimeoutMinutes } = useSessionTimeout();
   const [sessionTimeoutSuccess, setSessionTimeoutSuccess] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') || 'profile';
+  const canManageRolePrivileges = user?.role === 'admin' || user?.role === 'dev';
+  const rawTab = searchParams.get('tab') || 'profile';
+  const currentTab = (rawTab === 'permissions' && !canManageRolePrivileges) ? 'profile' : rawTab;
 
   const setTab = (tab) => {
     setSearchParams({ tab });
@@ -937,6 +939,7 @@ export default function Settings() {
     storekeeper: 'bg-blue-50 text-blue-700 border-blue-200',
     cashier: 'bg-teal-50 text-teal-700 border-teal-200',
     waiter: 'bg-purple-50 text-purple-700 border-purple-200',
+    fb_team: 'bg-teal-50 text-teal-700 border-teal-200',
     dev: 'bg-amber-100 text-amber-900 border-amber-300',
   }[user?.role || 'storekeeper'];
 
@@ -948,7 +951,7 @@ export default function Settings() {
           Account &amp; System Settings
         </h1>
         <p className="text-sm text-ink-400 mt-1">
-          Manage your personal credentials, profile identity, and Baba Roti  Caféhotel management configurations
+          Manage your personal credentials, profile identity, and Baba Roti hotel management configurations
         </p>
       </div>
 
@@ -986,15 +989,17 @@ export default function Settings() {
           </button>
         )}
 
-        <button
-          onClick={() => setTab('permissions')}
-          className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'permissions'
-            ? 'border-blue-600 text-blue-600'
-            : 'border-transparent text-ink-400 hover:text-ink-700'
-            }`}
-        >
-          <Layers size={16} /> Role Privileges
-        </button>
+        {canManageRolePrivileges && (
+          <button
+            onClick={() => setTab('permissions')}
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'permissions'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-ink-400 hover:text-ink-700'
+              }`}
+          >
+            <Layers size={16} /> Role Privileges
+          </button>
+        )}
 
         {(hasRole('admin', 'manager', 'supervisor') || can('manageStationMapping') || canSeeNav('stationMapping')) && (
           <button
@@ -2206,8 +2211,8 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ── Tab 4: Role Privileges ── */}
-      {currentTab === 'permissions' && (
+      {/* ── Tab 4: Role Privileges (Admin & System Developer only) ── */}
+      {currentTab === 'permissions' && canManageRolePrivileges && (
         <Card className="max-w-3xl">
           <div className="flex items-center gap-2 mb-1">
             <span className="rounded-lg bg-blue-50 p-1.5 text-blue-600">

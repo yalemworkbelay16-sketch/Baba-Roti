@@ -1881,13 +1881,15 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                       {t('topbar.systemSettings')}
                     </button>
                   )}
-                  <button
-                    onClick={() => handleNav('/settings?tab=permissions')}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 transition"
-                  >
-                    <Layers size={15} className="text-ink-400" />
-                    Role Privileges
-                  </button>
+                  {hasRole('admin') && (
+                    <button
+                      onClick={() => handleNav('/settings?tab=permissions')}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 transition"
+                    >
+                      <Layers size={15} className="text-ink-400" />
+                      Role Privileges
+                    </button>
+                  )}
                   {/* Help & Documentation */}
                   <button
                     onClick={() => { setMenuOpen(false); setHelpOpen(true); }}
