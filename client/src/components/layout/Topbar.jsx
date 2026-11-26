@@ -1716,7 +1716,22 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
     admin: 'bg-amber-50 text-amber-800 border-amber-200',
     manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     storekeeper: 'bg-blue-50 text-blue-700 border-blue-200',
-  }[user?.role || 'storekeeper'];
+    fb_team: 'bg-teal-50 text-teal-700 border-teal-200',
+    waiter: 'bg-purple-50 text-purple-700 border-purple-200',
+    cashier: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    supervisor: 'bg-blue-50 text-blue-700 border-blue-200',
+  }[user?.role || 'storekeeper'] || 'bg-slate-50 text-slate-700 border-slate-200';
+
+  const roleDisplayName = {
+    admin: 'Admin',
+    manager: 'Manager',
+    supervisor: 'Supervisor',
+    storekeeper: 'Store Keeper',
+    cashier: 'Cashier',
+    waiter: 'Waiter',
+    fb_team: 'F & B Team',
+    dev: 'System Developer',
+  }[user?.role] || user?.role;
 
   return (
     <>
@@ -1811,7 +1826,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
               )}
               <div className="hidden text-left sm:block">
                 <p className="text-xs font-semibold leading-tight text-ink-800">{user?.name}</p>
-                <p className="text-[10px] capitalize leading-none text-ink-400">{user?.role}</p>
+                <p className="text-[10px] leading-none text-ink-400">{roleDisplayName}</p>
               </div>
               <ChevronDown size={14} className={`text-ink-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -1835,8 +1850,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                   </div>
                   <div className="mt-2.5 flex items-center justify-between border-t border-ink-100/80 pt-2">
                     <span className="text-[10px] uppercase font-bold text-ink-400">Role</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${roleBadgeStyle}`}>
-                      {user?.role}
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${roleBadgeStyle}`}>
+                      {roleDisplayName}
                     </span>
                   </div>
                 </div>

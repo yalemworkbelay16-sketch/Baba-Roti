@@ -27,6 +27,7 @@ const roleColor = {
   storekeeper: 'ink',
   cashier: 'emerald',
   waiter: 'purple',
+  fb_team: 'teal',
   dev: 'amber',
 };
 const roleLabels = {
@@ -36,6 +37,7 @@ const roleLabels = {
   storekeeper: 'Store Keeper',
   cashier: 'Cashier',
   waiter: 'Waiter',
+  fb_team: 'F & B Team',
   dev: 'System Developer',
 };
 
@@ -360,7 +362,7 @@ const Users = () => {
             </span>
           </button>
 
-          {['admin', 'manager', 'supervisor', 'storekeeper', 'cashier', 'waiter'].map((r) => {
+          {['admin', 'manager', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team'].map((r) => {
             if (!roleCounts[r]) return null;
             const isActive = roleFilter === r;
             return (
@@ -681,6 +683,7 @@ const Users = () => {
                 <option value="storekeeper">Store Keeper</option>
                 <option value="cashier">Cashier</option>
                 <option value="waiter">Waiter (POS Mobile Order)</option>
+                <option value="fb_team">F & B Team</option>
                 <option value="supervisor">Supervisor</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>

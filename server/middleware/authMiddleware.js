@@ -6,13 +6,15 @@ const Setting = require('../models/Setting');
 const JWT_SECRET = process.env.JWT_SECRET || 'baba_roti_cafe_super_secret_jwt_key_2024';
 
 const DEFAULT_ROLE_PERMISSIONS = {
-  recordGoods:      { storekeeper: true,  cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  checkReview:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  approveGoods:     { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  postLedger:       { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  voidTransactions: { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
-  viewReports:      { storekeeper: false, cashier: false, waiter: false, supervisor: true,  manager: true,  admin: true },
-  manageAccounts:   { storekeeper: false, cashier: false, waiter: false, supervisor: false, manager: false, admin: true },
+  recordGoods:      { storekeeper: true,  cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
+  checkReview:      { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
+  approveGoods:     { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
+  postLedger:       { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
+  voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
+  transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, manager: true, admin: true },
+  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, manager: true, admin: true },
+  viewReports:      { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  manager: true,  admin: true },
+  manageAccounts:   { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, manager: false, admin: true },
 };
 
 let cachedSettings = null;
@@ -44,7 +46,9 @@ const hasPermission = async (role, capability) => {
     const adminPerm = rolePermissions?.[capability]?.admin;
     return adminPerm !== false;
   }
-  return Boolean(rolePermissions?.[capability]?.[role]);
+  const val = rolePermissions?.[capability]?.[role];
+  if (val !== undefined) return Boolean(val);
+  return Boolean(DEFAULT_ROLE_PERMISSIONS?.[capability]?.[role]);
 };
 
 const protect = asyncHandler(async (req, res, next) => {

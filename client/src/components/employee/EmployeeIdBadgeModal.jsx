@@ -32,6 +32,7 @@ export default function EmployeeIdBadgeModal({
     storekeeper: 'Store Keeper',
     cashier: 'Cashier',
     waiter: 'Waiter',
+    fb_team: 'F & B Team',
     dev: 'System Developer',
   };
 
@@ -42,6 +43,7 @@ export default function EmployeeIdBadgeModal({
     storekeeper: 'Store & Inventory',
     cashier: 'Finance & Cashier',
     waiter: 'Dining & Service',
+    fb_team: 'Food & Beverage',
     dev: 'IT & Systems',
   };
 

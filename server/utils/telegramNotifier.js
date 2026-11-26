@@ -94,15 +94,15 @@ async function getChatIds(options = {}) {
     const restrictFinancial = notifSettings.restrictFinancialToManagement !== false;
     const staffOwnOrdersOnly = notifSettings.staffSeeOwnOrdersOnly !== false;
 
-    // Default allowed operational roles per process (Registered Roles: admin, manager, supervisor, storekeeper, cashier, waiter, dev)
+    // Default allowed operational roles per process (Registered Roles: admin, manager, supervisor, storekeeper, cashier, waiter, fb_team, dev)
     const DEFAULT_PROCESS_ROLES = {
       salesImport: ['admin', 'manager', 'dev'],
       posOrders: ['admin', 'manager', 'cashier', 'dev'],
-      customerQrOrders: ['admin', 'manager', 'supervisor', 'waiter', 'dev'],
-      captainOrders: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'dev'],
-      stockTransactions: ['admin', 'manager', 'supervisor', 'storekeeper', 'dev'],
-      stockRequests: ['admin', 'manager', 'supervisor', 'storekeeper', 'dev'],
-      consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'storekeeper', 'dev'],
+      customerQrOrders: ['admin', 'manager', 'supervisor', 'waiter', 'fb_team', 'dev'],
+      captainOrders: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team', 'dev'],
+      stockTransactions: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
+      stockRequests: ['admin', 'manager', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
+      consumption: ['admin', 'manager', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper', 'dev'],
       expenses: ['admin', 'manager', 'supervisor', 'dev'],
       dailyReports: ['admin', 'manager', 'supervisor', 'dev'],
       authLogins: ['admin', 'dev'],

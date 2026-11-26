@@ -30,6 +30,7 @@ function roleToPosition(role) {
     storekeeper: 'Storekeeper',
     cashier: 'Cashier',
     waiter: 'Waiter',
+    fb_team: 'F & B Team',
   };
   return map[role] || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Staff');
 }
@@ -42,7 +43,7 @@ function normalizeDepartment(dept, role) {
     return String(dept).trim();
   }
   if (role === 'waiter') return 'Waiter';
-  if (role === 'cashier') return 'Food & Beverage';
+  if (role === 'cashier' || role === 'fb_team') return 'Food & Beverage';
   if (role === 'storekeeper') return 'Main Store';
   if (['manager', 'admin', 'supervisor', 'dev'].includes(role)) return 'Management';
   return 'Other';
