@@ -621,6 +621,17 @@ export default function Settings() {
           apiKey: '',
           webhookSecret: '',
         }));
+        try {
+          const cached = JSON.parse(localStorage.getItem('baba_roti_pos_settings_cache') || '{}');
+          localStorage.setItem('baba_roti_pos_settings_cache', JSON.stringify({
+            ...cached,
+            payoEnabled: Boolean(
+              res.data.payoSettings.enabled &&
+              res.data.payoSettings.enableInPos !== false &&
+              res.data.payoSettings.apiKeyConfigured
+            ),
+          }));
+        } catch (_) { }
       }
       setPayoMsg({ type: 'success', text: 'Payo Payment Gateway configuration saved securely.' });
     } catch (err) {
@@ -4857,6 +4868,15 @@ export default function Settings() {
               </span>
             </label>
           </div>
+
+          {payoForm.apiKeyConfigured && !payoForm.enabled && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-semibold text-amber-900 flex items-center gap-2">
+              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+              <span>
+                Your Payo API Key is saved, but the <strong>Payo Gateway toggle is currently OFF</strong>. Switch the toggle at the top-right to <strong>Active</strong> and click <strong>Save Payo Gateway Settings</strong> so Payo shows in POS &amp; Digital Menu.
+              </span>
+            </div>
+          )}
 
           {payoMsg.text && (
             <div className={`mt-4 rounded-xl border p-3.5 text-xs font-semibold flex items-center gap-2 ${payoMsg.type === 'success'

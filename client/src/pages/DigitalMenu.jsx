@@ -2611,10 +2611,20 @@ export default function DigitalMenu() {
 
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                         <span className="font-bold text-slate-500">Order Total</span>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <strong className="font-black text-slate-950 font-serif">
                             {Number(o.grandTotal || 0).toFixed(0)} ETB
                           </strong>
+                          {menuData?.payoEnabled && o.status !== 'paid' && (
+                            <button
+                              type="button"
+                              disabled={payoLoading}
+                              onClick={() => handlePayWithPayo(o.orderNo)}
+                              className="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px] flex items-center gap-1 transition cursor-pointer"
+                            >
+                              <span>💳 Pay</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setActiveTrackingOrder(o);

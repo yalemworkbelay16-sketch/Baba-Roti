@@ -621,8 +621,11 @@ const testPayoConnection = asyncHandler(async (req, res) => {
     }
     res.json({
       success: true,
+      enabled: cfg.enabled,
       status: resp.status,
-      message: `Payo server reachable at ${cfg.apiBaseUrl} (HTTP ${resp.status}).`,
+      message: cfg.enabled
+        ? `Payo server reachable at ${cfg.apiBaseUrl} (HTTP ${resp.status}). Payo is Active in ${cfg.enableInPos ? 'POS' : ''}${cfg.enableInPos && cfg.enableInDigitalMenu ? ' & ' : ''}${cfg.enableInDigitalMenu ? 'Digital Menu' : ''}.`
+        : `Connected to ${cfg.apiBaseUrl} (HTTP ${resp.status}), BUT the Payo Gateway toggle is still OFF — switch it Active at top-right and Save to show Payo buttons in POS & Digital Menu.`,
     });
   } catch (err) {
     if (err.statusCode === 400) throw err;

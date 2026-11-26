@@ -2184,7 +2184,20 @@ export default function POS() {
                 disabled={placing}
                 onClick={() => {
                   if (!items.length) { showToast(isAmharic ? "እባክዎን መጀመሪያ ምግብ ይምረጡ" : "Please add items to cart", "error"); return; }
+                  setPayoSession(null);
                   setShowPayModal(true);
+                  api.get("/settings").then((r) => {
+                    if (r.data) {
+                      setSettings((prev) => {
+                        const next = {
+                          ...prev,
+                          payoEnabled: Boolean(r.data?.payoSettings?.enabled && r.data?.payoSettings?.enableInPos !== false && r.data?.payoSettings?.apiKeyConfigured),
+                        };
+                        try { localStorage.setItem("baba_roti_pos_settings_cache", JSON.stringify(next)); } catch (_) { }
+                        return next;
+                      });
+                    }
+                  }).catch(() => { });
                 }}
                 title="Pay now and automatically convert to Cash Sales"
                 style={{
