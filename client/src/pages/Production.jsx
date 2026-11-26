@@ -1050,97 +1050,97 @@ export default function Production() {
                     recipesForTab.map((r) => {
                       const conflict = recipeConflicts.byId.get(String(r._id));
                       return (
-                      <tr key={r._id} className={`hover:bg-ink-50/50 transition ${conflict?.hasWarning ? 'bg-amber-50/40' : ''}`}>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
-                          <span className="font-mono font-bold text-[11px] text-ink-700 bg-ink-100 px-2 py-0.5 rounded-md">
-                            {r.code || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="font-bold text-ink-900 text-sm">{r.name}</div>
-                          <div className="text-[11px] text-ink-500 flex items-center gap-1 mt-0.5">
-                            <span>Produces:</span>
-                            <strong className="text-ink-800 font-semibold">{r.targetMaterial?.name || '—'}</strong>
-                          </div>
-                          {conflict?.hasWarning && (
-                            <div className="mt-1">
-                              <RowWarningFlag conflict={conflict} canEdit={isManagerOrAdmin} onEdit={() => handleOpenRecipeModal(r)} />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
-                            }`}>
-                            {r.station}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-lg border border-ink-100">
-                            {formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                          <span className="font-bold text-emerald-700 text-xs">
-                            {etb(r.estimatedUnitCost)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="space-y-1">
-                            <span className="inline-block text-[10px] font-bold text-ink-500 uppercase tracking-wider">
-                              {r.ingredients?.length || 0} {r.ingredients?.length === 1 ? 'Ingredient' : 'Ingredients'}
+                        <tr key={r._id} className={`hover:bg-ink-50/50 transition ${conflict?.hasWarning ? 'bg-amber-50/40' : ''}`}>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span className="font-mono font-bold text-[11px] text-ink-700 bg-ink-100 px-2 py-0.5 rounded-md">
+                              {r.code || '—'}
                             </span>
-                            <div className="flex flex-wrap gap-1 max-w-sm">
-                              {(r.ingredients || []).slice(0, 3).map((ing, idx) => (
-                                <span key={idx} className="text-[10px] bg-ink-50 text-ink-700 border border-ink-100 px-1.5 py-0.5 rounded">
-                                  {ing.material?.name || 'Item'} ({formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit})
-                                </span>
-                              ))}
-                              {(r.ingredients?.length || 0) > 3 && (
-                                <span className="text-[10px] text-ink-400 font-bold self-center">
-                                  +{(r.ingredients?.length || 0) - 3} more
-                                </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-ink-900 text-sm">{r.name}</div>
+                            <div className="text-[11px] text-ink-500 flex items-center gap-1 mt-0.5">
+                              <span>Produces:</span>
+                              <strong className="text-ink-800 font-semibold">{r.targetMaterial?.name || '—'}</strong>
+                            </div>
+                            {conflict?.hasWarning && (
+                              <div className="mt-1">
+                                <RowWarningFlag conflict={conflict} canEdit={isManagerOrAdmin} onEdit={() => handleOpenRecipeModal(r)} />
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${r.station === 'bar'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}>
+                              {r.station}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-lg border border-ink-100">
+                              {formatUnitQty(r.yieldQuantity, r.yieldUnit)} {r.yieldUnit}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                            <span className="font-bold text-emerald-700 text-xs">
+                              {etb(r.estimatedUnitCost)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="space-y-1">
+                              <span className="inline-block text-[10px] font-bold text-ink-500 uppercase tracking-wider">
+                                {r.ingredients?.length || 0} {r.ingredients?.length === 1 ? 'Ingredient' : 'Ingredients'}
+                              </span>
+                              <div className="flex flex-wrap gap-1 max-w-sm">
+                                {(r.ingredients || []).slice(0, 3).map((ing, idx) => (
+                                  <span key={idx} className="text-[10px] bg-ink-50 text-ink-700 border border-ink-100 px-1.5 py-0.5 rounded">
+                                    {ing.material?.name || 'Item'} ({formatUnitQty(ing.quantity, ing.unit || ing.material?.unit, ing.material?.name)} {ing.unit || ing.material?.unit})
+                                  </span>
+                                ))}
+                                {(r.ingredients?.length || 0) > 3 && (
+                                  <span className="text-[10px] text-ink-400 font-bold self-center">
+                                    +{(r.ingredients?.length || 0) - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecipeId(r._id);
+                                  setActiveTab('run');
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs transition cursor-pointer"
+                                title="Produce this recipe"
+                              >
+                                <Factory size={12} /> Produce
+                              </button>
+                              {isManagerOrAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRecipeModal(r)}
+                                  className="p-1.5 rounded-lg border border-ink-200 text-ink-600 hover:text-ink-900 hover:bg-ink-100 transition cursor-pointer"
+                                  title="Edit Recipe"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                              )}
+                              {isManagerOrAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDeleteRecipeModal(r)}
+                                  className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                                  title="Delete / Remove Recipe"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedRecipeId(r._id);
-                                setActiveTab('run');
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs transition cursor-pointer"
-                              title="Produce this recipe"
-                            >
-                              <Factory size={12} /> Produce
-                            </button>
-                            {isManagerOrAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRecipeModal(r)}
-                                className="p-1.5 rounded-lg border border-ink-200 text-ink-600 hover:text-ink-900 hover:bg-ink-100 transition cursor-pointer"
-                                title="Edit Recipe"
-                              >
-                                <Pencil size={13} />
-                              </button>
-                            )}
-                            {isManagerOrAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenDeleteRecipeModal(r)}
-                                className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
-                                title="Delete / Remove Recipe"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
                       );
                     })
                   )}
@@ -1715,7 +1715,7 @@ export default function Production() {
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-72 overflow-y-auto overflow-x-visible pr-1">
+              <div className="space-y-2 pr-1">
                 {recipeForm.ingredients.map((ing, idx) => {
                   const selectedMat = rawMaterials.find(m => m._id === ing.material);
                   const ingUnit = ing.unit || selectedMat?.unit || '';

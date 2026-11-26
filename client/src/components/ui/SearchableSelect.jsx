@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ChevronDown, X, Check } from 'lucide-react';
 
 /**
@@ -20,7 +21,14 @@ export default function SearchableSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownStyle, setDropdownStyle] = useState({
+    top: 0,
+    left: 0,
+    width: 300,
+    listMaxHeight: 280,
+  });
   const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   const optionsListRef = useRef(null);
 
@@ -104,31 +112,65 @@ export default function SearchableSelect({
     setHighlightedIndex(0);
   }, [filteredOptions]);
 
+  // Position dropdown via viewport portal so modal/table scroll containers never clip it
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(Math.max(rect.width, 300), vw - 16);
+    const left = Math.max(8, Math.min(rect.left, vw - width - 8));
+    const spaceBelow = vh - rect.bottom - 10;
+    const spaceAbove = rect.top - 10;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxAvail = Math.max(160, (openUp ? spaceAbove : spaceBelow));
+    const listMaxHeight = Math.min(280, Math.max(110, maxAvail - 96));
+
+    setDropdownStyle({
+      left,
+      width,
+      listMaxHeight,
+      ...(openUp
+        ? { bottom: vh - rect.top + 4, top: 'auto' }
+        : { top: rect.bottom + 4, bottom: 'auto' }),
+    });
+  }, []);
+
   // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      const inTrigger = containerRef.current && containerRef.current.contains(e.target);
+      const inMenu = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inTrigger && !inMenu) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen, updatePosition]);
 
-  // Focus search input when opened
+  // Focus search input & calculate position when opened
   useEffect(() => {
     if (isOpen) {
+      updatePosition();
       setSearch('');
       setHighlightedIndex(0);
       setTimeout(() => {
+        updatePosition();
         if (searchInputRef.current) {
           searchInputRef.current.focus();
         }
-      }, 50);
+      }, 30);
     }
-  }, [isOpen]);
+  }, [isOpen, updatePosition]);
 
   const handleSelect = (opt) => {
     if (onChange) {
@@ -226,9 +268,20 @@ export default function SearchableSelect({
         </div>
       </button>
 
-      {/* Dropdown panel */}
-      {isOpen && (
-        <div className="absolute left-0 top-[calc(100%+4px)] z-[100] w-full min-w-[280px] rounded-2xl border border-ink-200/90 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95">
+      {/* Dropdown panel rendered in portal so modals/containers never clip options */}
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropdownStyle.top,
+            bottom: dropdownStyle.bottom,
+            left: dropdownStyle.left,
+            width: dropdownStyle.width,
+            zIndex: 9999,
+          }}
+          className="rounded-2xl border border-ink-200/90 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95"
+        >
           {/* Search box inside dropdown */}
           <div className="relative mb-2">
             <Search
@@ -264,7 +317,11 @@ export default function SearchableSelect({
           </div>
 
           {/* Options list */}
-          <div ref={optionsListRef} className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5">
+          <div
+            ref={optionsListRef}
+            style={{ maxHeight: dropdownStyle.listMaxHeight }}
+            className="overflow-y-auto space-y-0.5 pr-0.5"
+          >
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-xs text-ink-400">
                 No items matching "<span className="font-semibold text-ink-600">{search}</span>"
@@ -282,7 +339,7 @@ export default function SearchableSelect({
                     type="button"
                     onClick={() => handleSelect(opt)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition cursor-pointer ${isSelected
+                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs transition cursor-pointer ${isSelected
                         ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
                         : isHighlighted
                           ? 'bg-ink-100/70 text-ink-900 font-semibold'
@@ -290,17 +347,17 @@ export default function SearchableSelect({
                       }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-ink-900 truncate flex items-center gap-1.5">
+                      <div className="font-bold text-ink-900 flex flex-wrap items-center gap-1.5 break-words">
                         <span>{opt.label}</span>
                         {opt.category && (
-                          <span className="text-[9.5px] font-semibold text-ink-400 px-1 py-0.2 rounded bg-ink-100 shrink-0">
+                          <span className="text-[9.5px] font-semibold text-ink-500 px-1.5 py-0.5 rounded bg-ink-100 shrink-0">
                             {opt.category}
                           </span>
                         )}
                       </div>
                       {opt.sublabel && (
                         <div
-                          className={`text-[10px] mt-0.5 truncate ${isOutOfStock
+                          className={`text-[10.5px] mt-0.5 break-words whitespace-normal leading-snug ${isOutOfStock
                               ? 'text-red-500 font-semibold'
                               : 'text-ink-500 font-medium'
                             }`}
@@ -318,7 +375,8 @@ export default function SearchableSelect({
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
