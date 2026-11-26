@@ -824,11 +824,11 @@ const approveCustomerOrder = asyncHandler(async (req, res) => {
 
   try {
     logActivity(req, {
-      action: 'REJECT_ORDER',
+      action: 'APPROVE_ORDER',
       module: 'POS',
-      description: `Declined digital QR order #${order.orderNo} for Table ${order.tableNo} — Reason: ${reason}`,
-      status: 'warning',
-      details: { orderNo: order.orderNo, tableNo: order.tableNo, reason },
+      description: `Verified & approved digital QR order #${order.orderNo} for Table ${order.tableNo}`,
+      status: 'success',
+      details: { orderNo: order.orderNo, tableNo: order.tableNo },
     });
   } catch (_) { }
 

@@ -222,6 +222,25 @@ const RawMaterials = () => {
     });
   }, [materials, stationFilter, stationMapping]);
 
+  // Station-wide status counters across ALL categories (used when resetting a narrowed category filter)
+  const globalCounts = useMemo(() => {
+    let inStock = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    stationSubset.forEach((m) => {
+      const s = getMaterialStatusForStation(m, stationFilter);
+      if (s === 'out_of_stock') outOfStock++;
+      else if (s === 'low_stock') lowStock++;
+      else inStock++;
+    });
+    return {
+      all: stationSubset.length,
+      inStock,
+      lowStock,
+      outOfStock,
+    };
+  }, [stationSubset, stationFilter]);
+
   // Contextual status counters scoped to the active station and selected category
   const counts = useMemo(() => {
     let inStock = 0;
@@ -1229,7 +1248,10 @@ const RawMaterials = () => {
                 onClick={() => setCategoryFilter('all')}
                 className="font-bold text-blue-700 hover:text-blue-950 underline cursor-pointer"
               >
-                View all {globalCounts[statusFilter === 'in_stock' ? 'inStock' : statusFilter === 'low_stock' ? 'lowStock' : 'outOfStock']} {statusFilter === 'in_stock' ? 'Normal' : statusFilter === 'low_stock' ? 'Low Level' : 'Out of Stock'} items across all categories
+                View all {statusFilter === 'warnings'
+                  ? materialConflicts.flaggedCount
+                  : globalCounts[statusFilter === 'in_stock' ? 'inStock' : statusFilter === 'low_stock' ? 'lowStock' : 'outOfStock']}{' '}
+                {statusFilter === 'in_stock' ? 'Normal' : statusFilter === 'low_stock' ? 'Low Level' : statusFilter === 'warnings' ? 'Warning' : 'Out of Stock'} items across all categories
               </button>
             )}
             <button

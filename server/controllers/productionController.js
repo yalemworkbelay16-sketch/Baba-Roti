@@ -348,7 +348,7 @@ const calculateBatchRequirements = asyncHandler(async (req, res) => {
 
     const shortage = isSufficient
       ? 0
-      : (isDiscrete ? Math.max(1, Math.round(reqBaseQty - availableStationStock)) : cleanQuantity(reqBaseQty - availableStationStock, baseUnit, mat?.name));
+      : (isBaseDiscrete ? Math.max(1, Math.round(reqBaseQty - availableStationStock)) : cleanQuantity(reqBaseQty - availableStationStock, baseUnit, mat?.name));
 
     return {
       materialId: mat?._id,

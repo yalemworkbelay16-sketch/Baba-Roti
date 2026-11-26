@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Setting = require('../models/Setting');
 const { clearSettingsCache, DEFAULT_ROLE_PERMISSIONS } = require('../middleware/authMiddleware');
+const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { logActivity } = require('../utils/activityLogger');

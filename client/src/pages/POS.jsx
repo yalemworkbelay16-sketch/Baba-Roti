@@ -270,8 +270,11 @@ export default function POS() {
   const refreshWaiters = useCallback(async (notify = false) => {
     try {
       setRefreshingWaiters(true);
-      const empRes = await api.get("/employees");
-      const rawTables = settRes.data?.digitalMenuSettings?.tables;
+      const [empRes, settRes] = await Promise.all([
+        api.get("/employees"),
+        api.get("/settings").catch(() => ({ data: {} })),
+      ]);
+      const rawTables = settRes?.data?.digitalMenuSettings?.tables;
       if (Array.isArray(rawTables) && rawTables.length > 0) {
         const parsedTables = parseDiningTablesFromSettings(rawTables);
         setDiningTables(parsedTables);
