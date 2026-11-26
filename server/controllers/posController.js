@@ -246,6 +246,11 @@ const createOrder = asyncHandler(async (req, res) => {
 
       await RawMaterial.findByIdAndUpdate(material._id, {
         $inc: incUpdate,
+        $set: {
+          updatedBy: req.user?._id || null,
+          updatedByName: req.user?.name || 'Staff',
+          updatedByRole: req.user?.role || '',
+        },
       });
 
       transactionItems.push({
@@ -523,6 +528,11 @@ const voidOrder = asyncHandler(async (req, res) => {
                 : { mainStoreStock: ing.quantityUsed, currentStock: ing.quantityUsed };
             await RawMaterial.findByIdAndUpdate(ing.materialId, {
               $inc: incReverse,
+              $set: {
+                updatedBy: req.user?._id || null,
+                updatedByName: req.user?.name || 'Staff',
+                updatedByRole: req.user?.role || '',
+              },
             });
           }
         }

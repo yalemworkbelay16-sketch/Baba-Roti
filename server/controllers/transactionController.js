@@ -336,6 +336,11 @@ const deleteTransaction = asyncHandler(async (req, res) => {
           mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
           mat.currentStock = (mat.currentStock || 0) + item.quantity;
         }
+        if (req.user) {
+          mat.updatedBy = req.user._id || null;
+          mat.updatedByName = req.user.name || mat.updatedByName;
+          mat.updatedByRole = req.user.role || mat.updatedByRole;
+        }
         await mat.save();
       }
     }
@@ -386,6 +391,11 @@ const bulkDeleteTransactions = asyncHandler(async (req, res) => {
             mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
             mat.currentStock = (mat.currentStock || 0) + item.quantity;
           }
+          if (req.user) {
+            mat.updatedBy = req.user._id || null;
+            mat.updatedByName = req.user.name || mat.updatedByName;
+            mat.updatedByRole = req.user.role || mat.updatedByRole;
+          }
           await mat.save();
         }
       }
@@ -415,6 +425,11 @@ const restoreTransaction = asyncHandler(async (req, res) => {
       const mat = await RawMaterial.findById(item.material);
       if (mat) {
         mat.currentStock += direction === 'in' ? item.quantity : -item.quantity;
+        if (req.user) {
+          mat.updatedBy = req.user._id || null;
+          mat.updatedByName = req.user.name || mat.updatedByName;
+          mat.updatedByRole = req.user.role || mat.updatedByRole;
+        }
         await mat.save();
       }
     }
@@ -594,6 +609,11 @@ const advanceTransaction = asyncHandler(async (req, res) => {
           } else {
             mat.mainStoreStock = (mat.mainStoreStock || 0) + item.quantity;
             mat.currentStock = (mat.currentStock || 0) + item.quantity;
+          }
+          if (req.user) {
+            mat.updatedBy = req.user._id || null;
+            mat.updatedByName = req.user.name || mat.updatedByName;
+            mat.updatedByRole = req.user.role || mat.updatedByRole;
           }
           await mat.save();
         }

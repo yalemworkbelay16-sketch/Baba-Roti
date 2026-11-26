@@ -130,6 +130,11 @@ const createProductionRecipe = asyncHandler(async (req, res) => {
   targetMat.itemType = 'produced';
   targetMat.productionStation = station;
   targetMat.productionRecipe = recipe._id;
+  if (req.user) {
+    targetMat.updatedBy = req.user._id;
+    targetMat.updatedByName = req.user.name || 'Staff';
+    targetMat.updatedByRole = req.user.role || '';
+  }
   if (estimatedUnitCost > 0 && targetMat.unitCost === 0) {
     targetMat.unitCost = Math.round(estimatedUnitCost * 100) / 100;
   }
@@ -175,6 +180,11 @@ const updateProductionRecipe = asyncHandler(async (req, res) => {
       itemType: 'produced',
       productionStation: recipe.station,
       productionRecipe: recipe._id,
+      ...(req.user ? {
+        updatedBy: req.user._id,
+        updatedByName: req.user.name || 'Staff',
+        updatedByRole: req.user.role || '',
+      } : {}),
     });
   }
 
@@ -446,6 +456,11 @@ const produceBatch = asyncHandler(async (req, res) => {
 
     await RawMaterial.findByIdAndUpdate(mat._id, {
       $inc: incUpdate,
+      $set: {
+        updatedBy: req.user?._id || null,
+        updatedByName: req.user?.name || 'Staff',
+        updatedByRole: req.user?.role || '',
+      },
     });
 
     stockTxnItems.push({
@@ -472,6 +487,9 @@ const produceBatch = asyncHandler(async (req, res) => {
       isProduced: true,
       itemType: 'produced',
       productionStation: station,
+      updatedBy: req.user?._id || null,
+      updatedByName: req.user?.name || 'Staff',
+      updatedByRole: req.user?.role || '',
     },
   });
 
@@ -668,6 +686,11 @@ const voidProductionBatch = asyncHandler(async (req, res) => {
 
   await RawMaterial.findByIdAndUpdate(batch.targetMaterial, {
     $inc: incReverseProduced,
+    $set: {
+      updatedBy: req.user?._id || null,
+      updatedByName: req.user?.name || 'Staff',
+      updatedByRole: req.user?.role || '',
+    },
   });
 
   // 2. Restore consumed raw ingredients back to station stock
@@ -680,6 +703,11 @@ const voidProductionBatch = asyncHandler(async (req, res) => {
 
       await RawMaterial.findByIdAndUpdate(ing.material, {
         $inc: incRestore,
+        $set: {
+          updatedBy: req.user?._id || null,
+          updatedByName: req.user?.name || 'Staff',
+          updatedByRole: req.user?.role || '',
+        },
       });
     }
   }
