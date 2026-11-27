@@ -420,7 +420,7 @@ const voidCaptainOrder = asyncHandler(async (req, res) => {
   const { reason = "Voided by manager" } = req.body;
   const order = await CaptainOrder.findById(req.params.id);
   if (!order) { res.status(404); throw new Error("Captain order not found"); }
-  if (order.status === "paid") { res.status(400); throw new Error("Cannot void a paid order. Void the cash sale instead."); }
+  if (order.status === "paid") { res.status(400); throw new Error("Cannot void a paid order. Void the Baba Consumption order instead."); }
   order.isVoided = true;
   order.status = "voided";
   order.voidReason = reason;
