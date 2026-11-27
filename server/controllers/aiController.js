@@ -11,7 +11,7 @@
 
 const asyncHandler = require('express-async-handler');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { buildSystemContext } = require('../utils/systemContextService');
+const { buildSystemContext, getTodayStaffMealReport } = require('../utils/systemContextService');
 
 // ── Gemini setup ─────────────────────────────────────────────────
 // Primary & fallback models verified for Google Gemini API:
@@ -163,6 +163,59 @@ const isSensitiveRequest = (message) =>
 
 const SECURITY_REFUSAL = '🔒 This is sensitive security information. I\'m not able to share that directly through this assistant. Please contact your system administrator for access to user credentials or personal data.';
 
+const isDailyStaffMealSummaryQuery = (msg = '') => {
+  const clean = String(msg || '').trim();
+  if (!clean) return false;
+  if (/month|weekly|last week|history|pattern/i.test(clean)) return false;
+  return /staff\s*meal|daily.*meal|who.*(used|ordered|took|ate).*meal|how\s+many.*(meal|meals|food)/i.test(clean);
+};
+
+async function formatTodayStaffMealReply(userRole = 'storekeeper') {
+  const report = await getTodayStaffMealReport();
+  const canSeeStaffNames = ['admin', 'dev', 'manager', 'operation_manager', 'finance', 'supervisor', 'executive_chef'].includes(userRole);
+
+  if (report.totalOrders === 0) {
+    return `🍽️ **Daily Staff Meal Summary (${report.dateLabel})**\n\n• **Staff meals ordered today:** 0\n• **Food portions:** 0 | **Drinks:** 0\n• No staff members have used their daily staff meal yet today.`;
+  }
+
+  const lines = [
+    `🍽️ **Daily Staff Meal Summary (${report.dateLabel})**`,
+    '',
+    `• **Total Staff Meal Orders Today:** ${report.totalOrders}`,
+    `• **Staff Who Used Daily Meal:** ${report.distinctStaffCount} staff member(s)`,
+    `• **Total Food Portions Used:** ${report.totalFoodPortions}`,
+    `• **Total Drink Portions Used:** ${report.totalDrinkPortions}`,
+  ];
+
+  if (canSeeStaffNames) {
+    lines.push(`• **Total Recipe Cost:** ETB ${Number(report.totalCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  if (report.foodBreakdown.length > 0) {
+    lines.push('', `**🍛 Food Items Consumed Today:**`);
+    report.foodBreakdown.forEach(([name, qty]) => {
+      lines.push(`• ${name} — **x${qty}**`);
+    });
+  }
+
+  if (report.drinkBreakdown.length > 0) {
+    lines.push('', `**☕ Drinks Consumed Today:**`);
+    report.drinkBreakdown.forEach(([name, qty]) => {
+      lines.push(`• ${name} — **x${qty}**`);
+    });
+  }
+
+  if (canSeeStaffNames && report.byStaff.length > 0) {
+    lines.push('', `**👥 Who Used Daily Staff Meal Today:**`);
+    report.byStaff.forEach((s) => {
+      const itemsText = [...s.foods, ...s.drinks].join(', ');
+      lines.push(`• **${s.name}** (${s.department}): **${s.foodPortions}/${s.dailyMealLimit}** food, **${s.drinkPortions}** drink(s) — ${itemsText}`);
+    });
+  }
+
+  return lines.join('\n');
+}
+
 // ── POST /api/ai/chat ─────────────────────────────────────────────
 const chat = asyncHandler(async (req, res) => {
   const { message, history = [] } = req.body;
@@ -177,6 +230,16 @@ const chat = asyncHandler(async (req, res) => {
       reply: SECURITY_REFUSAL,
       timestamp: new Date().toISOString(),
       model: MODELS[0],
+    });
+  }
+
+  // Instant exact answer for today's daily staff meal & food usage questions
+  if (isDailyStaffMealSummaryQuery(message)) {
+    const directReply = await formatTodayStaffMealReply(req.user?.role || 'storekeeper');
+    return res.json({
+      reply: directReply,
+      timestamp: new Date().toISOString(),
+      model: 'live-staff-meal-report',
     });
   }
 
@@ -285,12 +348,13 @@ const quickSuggestions = asyncHandler(async (req, res) => {
   const hasPending = systemContext.includes('Pending Requests: 0') === false;
 
   const base = [
-    "What is our current stock status?",
-    "Which materials need restocking urgently?",
+    "How many staff meals were used today and who ordered what food?",
     "Show me this month's purchase summary",
     "What are our top valued inventory items?",
     "Analyze our consumption patterns this month",
     "Which suppliers should we contact for restocking?",
+    "What is our current stock status?",
+    "Which materials need restocking urgently?",
     "What's the total value of our current inventory?",
     "Are there any pending purchase approvals?",
     "How many active materials do we have?",
@@ -300,11 +364,12 @@ const quickSuggestions = asyncHandler(async (req, res) => {
   ];
 
   const dynamic = [];
-  if (hasOutOfStock) dynamic.unshift("Which items are completely out of stock?");
-  if (hasLowStock) dynamic.unshift("Which items are running low and need reordering?");
-  if (hasPending) dynamic.unshift("What stock requests are waiting for approval?");
+  if (hasOutOfStock) dynamic.push("Which items are completely out of stock?");
+  if (hasLowStock) dynamic.push("Which items are running low and need reordering?");
+  if (hasPending) dynamic.push("What stock requests are waiting for approval?");
 
-  const suggestions = [...new Set([...dynamic, ...base])].slice(0, 12);
+  const staffFirst = base[0];
+  const suggestions = [...new Set([staffFirst, ...dynamic, ...base.slice(1)])].slice(0, 12);
   res.json({ suggestions });
 });
 

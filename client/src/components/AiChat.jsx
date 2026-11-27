@@ -144,13 +144,22 @@ const SuggestionChip = ({ text, onClick }) => (
   </button>
 );
 
+const STAFF_MEAL_QUICK_PROMPT = 'How many staff meals were used today and who ordered what food?';
+
+const DEFAULT_FALLBACK_SUGGESTIONS = [
+  STAFF_MEAL_QUICK_PROMPT,
+  "Show me this month's purchase summary",
+  'What are our top valued inventory items?',
+  'Analyze our consumption patterns this month',
+];
+
 // ── INITIAL GREETING ──────────────────────────────────────────────
 const GREETING = `Hi! I'm **MEGA** — your Baba Roti  CaféAI Resource Assistant 🌟
 
 I have live access to your entire stock system right now. Ask me anything like:
+• "How many staff meals were used today and who ordered what food?"
 • "What items are out of stock?"
 • "Show me this month's purchase summary"
-• "Which materials need restocking?"
 
 What would you like to know?`;
 
@@ -165,7 +174,7 @@ export default function AiChat() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState(DEFAULT_FALLBACK_SUGGESTIONS);
   const [suggestionPage, setSuggestionPage] = useState(0);
   const [analyzed, setAnalyzed] = useState(null);
   const [unread, setUnread] = useState(0);
@@ -510,11 +519,10 @@ export default function AiChat() {
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); toggleAutoSpeak(); }}
-                className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
-                  autoSpeak
+                className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${autoSpeak
                     ? 'bg-white text-violet-700 shadow-sm'
                     : 'bg-white/15 hover:bg-white/25 text-white'
-                }`}
+                  }`}
                 title={autoSpeak ? 'Auto-Voice is ON (click to mute)' : 'Auto-Voice is OFF (click to auto-read answers)'}
               >
                 {autoSpeak ? <Volume2 size={13} /> : <VolumeX size={13} />}
@@ -582,13 +590,24 @@ export default function AiChat() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
                       Quick questions
                     </p>
-                    <button
-                      onClick={() => setSuggestionPage(p => (p + 1) % Math.ceil(suggestions.length / 4))}
-                      className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700 transition"
-                      title="Show more questions"
-                    >
-                      <RefreshCw size={10} /> More
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => sendMessage(STAFF_MEAL_QUICK_PROMPT)}
+                        disabled={loading}
+                        className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50"
+                        title="Instant report: who used daily staff meals today and how many foods were consumed"
+                      >
+                        🍽️ Daily Staff Meals
+                      </button>
+                      <button
+                        onClick={() => setSuggestionPage(p => (p + 1) % Math.ceil(suggestions.length / 4))}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700 transition"
+                        title="Show more questions"
+                      >
+                        <RefreshCw size={10} /> More
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {suggestions.slice(suggestionPage * 4, suggestionPage * 4 + 4).map((s, i) => (
@@ -644,11 +663,10 @@ export default function AiChat() {
                     type="button"
                     onClick={toggleListening}
                     disabled={loading}
-                    className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl transition shadow-xs ${
-                      isListening
+                    className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl transition shadow-xs ${isListening
                         ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-200'
                         : 'bg-violet-100 text-violet-700 hover:bg-violet-200 active:scale-95'
-                    }`}
+                      }`}
                     title={isListening ? 'Stop listening' : 'Voice input / Click to speak'}
                   >
                     {isListening ? <MicOff size={13} /> : <Mic size={13} />}

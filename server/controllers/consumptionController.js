@@ -4,6 +4,7 @@ const { CONSUMPTION_CATEGORIES, CATEGORY_LABELS } = require('../models/Consumpti
 const Product = require('../models/Product');
 const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
+const { clearContextCache } = require('../utils/systemContextService');
 const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
@@ -371,6 +372,7 @@ const createConsumption = asyncHandler(async (req, res) => {
     .lean();
 
   invalidateDashboardCache();
+  clearContextCache();
   tg.notifyConsumptionCreated(populated, req.user);
   if (shouldAutoApprove) {
     tg.notifyConsumptionApproved(populated, req.user);
@@ -437,6 +439,7 @@ const updateConsumption = asyncHandler(async (req, res) => {
     .lean();
 
   invalidateDashboardCache();
+  clearContextCache();
   res.json(populated);
 });
 
@@ -464,6 +467,7 @@ const approveConsumption = asyncHandler(async (req, res) => {
     .lean();
 
   invalidateDashboardCache();
+  clearContextCache();
   tg.notifyConsumptionApproved(populated, req.user);
   notify.push({
     type: 'consumption',
@@ -497,6 +501,7 @@ const voidConsumption = asyncHandler(async (req, res) => {
   await record.save();
 
   invalidateDashboardCache();
+  clearContextCache();
   tg.notifyConsumptionVoided(record, req.user);
   notify.push({
     type: 'consumption',

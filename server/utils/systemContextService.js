@@ -32,6 +32,108 @@ const monthRange = () => {
   };
 };
 
+const isDrinkCategoryProduct = (p) => {
+  const pc = String(p?.parentCategory || '').toLowerCase();
+  const cat = String(p?.category || '').toLowerCase();
+  return pc === 'beverage' || pc === 'juices' || /hot drink|cold drink|juice|soft drink/.test(cat);
+};
+
+/**
+ * Live report of today's daily staff meals (orders, distinct staff, food vs drink items, cost).
+ */
+async function getTodayStaffMealReport() {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const [todayStaffMeals, activeEmployees] = await Promise.all([
+    Consumption.find({
+      category: 'staff_meal',
+      status: { $in: ['pending', 'approved'] },
+      date: { $gte: startOfToday, $lte: endOfToday },
+      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+    })
+      .populate('items.product', 'name code parentCategory category')
+      .populate('employee', 'firstName lastName department position dailyMealLimit mealsDisabled')
+      .sort({ date: -1 })
+      .lean(),
+    Employee.find({ deletedAt: null, status: 'active' })
+      .select('firstName lastName department position dailyMealLimit mealsDisabled')
+      .lean(),
+  ]);
+
+  const byStaffMap = new Map();
+  const foodCounts = {};
+  const drinkCounts = {};
+  let totalFoodPortions = 0;
+  let totalDrinkPortions = 0;
+  let totalCost = 0;
+
+  for (const rec of todayStaffMeals) {
+    totalCost += Number(rec.totalRecipeCost) || 0;
+    const empObj = rec.employee;
+    const staffName = empObj
+      ? `${empObj.firstName || ''} ${empObj.lastName || ''}`.trim()
+      : (rec.beneficiary || 'Unknown Staff').trim();
+    const staffKey = empObj?._id ? String(empObj._id) : staffName.toLowerCase();
+
+    if (!byStaffMap.has(staffKey)) {
+      byStaffMap.set(staffKey, {
+        name: staffName,
+        department: empObj?.department || rec.department || 'General',
+        position: empObj?.position || '',
+        dailyMealLimit: Number(empObj?.dailyMealLimit) || 1,
+        orders: 0,
+        foodPortions: 0,
+        drinkPortions: 0,
+        cost: 0,
+        foods: [],
+        drinks: [],
+      });
+    }
+
+    const entry = byStaffMap.get(staffKey);
+    entry.orders += 1;
+    entry.cost += Number(rec.totalRecipeCost) || 0;
+
+    for (const itm of rec.items || []) {
+      const prod = itm.product;
+      const itemName = prod?.name || 'Menu Item';
+      const qty = Number(itm.quantity) || 1;
+      if (isDrinkCategoryProduct(prod)) {
+        totalDrinkPortions += qty;
+        entry.drinkPortions += qty;
+        entry.drinks.push(`${itemName} x${qty}`);
+        drinkCounts[itemName] = (drinkCounts[itemName] || 0) + qty;
+      } else {
+        totalFoodPortions += qty;
+        entry.foodPortions += qty;
+        entry.foods.push(`${itemName} x${qty}`);
+        foodCounts[itemName] = (foodCounts[itemName] || 0) + qty;
+      }
+    }
+  }
+
+  const byStaff = Array.from(byStaffMap.values()).sort((a, b) => (b.foodPortions + b.drinkPortions) - (a.foodPortions + a.drinkPortions));
+  const foodBreakdown = Object.entries(foodCounts).sort((a, b) => b[1] - a[1]);
+  const drinkBreakdown = Object.entries(drinkCounts).sort((a, b) => b[1] - a[1]);
+
+  return {
+    dateLabel: now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+    totalOrders: todayStaffMeals.length,
+    distinctStaffCount: byStaff.length,
+    totalFoodPortions,
+    totalDrinkPortions,
+    totalPortions: totalFoodPortions + totalDrinkPortions,
+    totalCost: Math.round(totalCost * 100) / 100,
+    byStaff,
+    foodBreakdown,
+    drinkBreakdown,
+    totalActiveEmployees: activeEmployees.length,
+    restrictedEmployeesCount: activeEmployees.filter((e) => e.mealsDisabled).length,
+  };
+}
+
 // ── Main snapshot builder ─────────────────────────────────────────
 async function buildSystemContext(userRole = 'storekeeper') {
   // Return cached snapshot if still fresh
@@ -45,8 +147,8 @@ async function buildSystemContext(userRole = 'storekeeper') {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // ── Fire ALL queries in parallel in one Promise.all ──────────────
-  const isAdmin = userRole === 'admin';
-  const isManager = ['admin', 'manager'].includes(userRole);
+  const isAdmin = ['admin', 'dev'].includes(userRole);
+  const isManager = ['admin', 'dev', 'manager', 'operation_manager', 'finance', 'supervisor', 'executive_chef'].includes(userRole);
 
   const [
     materialCount,
@@ -63,6 +165,7 @@ async function buildSystemContext(userRole = 'storekeeper') {
     users,
     empCount,
     stockValueAgg,
+    todayStaffMealReport,
   ] = await Promise.all([
     // 1. count active materials
     RawMaterial.countDocuments({ isActive: true, deletedAt: null }),
@@ -134,6 +237,9 @@ async function buildSystemContext(userRole = 'storekeeper') {
       { $match: { isActive: true, deletedAt: null } },
       { $group: { _id: null, totalValue: { $sum: { $multiply: ['$currentStock', '$unitCost'] } }, cats: { $push: { cat: '$category', val: { $multiply: ['$currentStock', '$unitCost'] } } } } },
     ]),
+
+    // 15. today's daily staff meals report
+    getTodayStaffMealReport(),
   ]);
 
   // ── Process aggregation results ───────────────────────────────
@@ -251,6 +357,20 @@ Active Employees: ${empCount}
 `;
   }
 
+  if (todayStaffMealReport) {
+    ctx += `
+--- TODAY'S DAILY STAFF MEALS (${todayStaffMealReport.dateLabel}) ---
+Total Staff Meal Orders Today: ${todayStaffMealReport.totalOrders}
+Staff Members Who Used Daily Meal Today: ${todayStaffMealReport.distinctStaffCount}
+Total Food Portions Consumed Today: ${todayStaffMealReport.totalFoodPortions}
+Total Drink Portions Consumed Today: ${todayStaffMealReport.totalDrinkPortions}
+${isManager ? `Total Staff Meal Cost Today: ${etb(todayStaffMealReport.totalCost)}\n` : ''}${isManager && todayStaffMealReport.byStaff.length > 0
+        ? `Staff Breakdown:\n${todayStaffMealReport.byStaff.map(s => `  • ${s.name} (${s.department}): ${s.foodPortions}/${s.dailyMealLimit} food meal(s), ${s.drinkPortions} drink(s) — Items: ${[...s.foods, ...s.drinks].join(', ')}`).join('\n')}`
+        : (todayStaffMealReport.totalOrders === 0 ? 'No staff meals ordered yet today.' : '')}
+${todayStaffMealReport.foodBreakdown.length > 0 ? `Foods Consumed Today: ${todayStaffMealReport.foodBreakdown.map(([n, q]) => `${n} (x${q})`).join(', ')}` : ''}
+`;
+  }
+
   ctx += `
 === END OF SYSTEM SNAPSHOT ===
 `;
@@ -268,4 +388,4 @@ function clearContextCache() {
   Object.keys(_cache).forEach(k => delete _cache[k]);
 }
 
-module.exports = { buildSystemContext, clearContextCache };
+module.exports = { buildSystemContext, clearContextCache, getTodayStaffMealReport };
