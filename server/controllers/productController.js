@@ -10,7 +10,7 @@ const { uploadBufferToGridFS, saveLocalCache } = require('../utils/gridfs');
 const { generateAndSaveProductImage } = require('../utils/aiImageService');
 const { logActivity } = require('../utils/activityLogger');
 const { convertUnit } = require('../utils/unitConverter');
-const { normalizeCode, normalizeName, buildLookupMaps, matchCatalogItem } = require('../utils/cnetMatcher');
+const { normalizeCode, compactCode, normalizeName, buildLookupMaps } = require('../utils/cnetMatcher');
 
 // ── Pricing helper — applies settings-based adjustments to recipe cost ──
 // Returns full cost breakdown:
@@ -574,32 +574,35 @@ const importProductsExcel = asyncHandler(async (req, res) => {
     const parentCell = pickCell(row, parentCatKeys);
     const priceCell = pickCell(row, priceKeys);
     const descCell = pickCell(row, descKeys);
+    const createdOnCell = pickCell(row, ['Created On', 'CreatedOn', 'Created At', 'Date']);
 
     const parsedPrice = Number(String(priceCell.value ?? '').replace(/,/g, '').trim());
     const hasValidPrice = priceCell.present && String(priceCell.value ?? '').trim() !== '' && !isNaN(parsedPrice);
+    const parsedCreatedOn = createdOnCell.present && String(createdOnCell.value || '').trim()
+      ? new Date(String(createdOnCell.value).trim())
+      : null;
+    const validCreatedAt = parsedCreatedOn && !isNaN(parsedCreatedOn.getTime()) ? parsedCreatedOn : null;
 
     try {
-      const match = matchCatalogItem(productMaps, { code, name });
-      let existing = match.item ? await Product.findById(match.item._id) : null;
+      // In CNET/Excel catalogs, Code (PLU/SKU) is the primary unique key:
+      // 1) If Code is present, match strictly by normalized Code first.
+      // 2) Only fall back to Name match when incoming row has NO Code OR the name-matched DB record has NO Code.
+      const normC = normalizeCode(code);
+      const compC = compactCode(code);
+      const normN = normalizeName(name);
+      const codeMatch = (normC ? productMaps.byCode.get(normC) : null) ||
+        (compC ? productMaps.byCompactCode.get(compC) : null) ||
+        null;
+      const nameMatch = normN ? (productMaps.byName.get(normN) || null) : null;
 
-      // Never allow code matching one product while name matches a different existing product
-      if (match.nameConflictItem) {
-        errors.push(`Row ${i + 1} "${name}" (${code}): ${match.mismatchWarning} Skipped to prevent mismatch.`);
-        skipped++;
-        send({
-          type: 'progress',
-          current: i + 1,
-          total,
-          percent: Math.round(((i + 1) / total) * 100),
-          created,
-          updated,
-          skipped,
-        });
-        continue;
+      let matchedDoc = codeMatch;
+      if (!matchedDoc && nameMatch && (!normC || !normalizeCode(nameMatch.code))) {
+        matchedDoc = nameMatch;
       }
+      let existing = matchedDoc ? await Product.findById(matchedDoc._id) : null;
 
       if (existing) {
-        // Duplicate row inside the same Excel sheet — merge/skip without creating a duplicate product
+        // Duplicate row inside the same Excel sheet — skip cleanly without creating a duplicate product
         if (processedIds.has(existing._id.toString())) {
           skipped++;
         } else {
@@ -624,6 +627,9 @@ const importProductsExcel = asyncHandler(async (req, res) => {
             existing.description = String(descCell.value).trim();
           }
           existing.isActive = true;
+          existing.deletedAt = null;
+          existing.deletedBy = null;
+          existing.deletedFrom = null;
           existing.updatedBy = req.user?._id || null;
           existing.updatedByName = req.user?.name || 'System';
           existing.updatedByRole = req.user?.role || '';
@@ -644,15 +650,18 @@ const importProductsExcel = asyncHandler(async (req, res) => {
             ? String(descCell.value).trim()
             : '',
           ingredients: [],
+          ...(validCreatedAt ? { createdAt: validCreatedAt } : {}),
           createdBy: req.user?._id || null,
           createdByName: req.user?.name || 'System',
           createdByRole: req.user?.role || '',
           registrationSource: 'excel_import',
         });
-        const normC = normalizeCode(created_.code);
-        const normN = normalizeName(created_.name);
-        if (normC) productMaps.byCode.set(normC, created_);
-        if (normN) productMaps.byName.set(normN, created_);
+        const newNormC = normalizeCode(created_.code);
+        const newCompC = compactCode(created_.code);
+        const newNormN = normalizeName(created_.name);
+        if (newNormC) productMaps.byCode.set(newNormC, created_);
+        if (newCompC && !productMaps.byCompactCode.has(newCompC)) productMaps.byCompactCode.set(newCompC, created_);
+        if (newNormN && !productMaps.byName.has(newNormN)) productMaps.byName.set(newNormN, created_);
         processedIds.add(created_._id.toString());
         created++;
       }
