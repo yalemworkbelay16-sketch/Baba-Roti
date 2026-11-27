@@ -223,10 +223,10 @@ const HELP_SECTIONS = [
       {
         title: 'Create POS Order & Payment',
         titleAm: 'ትዕዛዝ መውሰድና ክፍያ መቀበል',
-        desc: 'Go to POS or Cash Sales. Choose Dine-in, Takeaway, or Delivery, pick table, select menu items, and settle bill via Cash, Telebirr, or Card.',
+        desc: 'Go to POS or Baba Consumption. Choose Dine-in, Takeaway, or Delivery, pick table, select menu items, and settle bill via Cash, Telebirr, or Card.',
         descAm: 'በካሳ ወይም POS ገጽ ላይ ትዕዛዝ ይውሰዱ፤ ክፍያውን በጥሬ ገንዘብ፣ በቴሌብር ወይም በካርድ ይቀበሉ።',
-        action: 'Side Menu ➔ POS or Cash Sales ➔ Select Table ➔ Tap Menu Items',
-        actionAm: 'የግራ ሜኑ ➔ POS ወይም Cash Sales ➔ ጠረጴዛ ይምረጡ ➔ ምግቦችን ይጫኑ',
+        action: 'Side Menu ➔ POS or Baba Consumption ➔ Select Table ➔ Tap Menu Items',
+        actionAm: 'የግራ ሜኑ ➔ POS ወይም Baba Consumption ➔ ጠረጴዛ ይምረጡ ➔ ምግቦችን ይጫኑ',
       },
       {
         title: 'Automated Station Recipe Deduction',

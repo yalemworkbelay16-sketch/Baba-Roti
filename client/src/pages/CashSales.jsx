@@ -259,7 +259,7 @@ export default function CashSales() {
       "Grand Total (ETB)": Number(s.grandTotal || 0).toFixed(2),
       "Amount Paid (ETB)": Number(s.amountPaid || s.grandTotal || 0).toFixed(2),
     }));
-    exportToExcel(rows, `cash_sales_${dateVal || "report"}`, "Cash Sales");
+    exportToExcel(rows, `baba_consumption_${dateVal || "report"}`, "Baba Consumption");
     showToast("Exported to Excel successfully!");
   };
 
@@ -282,7 +282,7 @@ export default function CashSales() {
       "Grand Total (ETB)": Number(s.grandTotal || 0).toFixed(2),
       "Amount Paid (ETB)": Number(s.amountPaid || s.grandTotal || 0).toFixed(2),
     }));
-    exportToCSV(rows, `cash_sales_${dateVal || "report"}`);
+    exportToCSV(rows, `baba_consumption_${dateVal || "report"}`);
     showToast("Exported to CSV successfully!");
   };
 
@@ -298,7 +298,7 @@ export default function CashSales() {
       { header: "Grand Total", accessor: (r) => ETB(r.grandTotal), align: "right" },
     ];
     exportToPDF({
-      title: `Cash Sales & Revenue Report (${dateVal || "All Dates"})`,
+      title: `Baba Consumption & Revenue Report (${dateVal || "All Dates"})`,
       columns,
       data: filteredSales,
       hotelName: "Baba Roti",
@@ -380,7 +380,7 @@ export default function CashSales() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                Cash Sales &amp; Revenue Report
+                Baba Consumption &amp; Revenue Report
               </h2>
               <span
                 style={{
@@ -522,7 +522,7 @@ export default function CashSales() {
                 transition: "all 0.15s",
                 boxShadow: "0 1px 3px rgba(37,99,235,0.08)",
               }}
-              title="Export Cash Sales Report"
+              title="Export Baba Consumption Report"
             >
               <Download size={13} />
               <span>Export</span>
@@ -661,7 +661,7 @@ export default function CashSales() {
         >
           {[
             {
-              label: "Total Cash Sales", value: ETB(totalRevenue),
+              label: "Total Baba Consumption", value: ETB(totalRevenue),
               sub: `${totalTxnCount} completed sales`,
               color: "#059669", glow: "rgba(5,150,105,0.12)",
               bg: "#ffffff",

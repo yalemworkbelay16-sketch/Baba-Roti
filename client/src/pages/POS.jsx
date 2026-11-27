@@ -868,7 +868,7 @@ export default function POS() {
         } catch (_) { }
       }
 
-      showToast(`Sale #${savedSale.orderNo} completed & converted to Cash Sales! Stock deducted.`);
+      showToast(`Sale #${savedSale.orderNo} completed & converted to Baba Consumption! Stock deducted.`);
 
       // Auto-fire receipt to thermal printer (silent) with browser fallback if offline
       firePrinter('receipt', savedSale, {
@@ -2135,7 +2135,7 @@ export default function POS() {
                   if (!items.length) { showToast(isAmharic ? "እባክዎን መጀመሪያ ምግብ ይምረጡ" : "Please add items to cart", "error"); return; }
                   setShowPayModal(true);
                 }}
-                title="Pay now and automatically convert to Cash Sales"
+                title="Pay now and automatically convert to Baba Consumption"
                 style={{
                   padding: "13px 12px",
                   borderRadius: 12,
@@ -3028,7 +3028,7 @@ export default function POS() {
                 </h3>
                 {heldOrderId && (
                   <span style={{ fontSize: 11, color: "#b45309", fontWeight: 700, background: "#fffbeb", padding: "2px 6px", borderRadius: 6, display: "inline-block", marginTop: 4 }}>
-                    {isAmharic ? `ትዕዛዝ #${heldOrderNo} ወደ ጥሬ ገንዘብ ሽያጭ በመቀየር ላይ` : `Converting #${heldOrderNo} to Cash Sales`}
+                    {isAmharic ? `ትዕዛዝ #${heldOrderNo} ወደ Baba Consumption በመቀየር ላይ` : `Converting #${heldOrderNo} to Baba Consumption`}
                   </span>
                 )}
               </div>

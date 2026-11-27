@@ -4,7 +4,7 @@ import { Lock, ShieldAlert, ArrowLeft, Phone, Mail, KeyRound } from 'lucide-reac
 import Button from './Button';
 
 export default function ModuleLocked({
-  moduleName = 'Subsystem Suite (POS Ordering, Captain Order & Cash Sales)',
+  moduleName = 'Subsystem Suite (POS Ordering, Captain Order & Baba Consumption)',
   description = 'This advanced Point of Sale & Captain Order Subsystem is a premium licensed feature. It has been locked by the software developer / system owner for this installation.',
 }) {
   const navigate = useNavigate();

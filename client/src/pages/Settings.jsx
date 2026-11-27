@@ -68,7 +68,7 @@ const CAPABILITIES = [
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'captainOrder', label: 'Subsystem — Captain Order' },
-  { key: 'cashSales', label: 'Subsystem — Cash Sales' },
+  { key: 'cashSales', label: 'Subsystem — Baba Consumption' },
   { key: 'pos', label: 'Subsystem — POS Ordering' },
   { key: 'rawMaterials', label: 'Raw Materials (All Stations)' },
   { key: 'mainStore', label: '🏢 Main Store (Central Warehouse)' },
@@ -3758,7 +3758,7 @@ export default function Settings() {
                       {devLicenseForm?.subsystem !== false ? 'Licensed & Active' : 'Locked / Hidden (Off)'}
                     </span>
                   </div>
-                  <p className="text-xs text-ink-400 mt-1">POS Ordering, Captain Order, and Cash Sales. When off, completely hidden from non-developers.</p>
+                  <p className="text-xs text-ink-400 mt-1">POS Ordering, Captain Order, and Baba Consumption. When off, completely hidden from non-developers.</p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center shrink-0">
                   <input
@@ -4953,7 +4953,7 @@ export default function Settings() {
                   <div>
                     <h3 className="text-base font-bold text-ink-900">Service Charge System Status</h3>
                     <p className="text-xs text-ink-500 mt-0.5">
-                      When enabled, service charge can be automatically or manually applied across POS Ordering, Captain Orders, and Cash Sales.
+                      When enabled, service charge can be automatically or manually applied across POS Ordering, Captain Orders, and Baba Consumption.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
