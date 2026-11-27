@@ -266,6 +266,16 @@ const getSettings = asyncHandler(async (req, res) => {
       settings.markModified('customRoles');
       modified = true;
     }
+    if (!Array.isArray(settings.customDepartments)) {
+      settings.customDepartments = [];
+      settings.markModified('customDepartments');
+      modified = true;
+    }
+    if (!Array.isArray(settings.customStations)) {
+      settings.customStations = [];
+      settings.markModified('customStations');
+      modified = true;
+    }
     if (!settings.rolePermissions) {
       settings.rolePermissions = DEFAULT_ROLE_PERMISSIONS;
       settings.markModified('rolePermissions');
@@ -1168,6 +1178,248 @@ const deleteCustomRole = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc   Register a new custom department with matched station scope
+// @route  POST /api/settings/custom-departments
+// @access Private (Admin & System Developer only)
+const registerCustomDepartment = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can register departments.');
+  }
+
+  const cleanLabel = String(req.body.label || '').trim();
+  if (cleanLabel.length < 2) {
+    res.status(400);
+    throw new Error('Department name must be at least 2 characters.');
+  }
+
+  const deptKey = slugifyRoleKey(req.body.key || cleanLabel);
+  if (!/^[a-z][a-z0-9_]{1,40}$/.test(deptKey)) {
+    res.status(400);
+    throw new Error('Department key must start with a letter and have at least 2 characters.');
+  }
+
+  const BUILTIN_DEPT_NAMES = [
+    'kitchen', 'bar', 'main store', 'waiter', 'dining & service', 'cashier & billing',
+    'food & beverage', 'finance', 'finance & accounting', 'purchasing & procurement',
+    'front office', 'housekeeping', 'security', 'maintenance', 'human resources',
+    'sales & marketing', 'laundry', 'restaurant', 'management', 'other',
+  ];
+  if (BUILTIN_DEPT_NAMES.includes(cleanLabel.toLowerCase())) {
+    res.status(400);
+    throw new Error(`"${cleanLabel}" is already a built-in system department.`);
+  }
+
+  let settings = await Setting.findOne();
+  if (!settings) settings = new Setting();
+
+  const existing = Array.isArray(settings.customDepartments) ? settings.customDepartments : [];
+  if (existing.some((d) => d.key === deptKey || d.label?.toLowerCase() === cleanLabel.toLowerCase())) {
+    res.status(400);
+    throw new Error(`Department "${cleanLabel}" is already registered.`);
+  }
+
+  const defaultStation = String(req.body.defaultStation || 'all').trim().toLowerCase();
+  if (!/^[a-z][a-z0-9_]{1,40}$/.test(defaultStation)) {
+    res.status(400);
+    throw new Error('Invalid matched station key.');
+  }
+
+  const createdDepartment = {
+    key: deptKey,
+    label: cleanLabel,
+    defaultStation,
+    createdAt: new Date(),
+    createdByName: req.user?.name || '',
+  };
+
+  settings.customDepartments = [...existing, createdDepartment];
+  settings.markModified('customDepartments');
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  try {
+    logActivity(req, {
+      action: 'REGISTER_CUSTOM_DEPARTMENT',
+      module: 'Settings',
+      description: `Registered custom department "${cleanLabel}" matched to station "${defaultStation}"`,
+      status: 'success',
+      details: { key: deptKey, label: cleanLabel, defaultStation },
+    });
+  } catch (_) { }
+
+  res.status(201).json({
+    message: `Department "${cleanLabel}" registered successfully.`,
+    department: createdDepartment,
+    settings: updated,
+  });
+});
+
+// @desc   Delete a custom department (only if not assigned to staff)
+// @route  DELETE /api/settings/custom-departments/:key
+// @access Private (Admin & System Developer only)
+const deleteCustomDepartment = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can delete custom departments.');
+  }
+
+  const deptKey = String(req.params.key || '').trim().toLowerCase();
+  const settings = await Setting.findOne();
+  if (!settings) {
+    res.status(404);
+    throw new Error('Settings not found');
+  }
+
+  const existing = Array.isArray(settings.customDepartments) ? settings.customDepartments : [];
+  const target = existing.find((d) => d.key === deptKey);
+  if (!target) {
+    res.status(404);
+    throw new Error('Custom department not found.');
+  }
+
+  const User = require('../models/User');
+  const Employee = require('../models/Employee');
+  const [uCount, eCount] = await Promise.all([
+    User.countDocuments({ department: target.label }),
+    Employee.countDocuments({ department: target.label, deletedAt: null }),
+  ]);
+  if (uCount + eCount > 0) {
+    res.status(400);
+    throw new Error(`Cannot delete department "${target.label}" because it is assigned to ${uCount + eCount} staff/employee record(s).`);
+  }
+
+  settings.customDepartments = existing.filter((d) => d.key !== deptKey);
+  settings.markModified('customDepartments');
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  res.json({
+    message: `Custom department "${target.label}" deleted.`,
+    settings: updated,
+  });
+});
+
+// @desc   Register a new custom assigned station scope
+// @route  POST /api/settings/custom-stations
+// @access Private (Admin & System Developer only)
+const registerCustomStation = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can register stations.');
+  }
+
+  const cleanLabel = String(req.body.label || '').trim();
+  if (cleanLabel.length < 2) {
+    res.status(400);
+    throw new Error('Station name must be at least 2 characters.');
+  }
+
+  const stationKey = slugifyRoleKey(req.body.key || cleanLabel);
+  if (!/^[a-z][a-z0-9_]{1,40}$/.test(stationKey)) {
+    res.status(400);
+    throw new Error('Station key must start with a letter and have at least 2 characters.');
+  }
+
+  if (['all', 'main', 'kitchen', 'bar'].includes(stationKey)) {
+    res.status(400);
+    throw new Error(`"${stationKey}" is a built-in system station.`);
+  }
+
+  let settings = await Setting.findOne();
+  if (!settings) settings = new Setting();
+
+  const existing = Array.isArray(settings.customStations) ? settings.customStations : [];
+  if (existing.some((s) => s.key === stationKey || s.label?.toLowerCase() === cleanLabel.toLowerCase())) {
+    res.status(400);
+    throw new Error(`Station "${cleanLabel}" (${stationKey}) is already registered.`);
+  }
+
+  const createdStation = {
+    key: stationKey,
+    label: cleanLabel,
+    createdAt: new Date(),
+    createdByName: req.user?.name || '',
+  };
+
+  settings.customStations = [...existing, createdStation];
+  settings.markModified('customStations');
+
+  if (Array.isArray(settings.storeLocations) && !settings.storeLocations.some((l) => l.toLowerCase() === cleanLabel.toLowerCase())) {
+    settings.storeLocations = [...settings.storeLocations, cleanLabel];
+    settings.markModified('storeLocations');
+  }
+
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  try {
+    logActivity(req, {
+      action: 'REGISTER_CUSTOM_STATION',
+      module: 'Settings',
+      description: `Registered custom station "${cleanLabel}" (${stationKey})`,
+      status: 'success',
+      details: { key: stationKey, label: cleanLabel },
+    });
+  } catch (_) { }
+
+  res.status(201).json({
+    message: `Station "${cleanLabel}" registered successfully.`,
+    station: createdStation,
+    settings: updated,
+  });
+});
+
+// @desc   Delete a custom station scope (only if unassigned)
+// @route  DELETE /api/settings/custom-stations/:key
+// @access Private (Admin & System Developer only)
+const deleteCustomStation = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can delete custom stations.');
+  }
+
+  const stationKey = String(req.params.key || '').trim().toLowerCase();
+  if (['all', 'main', 'kitchen', 'bar'].includes(stationKey)) {
+    res.status(400);
+    throw new Error('Built-in stations cannot be deleted.');
+  }
+
+  const User = require('../models/User');
+  const Employee = require('../models/Employee');
+  const [uCount, eCount] = await Promise.all([
+    User.countDocuments({ assignedStation: stationKey }),
+    Employee.countDocuments({ assignedStation: stationKey, deletedAt: null }),
+  ]);
+  if (uCount + eCount > 0) {
+    res.status(400);
+    throw new Error(`Cannot delete station "${stationKey}" because it is assigned to ${uCount + eCount} staff/employee record(s).`);
+  }
+
+  const settings = await Setting.findOne();
+  if (!settings) {
+    res.status(404);
+    throw new Error('Settings not found');
+  }
+
+  const existing = Array.isArray(settings.customStations) ? settings.customStations : [];
+  const target = existing.find((s) => s.key === stationKey);
+  if (!target) {
+    res.status(404);
+    throw new Error('Custom station not found.');
+  }
+
+  settings.customStations = existing.filter((s) => s.key !== stationKey);
+  settings.markModified('customStations');
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  res.json({
+    message: `Custom station "${target.label}" deleted.`,
+    settings: updated,
+  });
+});
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -1180,6 +1432,10 @@ module.exports = {
   deleteMenuReview,
   registerCustomRole,
   deleteCustomRole,
+  registerCustomDepartment,
+  deleteCustomDepartment,
+  registerCustomStation,
+  deleteCustomStation,
 };
 
 

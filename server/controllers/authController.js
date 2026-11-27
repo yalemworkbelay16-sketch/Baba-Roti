@@ -7,20 +7,12 @@ const { logActivity } = require('../utils/activityLogger');
 const { getClientIp, parseDevice } = require('../utils/deviceDetector');
 
 const Setting = require('../models/Setting');
+const { resolveMatchedStation } = require('../utils/stationMatch');
 
 const BUILTIN_ROLES = new Set([
   'dev', 'admin', 'manager', 'operation_manager', 'executive_chef',
   'finance', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team',
 ]);
-
-async function isValidSystemRole(roleKey) {
-  const key = String(roleKey || '').trim().toLowerCase();
-  if (!key) return false;
-  if (BUILTIN_ROLES.has(key)) return true;
-  const settings = await Setting.findOne().select('customRoles').lean();
-  const custom = Array.isArray(settings?.customRoles) ? settings.customRoles : [];
-  return custom.some((r) => r.key === key);
-}
 
 // @desc  Register a new user (admin only, in practice)
 const registerUser = asyncHandler(async (req, res) => {
@@ -37,10 +29,19 @@ const registerUser = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Only a System Owner / Developer can create accounts with the dev role.');
   }
-  if (!(await isValidSystemRole(assignedRole))) {
+
+  const settings = await Setting.findOne().select('customRoles customDepartments').lean();
+  const customRoles = Array.isArray(settings?.customRoles) ? settings.customRoles : [];
+  if (!BUILTIN_ROLES.has(assignedRole) && !customRoles.some((r) => r.key === assignedRole)) {
     res.status(400);
     throw new Error(`Role "${assignedRole}" is not registered in System Settings.`);
   }
+
+  const resolvedStation = resolveMatchedStation({
+    department: req.body.department,
+    assignedStation,
+    customDepartments: settings?.customDepartments,
+  });
 
   const photo = photoUrl || avatar || '';
   const user = await User.create({
@@ -51,13 +52,7 @@ const registerUser = asyncHandler(async (req, res) => {
     photoUrl: photo,
     employeeId: employeeId || '',
     department: req.body.department || '',
-    assignedStation: assignedStation && assignedStation !== 'all'
-      ? assignedStation
-      : (req.body.department && String(req.body.department).toLowerCase().includes('kitchen'))
-        ? 'kitchen'
-        : (req.body.department && String(req.body.department).toLowerCase().includes('bar'))
-          ? 'bar'
-          : assignedStation || 'all',
+    assignedStation: resolvedStation,
     createdBy: req.user?._id || null,
     createdByName: req.user?.name || 'System / Self Registration',
     createdByRole: req.user?.role || '',

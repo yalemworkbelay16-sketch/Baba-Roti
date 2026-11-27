@@ -20,7 +20,9 @@ const userSchema = new mongoose.Schema(
     department: { type: String, trim: true, default: '' },
     assignedStation: {
       type: String,
-      enum: ['all', 'main', 'kitchen', 'bar'],
+      trim: true,
+      lowercase: true,
+      match: [/^[a-z][a-z0-9_]{1,40}$/, 'Invalid station key format'],
       default: 'all',
     },
     // Allowed staff meal / consumption items and daily limits

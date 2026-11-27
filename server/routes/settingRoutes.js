@@ -12,6 +12,10 @@ const {
   deleteMenuReview,
   registerCustomRole,
   deleteCustomRole,
+  registerCustomDepartment,
+  deleteCustomDepartment,
+  registerCustomStation,
+  deleteCustomStation,
 } = require('../controllers/settingController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -21,6 +25,10 @@ router.route('/')
 
 router.post('/custom-roles', protect, authorize('admin', 'dev'), registerCustomRole);
 router.delete('/custom-roles/:key', protect, authorize('admin', 'dev'), deleteCustomRole);
+router.post('/custom-departments', protect, authorize('admin', 'dev'), registerCustomDepartment);
+router.delete('/custom-departments/:key', protect, authorize('admin', 'dev'), deleteCustomDepartment);
+router.post('/custom-stations', protect, authorize('admin', 'dev'), registerCustomStation);
+router.delete('/custom-stations/:key', protect, authorize('admin', 'dev'), deleteCustomStation);
 
 router.put('/developer-license', protect, updateDeveloperLicense);
 router.post('/apply-product-price-adjustment', protect, authorize('admin', 'dev'), applyProductPriceAdjustment);

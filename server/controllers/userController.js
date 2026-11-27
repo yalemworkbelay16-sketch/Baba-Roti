@@ -64,14 +64,19 @@ const updateUser = asyncHandler(async (req, res) => {
   user.role = req.body.role ?? user.role;
   user.department = req.body.department ?? user.department;
 
-  // Auto-sync station if department is Kitchen or Bar and assignedStation wasn't explicitly chosen
+  // Auto-sync station when department matches system/custom department and assignedStation wasn't explicitly chosen
   let newStation = req.body.assignedStation ?? user.assignedStation;
   if (!req.body.assignedStation && req.body.department) {
-    const deptLower = String(req.body.department).toLowerCase();
-    if (deptLower.includes('kitchen')) newStation = 'kitchen';
-    else if (deptLower.includes('bar')) newStation = 'bar';
+    const Setting = require('../models/Setting');
+    const { resolveMatchedStation } = require('../utils/stationMatch');
+    const settings = await Setting.findOne().select('customDepartments').lean();
+    newStation = resolveMatchedStation({
+      department: req.body.department,
+      assignedStation: '',
+      customDepartments: settings?.customDepartments,
+    });
   }
-  user.assignedStation = newStation;
+  user.assignedStation = String(newStation || 'all').trim().toLowerCase();
 
   user.isActive = req.body.isActive ?? user.isActive;
   user.phone = req.body.phone ?? user.phone;

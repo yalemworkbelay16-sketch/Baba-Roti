@@ -17,9 +17,10 @@ import { useAuth } from '../context/AuthContext';
 import useHighlightRow from '../hooks/useHighlightRow';
 
 const DEPARTMENTS = [
-  'Bar', 'Kitchen', 'Waiter', 'Food & Beverage', 'Front Office', 'Housekeeping',
-  'Security', 'Maintenance', 'Finance & Accounting', 'Human Resources',
-  'Sales & Marketing', 'Laundry', 'Management', 'Other',
+  'Bar', 'Kitchen', 'Main Store', 'Waiter', 'Dining & Service', 'Cashier & Billing',
+  'Food & Beverage', 'Finance', 'Finance & Accounting', 'Purchasing & Procurement',
+  'Front Office', 'Housekeeping', 'Security', 'Maintenance', 'Human Resources',
+  'Sales & Marketing', 'Laundry', 'Restaurant', 'Management', 'Other',
 ];
 
 const STATUS_CONFIG = {
@@ -30,7 +31,7 @@ const STATUS_CONFIG = {
 
 const emptyForm = {
   employeeId: '', firstName: '', lastName: '',
-  department: 'Waiter', position: '', phone: '',
+  department: 'Waiter', assignedStation: 'all', position: '', phone: '',
   email: '', hireDate: '', status: 'active', notes: '',
   photoUrl: '', mealsDisabled: false, allowedProducts: [],
 };
@@ -38,7 +39,11 @@ const emptyForm = {
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
 
 export default function Employees() {
-  const { hasRole, canCrud } = useAuth();
+  const { hasRole, canCrud, allDepartments = [], allStations = [], getStationLabel, matchStationForDepartment } = useAuth();
+  const mergedDepartments = useMemo(() => {
+    const labels = allDepartments.length > 0 ? allDepartments.map(d => d.label) : DEPARTMENTS;
+    return labels;
+  }, [allDepartments]);
   const canEdit = canCrud ? canCrud('employees', 'edit') : hasRole('admin', 'manager', 'operation_manager');
   const canDelete = canCrud ? canCrud('employees', 'delete') : hasRole('admin');
 
@@ -142,6 +147,7 @@ export default function Employees() {
       firstName: emp.firstName || '',
       lastName: emp.lastName || '',
       department: emp.department || 'Kitchen',
+      assignedStation: emp.assignedStation || 'all',
       position: emp.position || '',
       phone: emp.phone || '',
       email: emp.email || '',
@@ -341,7 +347,7 @@ export default function Employees() {
         <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
           className="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
           <option value="">All Departments</option>
-          {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+          {mergedDepartments.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
@@ -517,8 +523,8 @@ export default function Employees() {
             </div>
           </div>
 
-          {/* Row 2: ID / Department */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Row 2: ID / Department / Assigned Station */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-ink-700 mb-1">Employee ID
                 <span className="ml-1 font-normal text-ink-400">(auto if blank)</span>
@@ -529,9 +535,40 @@ export default function Employees() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-ink-700 mb-1">Department *</label>
-              <select required value={form.department} onChange={e => f('department', e.target.value)}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              <select
+                required
+                value={form.department}
+                onChange={e => {
+                  const dept = e.target.value;
+                  const matchedSt = matchStationForDepartment ? matchStationForDepartment(dept) : 'all';
+                  setForm(prev => ({ ...prev, department: dept, assignedStation: matchedSt }));
+                }}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
+              >
+                {mergedDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+                {form.department && !mergedDepartments.some(d => d.toLowerCase() === String(form.department).toLowerCase()) && (
+                  <option value={form.department}>{form.department}</option>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-700 mb-1">Assigned Station</label>
+              <select
+                value={form.assignedStation || 'all'}
+                onChange={e => f('assignedStation', e.target.value)}
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
+              >
+                {(allStations.length > 0
+                  ? allStations
+                  : [
+                      { key: 'all', shortLabel: 'All Stations' },
+                      { key: 'kitchen', shortLabel: 'Kitchen Station' },
+                      { key: 'bar', shortLabel: 'Bar Station' },
+                      { key: 'main', shortLabel: 'Main Store' },
+                    ]
+                ).map(st => (
+                  <option key={st.key} value={st.key}>{st.shortLabel || st.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -861,7 +898,7 @@ export default function Employees() {
               <div><p className="text-[11px] text-ink-400">Employee ID</p><p className="font-mono font-semibold">{detailEmp.employeeId || '—'}</p></div>
               <div><p className="text-[11px] text-ink-400">Department</p><p className="font-semibold">{detailEmp.department || '—'}</p></div>
               <div><p className="text-[11px] text-ink-400">Position / Role</p><p className="font-semibold">{detailEmp.position || '—'}</p></div>
-              <div><p className="text-[11px] text-ink-400">Station</p><p className="font-medium uppercase">{detailEmp.assignedStation || 'all'}</p></div>
+              <div><p className="text-[11px] text-ink-400">Station</p><p className="font-medium">{getStationLabel ? getStationLabel(detailEmp.assignedStation || 'all') : (detailEmp.assignedStation || 'all')}</p></div>
               <div><p className="text-[11px] text-ink-400">Phone</p><p className="font-medium">{detailEmp.phone || '—'}</p></div>
               <div><p className="text-[11px] text-ink-400">Email</p><p className="font-medium">{detailEmp.email || '—'}</p></div>
               <div><p className="text-[11px] text-ink-400">Hire Date</p><p className="font-medium">{fmt(detailEmp.hireDate)}</p></div>

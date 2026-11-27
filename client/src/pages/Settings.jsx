@@ -951,6 +951,127 @@ export default function Settings() {
     }
   };
 
+  const [newDeptForm, setNewDeptForm] = useState({ label: '', defaultStation: 'all' });
+  const [newStationName, setNewStationName] = useState('');
+  const [orgRegSaving, setOrgRegSaving] = useState(false);
+  const [orgRegSuccess, setOrgRegSuccess] = useState('');
+  const [orgRegError, setOrgRegError] = useState('');
+
+  const allStationOptions = [
+    { key: 'all', label: 'All Stations (Combined)' },
+    { key: 'kitchen', label: 'Kitchen Station' },
+    { key: 'bar', label: 'Bar Station' },
+    { key: 'main', label: 'Main Store' },
+    ...(Array.isArray(systemForm.customStations) ? systemForm.customStations : []).map((st) => ({
+      key: st.key,
+      label: st.label,
+    })),
+  ];
+
+  const handleRegisterCustomDepartment = async (e) => {
+    e.preventDefault();
+    if (!newDeptForm.label.trim()) {
+      setOrgRegError('Please enter a department name.');
+      return;
+    }
+    setOrgRegSaving(true);
+    setOrgRegError('');
+    setOrgRegSuccess('');
+    try {
+      const res = await api.post('/settings/custom-departments', {
+        label: newDeptForm.label.trim(),
+        defaultStation: newDeptForm.defaultStation || 'all',
+      });
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customDepartments: updatedSettings.customDepartments || [],
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setOrgRegSuccess(res.data?.message || 'Department registered.');
+      setNewDeptForm({ label: '', defaultStation: 'all' });
+      setTimeout(() => setOrgRegSuccess(''), 4000);
+    } catch (err) {
+      setOrgRegError(err.response?.data?.message || 'Failed to register department.');
+    } finally {
+      setOrgRegSaving(false);
+    }
+  };
+
+  const handleDeleteCustomDepartment = async (dept) => {
+    if (!window.confirm(`Delete custom department "${dept.label}"?`)) return;
+    setOrgRegError('');
+    setOrgRegSuccess('');
+    try {
+      const res = await api.delete(`/settings/custom-departments/${encodeURIComponent(dept.key)}`);
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customDepartments: updatedSettings.customDepartments || [],
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setOrgRegSuccess(res.data?.message || `Department "${dept.label}" deleted.`);
+      setTimeout(() => setOrgRegSuccess(''), 4000);
+    } catch (err) {
+      setOrgRegError(err.response?.data?.message || 'Failed to delete custom department.');
+    }
+  };
+
+  const handleRegisterCustomStation = async (e) => {
+    e.preventDefault();
+    if (!newStationName.trim()) {
+      setOrgRegError('Please enter a station name.');
+      return;
+    }
+    setOrgRegSaving(true);
+    setOrgRegError('');
+    setOrgRegSuccess('');
+    try {
+      const res = await api.post('/settings/custom-stations', { label: newStationName.trim() });
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customStations: updatedSettings.customStations || [],
+          storeLocations: updatedSettings.storeLocations || prev.storeLocations,
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setOrgRegSuccess(res.data?.message || 'Station registered.');
+      setNewStationName('');
+      setTimeout(() => setOrgRegSuccess(''), 4000);
+    } catch (err) {
+      setOrgRegError(err.response?.data?.message || 'Failed to register station.');
+    } finally {
+      setOrgRegSaving(false);
+    }
+  };
+
+  const handleDeleteCustomStation = async (st) => {
+    if (!window.confirm(`Delete custom station "${st.label}" (${st.key})?`)) return;
+    setOrgRegError('');
+    setOrgRegSuccess('');
+    try {
+      const res = await api.delete(`/settings/custom-stations/${encodeURIComponent(st.key)}`);
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customStations: updatedSettings.customStations || [],
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setOrgRegSuccess(res.data?.message || `Station "${st.label}" deleted.`);
+      setTimeout(() => setOrgRegSuccess(''), 4000);
+    } catch (err) {
+      setOrgRegError(err.response?.data?.message || 'Failed to delete custom station.');
+    }
+  };
+
   // Handle System Settings Update
   const handleSystemSubmit = async (e) => {
     e.preventDefault();
@@ -2467,6 +2588,107 @@ export default function Settings() {
               </div>
             )}
           </form>
+
+          {/* ── Register Custom Departments & Assigned Stations (Admin & Dev Only) ── */}
+          <div className="mb-6 rounded-xl border border-indigo-200/80 bg-indigo-50/30 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-indigo-600 p-1.5 text-white">
+                  <Building size={14} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-ink-900">Register Departments &amp; Assigned Stations</h4>
+                  <p className="text-[11px] text-ink-500">
+                    Register departments with a matched default station scope, or add new assigned stations synced across Staff Accounts, Employees, and Stock Requests.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <form onSubmit={handleRegisterCustomDepartment} className="rounded-lg border border-indigo-200/70 bg-white p-3 space-y-2">
+                <p className="text-xs font-bold text-indigo-900">+ Register Department</p>
+                <div className="grid grid-cols-12 gap-2">
+                  <input
+                    type="text"
+                    value={newDeptForm.label}
+                    onChange={(e) => setNewDeptForm((p) => ({ ...p, label: e.target.value }))}
+                    placeholder="Department (e.g. Pastry)"
+                    className="col-span-5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                  />
+                  <select
+                    value={newDeptForm.defaultStation}
+                    onChange={(e) => setNewDeptForm((p) => ({ ...p, defaultStation: e.target.value }))}
+                    className="col-span-4 rounded-lg border border-ink-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 bg-white"
+                  >
+                    {allStationOptions.map((st) => (
+                      <option key={st.key} value={st.key}>{st.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={orgRegSaving}
+                    className="col-span-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-2 py-1.5 text-xs font-semibold text-white transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                {Array.isArray(systemForm.customDepartments) && systemForm.customDepartments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {systemForm.customDepartments.map((d) => (
+                      <span key={d.key} className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[11px] font-semibold text-indigo-900">
+                        <span>{d.label}</span>
+                        <span className="text-[10px] text-indigo-600">→ {d.defaultStation}</span>
+                        <button type="button" onClick={() => handleDeleteCustomDepartment(d)} className="text-ink-400 hover:text-red-600"><X size={11} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </form>
+
+              <form onSubmit={handleRegisterCustomStation} className="rounded-lg border border-emerald-200/70 bg-white p-3 space-y-2">
+                <p className="text-xs font-bold text-emerald-900">+ Register Assigned Station</p>
+                <div className="grid grid-cols-12 gap-2">
+                  <input
+                    type="text"
+                    value={newStationName}
+                    onChange={(e) => setNewStationName(e.target.value)}
+                    placeholder="Station Name (e.g. Cold Bar)"
+                    className="col-span-9 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={orgRegSaving}
+                    className="col-span-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 px-2 py-1.5 text-xs font-semibold text-white transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                {Array.isArray(systemForm.customStations) && systemForm.customStations.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {systemForm.customStations.map((st) => (
+                      <span key={st.key} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                        <span>{st.label}</span>
+                        <span className="font-mono text-[10px] text-ink-400">({st.key})</span>
+                        <button type="button" onClick={() => handleDeleteCustomStation(st)} className="text-ink-400 hover:text-red-600"><X size={11} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </form>
+            </div>
+
+            {orgRegSuccess && (
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
+                <CheckCircle2 size={14} /> <span>{orgRegSuccess}</span>
+              </div>
+            )}
+            {orgRegError && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle size={14} /> <span>{orgRegError}</span>
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSystemSubmit}>
             <div className="overflow-x-auto">

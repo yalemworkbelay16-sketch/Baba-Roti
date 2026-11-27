@@ -15,8 +15,9 @@ import useHighlightRow from '../hooks/useHighlightRow';
 
 // ── Constants ────────────────────────────────────────────────────
 const DEPARTMENTS = [
-  'Kitchen', 'Bar', 'Housekeeping', 'Restaurant',
-  'Laundry', 'Management', 'Maintenance', 'Other',
+  'Kitchen', 'Bar', 'Main Store', 'Food & Beverage', 'Waiter',
+  'Dining & Service', 'Finance', 'Finance & Accounting', 'Purchasing & Procurement',
+  'Front Office', 'Housekeeping', 'Restaurant', 'Laundry', 'Management', 'Maintenance', 'Other',
 ];
 
 const STATUS_CONFIG = {
@@ -77,7 +78,11 @@ let cachedSummary = null;
 // MAIN PAGE
 // ════════════════════════════════════════════════════════════════
 export default function StockIssueRequest() {
-  const { user, can, canCrud, hasRole } = useAuth();
+  const { user, can, canCrud, hasRole, customDepartments = [] } = useAuth();
+  const mergedDepartments = useMemo(() => {
+    const extras = (customDepartments || []).map(d => d.label).filter(Boolean);
+    return [...DEPARTMENTS, ...extras.filter(l => !DEPARTMENTS.some(b => b.toLowerCase() === l.toLowerCase()))];
+  }, [customDepartments]);
 
   // ── Helper: detect user's default department (Bar / Kitchen / other) ──
   const getUserDepartment = useCallback((u = user) => {
@@ -678,7 +683,7 @@ export default function StockIssueRequest() {
               className="rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-700 outline-none"
             >
               <option value="">All Departments</option>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              {mergedDepartments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
@@ -915,7 +920,7 @@ export default function StockIssueRequest() {
                     onChange={e => setFormDept(e.target.value)}
                     className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   >
-                    {DEPARTMENTS.map(d => (
+                    {mergedDepartments.map(d => (
                       <option key={d} value={d}>
                         {d} {d === getUserDepartment(user) ? '★ (Your Department)' : ''}
                       </option>

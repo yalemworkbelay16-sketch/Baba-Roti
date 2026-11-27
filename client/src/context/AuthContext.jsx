@@ -68,6 +68,50 @@ const BUILTIN_ROLE_LABELS = {
   dev: 'System Developer',
 };
 
+const BUILTIN_DEPARTMENTS = [
+  { label: 'Kitchen', icon: '🍳', defaultStation: 'kitchen' },
+  { label: 'Bar', icon: '☕', defaultStation: 'bar' },
+  { label: 'Main Store', icon: '🏢', defaultStation: 'main' },
+  { label: 'Waiter', icon: '🍽️', defaultStation: 'all' },
+  { label: 'Dining & Service', icon: '🍽️', defaultStation: 'all' },
+  { label: 'Cashier & Billing', icon: '💵', defaultStation: 'all' },
+  { label: 'Food & Beverage', icon: '🍴', defaultStation: 'all' },
+  { label: 'Finance', icon: '💼', defaultStation: 'all' },
+  { label: 'Finance & Accounting', icon: '💼', defaultStation: 'all' },
+  { label: 'Purchasing & Procurement', icon: '🛒', defaultStation: 'main' },
+  { label: 'Management', icon: '👔', defaultStation: 'all' },
+  { label: 'Front Office', icon: '🏨', defaultStation: 'all' },
+  { label: 'Housekeeping', icon: '🧹', defaultStation: 'all' },
+  { label: 'Maintenance', icon: '🔧', defaultStation: 'all' },
+  { label: 'Security', icon: '🛡️', defaultStation: 'all' },
+  { label: 'Human Resources', icon: '👥', defaultStation: 'all' },
+  { label: 'Sales & Marketing', icon: '📣', defaultStation: 'all' },
+  { label: 'Laundry', icon: '🧺', defaultStation: 'all' },
+  { label: 'Restaurant', icon: '🍲', defaultStation: 'all' },
+  { label: 'Other', icon: '📌', defaultStation: 'all' },
+];
+
+const BUILTIN_STATIONS = [
+  { key: 'all', label: 'All Stations (Combined Access — Full Store)', shortLabel: 'All Stations' },
+  { key: 'kitchen', label: 'Kitchen Station Only (Locked to Kitchen)', shortLabel: 'Kitchen Station' },
+  { key: 'bar', label: 'Bar Station Only (Locked to Bar)', shortLabel: 'Bar Station' },
+  { key: 'main', label: 'Main Store Only (Locked to Warehouse)', shortLabel: 'Main Store' },
+];
+
+const ROLE_TO_DEFAULT_DEPT = {
+  executive_chef: 'Kitchen',
+  storekeeper: 'Main Store',
+  cashier: 'Cashier & Billing',
+  waiter: 'Waiter',
+  fb_team: 'Food & Beverage',
+  finance: 'Finance',
+  supervisor: 'Management',
+  operation_manager: 'Management',
+  manager: 'Management',
+  admin: 'Management',
+  dev: 'Management',
+};
+
 const DEFAULT_LICENSED_MODULES = {
   subsystem: true,
   finance: true,
@@ -82,6 +126,8 @@ const clearSettingsCache = () => {
   localStorage.removeItem('hotelStockNavVisibility');
   localStorage.removeItem('hotelStockCrudPermissions');
   localStorage.removeItem('hotelStockCustomRoles');
+  localStorage.removeItem('hotelStockCustomDepartments');
+  localStorage.removeItem('hotelStockCustomStations');
   localStorage.removeItem('hotelStockLicensedModules');
 };
 
@@ -142,6 +188,26 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
+  const [customDepartments, setCustomDepartments] = useState(() => {
+    try {
+      const cached = localStorage.getItem('hotelStockCustomDepartments');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [customStations, setCustomStations] = useState(() => {
+    try {
+      const cached = localStorage.getItem('hotelStockCustomStations');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Zero-millisecond initial load: never block rendering if auth state is known
   const [loading, setLoading] = useState(false);
 
@@ -164,6 +230,14 @@ export const AuthProvider = ({ children }) => {
       if (Array.isArray(res.data?.customRoles)) {
         setCustomRoles(res.data.customRoles);
         localStorage.setItem('hotelStockCustomRoles', JSON.stringify(res.data.customRoles));
+      }
+      if (Array.isArray(res.data?.customDepartments)) {
+        setCustomDepartments(res.data.customDepartments);
+        localStorage.setItem('hotelStockCustomDepartments', JSON.stringify(res.data.customDepartments));
+      }
+      if (Array.isArray(res.data?.customStations)) {
+        setCustomStations(res.data.customStations);
+        localStorage.setItem('hotelStockCustomStations', JSON.stringify(res.data.customStations));
       }
       // Always update licensedModules from server — even { subsystem: false } must apply
       const lm = res.data?.licensedModules ?? DEFAULT_LICENSED_MODULES;
@@ -394,6 +468,8 @@ export const AuthProvider = ({ children }) => {
       const cp = newSettings.crudPermissions ?? null;
       const lm = newSettings.licensedModules ?? null;
       const cr = Array.isArray(newSettings.customRoles) ? newSettings.customRoles : null;
+      const cd = Array.isArray(newSettings.customDepartments) ? newSettings.customDepartments : null;
+      const cs = Array.isArray(newSettings.customStations) ? newSettings.customStations : null;
 
       if (rp) {
         setRolePermissions(rp);
@@ -410,6 +486,14 @@ export const AuthProvider = ({ children }) => {
       if (cr) {
         setCustomRoles(cr);
         localStorage.setItem('hotelStockCustomRoles', JSON.stringify(cr));
+      }
+      if (cd) {
+        setCustomDepartments(cd);
+        localStorage.setItem('hotelStockCustomDepartments', JSON.stringify(cd));
+      }
+      if (cs) {
+        setCustomStations(cs);
+        localStorage.setItem('hotelStockCustomStations', JSON.stringify(cs));
       }
       if (lm) {
         setLicensedModules(lm);
@@ -431,6 +515,45 @@ export const AuthProvider = ({ children }) => {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
   }, [customRoles]);
+
+  const allDepartments = React.useMemo(() => {
+    const seen = new Set(BUILTIN_DEPARTMENTS.map(d => d.label.toLowerCase()));
+    const extras = (customDepartments || [])
+      .filter(d => d?.label && !seen.has(String(d.label).trim().toLowerCase()))
+      .map(d => ({ label: d.label, icon: '🏷️', defaultStation: d.defaultStation || 'all', key: d.key, isCustom: true }));
+    return [...BUILTIN_DEPARTMENTS, ...extras];
+  }, [customDepartments]);
+
+  const allStations = React.useMemo(() => {
+    const seen = new Set(BUILTIN_STATIONS.map(s => s.key));
+    const extras = (customStations || [])
+      .filter(s => s?.key && !seen.has(String(s.key).trim().toLowerCase()))
+      .map(s => ({ key: s.key, label: s.label, shortLabel: s.label, isCustom: true }));
+    return [...BUILTIN_STATIONS, ...extras];
+  }, [customStations]);
+
+  const getStationLabel = useCallback((stationKey) => {
+    const key = String(stationKey || 'all').trim().toLowerCase();
+    const match = allStations.find(s => s.key === key);
+    if (match) return match.shortLabel || match.label;
+    return key.split('_').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }, [allStations]);
+
+  const matchDepartmentForRole = useCallback((roleKey) => {
+    return ROLE_TO_DEFAULT_DEPT[String(roleKey || '').toLowerCase()] || '';
+  }, []);
+
+  const matchStationForDepartment = useCallback((deptLabel) => {
+    const clean = String(deptLabel || '').trim();
+    if (!clean) return 'all';
+    const match = allDepartments.find(d => d.label.toLowerCase() === clean.toLowerCase());
+    if (match?.defaultStation) return match.defaultStation;
+    const lower = clean.toLowerCase();
+    if (lower.includes('kitchen') || lower.includes('chef') || lower.includes('pastry') || lower.includes('bakery')) return 'kitchen';
+    if (lower === 'bar' || lower.includes('bar ')) return 'bar';
+    if (lower === 'main store' || lower.includes('warehouse') || lower.includes('purchas')) return 'main';
+    return 'all';
+  }, [allDepartments]);
 
   const sidebarTheme = licensedModules?.sidebarTheme || 'navy';
   const useMaterialIcons = licensedModules?.materialIcons !== false;
@@ -456,7 +579,14 @@ export const AuthProvider = ({ children }) => {
         navVisibility,
         crudPermissions,
         customRoles,
+        customDepartments,
+        customStations,
+        allDepartments,
+        allStations,
         getRoleLabel,
+        getStationLabel,
+        matchDepartmentForRole,
+        matchStationForDepartment,
         refreshPermissions,
       }}
     >

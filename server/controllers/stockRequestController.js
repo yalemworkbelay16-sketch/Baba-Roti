@@ -219,7 +219,11 @@ const getStockRequestById = asyncHandler(async (req, res) => {
 const createStockRequest = asyncHandler(async (req, res) => {
   const { department, items = [], notes, priority, requestType, date } = req.body;
 
-  if (!department || !DEPARTMENTS.includes(department)) {
+  const Setting = require('../models/Setting');
+  const settings = await Setting.findOne().select('customDepartments').lean();
+  const customDepts = Array.isArray(settings?.customDepartments) ? settings.customDepartments.map(d => d.label) : [];
+  const validDepartments = [...DEPARTMENTS, ...customDepts];
+  if (!department || !validDepartments.some(d => d.toLowerCase() === String(department).trim().toLowerCase())) {
     res.status(400); throw new Error('Invalid department');
   }
   if (!items.length) {
@@ -337,7 +341,15 @@ const updateStockRequest = asyncHandler(async (req, res) => {
     request.items = resolved;
     request.totalCost = total;
   }
-  if (department && DEPARTMENTS.includes(department)) request.department = department;
+  if (department) {
+    const Setting = require('../models/Setting');
+    const settings = await Setting.findOne().select('customDepartments').lean();
+    const customDepts = Array.isArray(settings?.customDepartments) ? settings.customDepartments.map(d => d.label) : [];
+    const validDepartments = [...DEPARTMENTS, ...customDepts];
+    if (validDepartments.some(d => d.toLowerCase() === String(department).trim().toLowerCase())) {
+      request.department = department;
+    }
+  }
   if (notes !== undefined) request.notes = notes;
   if (priority) request.priority = priority;
 

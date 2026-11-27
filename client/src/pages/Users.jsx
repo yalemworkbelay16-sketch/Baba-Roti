@@ -60,7 +60,19 @@ const formatRelativeTime = (isoDate) => {
   return `${days}d ago`;
 };
 const Users = () => {
-  const { user: currentUser, customRoles = [], getRoleLabel, refreshPermissions } = useAuth();
+  const {
+    user: currentUser,
+    customRoles = [],
+    customDepartments = [],
+    customStations = [],
+    allDepartments = [],
+    allStations = [],
+    getRoleLabel,
+    getStationLabel,
+    matchDepartmentForRole,
+    matchStationForDepartment,
+    refreshPermissions,
+  } = useAuth();
   const canRegisterRoles = currentUser?.role === 'admin' || currentUser?.role === 'dev';
   const resolveRoleLabel = (r) => (getRoleLabel ? getRoleLabel(r) : (roleLabels[r] || r));
 
@@ -70,6 +82,19 @@ const Users = () => {
   const [quickRoleTemplate, setQuickRoleTemplate] = useState('supervisor');
   const [quickRoleSaving, setQuickRoleSaving] = useState(false);
   const [quickRoleErr, setQuickRoleErr] = useState('');
+
+  // Quick inline custom department registration state (Admin & System Developer only)
+  const [quickDeptOpen, setQuickDeptOpen] = useState(false);
+  const [quickDeptName, setQuickDeptName] = useState('');
+  const [quickDeptStation, setQuickDeptStation] = useState('all');
+  const [quickDeptSaving, setQuickDeptSaving] = useState(false);
+  const [quickDeptErr, setQuickDeptErr] = useState('');
+
+  // Quick inline custom station registration state (Admin & System Developer only)
+  const [quickStationOpen, setQuickStationOpen] = useState(false);
+  const [quickStationName, setQuickStationName] = useState('');
+  const [quickStationSaving, setQuickStationSaving] = useState(false);
+  const [quickStationErr, setQuickStationErr] = useState('');
 
   const handleQuickRegisterRole = async () => {
     const label = quickRoleName.trim();
@@ -88,7 +113,14 @@ const Users = () => {
         await refreshPermissions(res.data.settings);
       }
       if (res.data?.role?.key) {
-        f('role', res.data.role.key);
+        const nextRole = res.data.role.key;
+        const matchedDept = matchDepartmentForRole ? matchDepartmentForRole(nextRole) : '';
+        const matchedStation = matchStationForDepartment ? matchStationForDepartment(matchedDept) : 'all';
+        setForm(prev => ({
+          ...prev,
+          role: nextRole,
+          ...(matchedDept && !prev.department ? { department: matchedDept, assignedStation: matchedStation } : {}),
+        }));
       }
       setQuickRoleName('');
       setQuickRoleOpen(false);
@@ -96,6 +128,65 @@ const Users = () => {
       setQuickRoleErr(err.response?.data?.message || 'Failed to register role.');
     } finally {
       setQuickRoleSaving(false);
+    }
+  };
+
+  const handleQuickRegisterDepartment = async () => {
+    const label = quickDeptName.trim();
+    if (!label || label.length < 2) {
+      setQuickDeptErr('Enter a department name (at least 2 characters).');
+      return;
+    }
+    setQuickDeptSaving(true);
+    setQuickDeptErr('');
+    try {
+      const res = await api.post('/settings/custom-departments', {
+        label,
+        defaultStation: quickDeptStation || 'all',
+      });
+      if (res.data?.settings) {
+        await refreshPermissions(res.data.settings);
+      }
+      const created = res.data?.department;
+      if (created?.label) {
+        setForm(prev => ({
+          ...prev,
+          department: created.label,
+          assignedStation: created.defaultStation || 'all',
+        }));
+      }
+      setQuickDeptName('');
+      setQuickDeptStation('all');
+      setQuickDeptOpen(false);
+    } catch (err) {
+      setQuickDeptErr(err.response?.data?.message || 'Failed to register department.');
+    } finally {
+      setQuickDeptSaving(false);
+    }
+  };
+
+  const handleQuickRegisterStation = async () => {
+    const label = quickStationName.trim();
+    if (!label || label.length < 2) {
+      setQuickStationErr('Enter a station name (at least 2 characters).');
+      return;
+    }
+    setQuickStationSaving(true);
+    setQuickStationErr('');
+    try {
+      const res = await api.post('/settings/custom-stations', { label });
+      if (res.data?.settings) {
+        await refreshPermissions(res.data.settings);
+      }
+      if (res.data?.station?.key) {
+        f('assignedStation', res.data.station.key);
+      }
+      setQuickStationName('');
+      setQuickStationOpen(false);
+    } catch (err) {
+      setQuickStationErr(err.response?.data?.message || 'Failed to register station.');
+    } finally {
+      setQuickStationSaving(false);
     }
   };
   const [users, setUsers] = useState([]);
@@ -544,6 +635,10 @@ const Users = () => {
                         <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-800">
                           🏢 Main Store
                         </span>
+                      ) : u.assignedStation && u.assignedStation !== 'all' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-800">
+                          🏷️ {getStationLabel ? getStationLabel(u.assignedStation) : u.assignedStation}
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
                           All Stations
@@ -753,7 +848,21 @@ const Users = () => {
                   </button>
                 )}
               </div>
-              <select value={form.role} onChange={e => f('role', e.target.value)}
+              <select value={form.role} onChange={e => {
+                const nextRole = e.target.value;
+                if (!editUser) {
+                  const matchedDept = matchDepartmentForRole ? matchDepartmentForRole(nextRole) : '';
+                  const matchedSt = matchStationForDepartment ? matchStationForDepartment(matchedDept) : 'all';
+                  setForm(prev => ({
+                    ...prev,
+                    role: nextRole,
+                    department: matchedDept || prev.department,
+                    assignedStation: matchedDept ? matchedSt : prev.assignedStation,
+                  }));
+                } else {
+                  f('role', nextRole);
+                }
+              }}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
                 <option value="storekeeper">Store Keeper</option>
                 <option value="cashier">Cashier</option>
@@ -837,37 +946,66 @@ const Users = () => {
           {/* Department & Station Assignment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-700">
-                Department / የስራ ክፍል
-              </label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-ink-700">
+                  Department / የስራ ክፍል
+                </label>
+                {canRegisterRoles && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickDeptOpen(v => !v);
+                      setQuickDeptErr('');
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                  >
+                    {quickDeptOpen ? 'Close' : '+ Register Dept'}
+                  </button>
+                )}
+              </div>
               <select
                 value={form.department || ''}
                 onChange={e => {
                   const dept = e.target.value;
-                  f('department', dept);
-                  if (!['admin', 'manager', 'operation_manager', 'dev'].includes(form.role)) {
-                    if (dept === 'Kitchen') f('assignedStation', 'kitchen');
-                    else if (dept === 'Bar') f('assignedStation', 'bar');
-                    else if (dept === 'Main Store') f('assignedStation', 'main');
-                  }
+                  const matchedStation = matchStationForDepartment ? matchStationForDepartment(dept) : 'all';
+                  setForm(prev => ({
+                    ...prev,
+                    department: dept,
+                    assignedStation: matchedStation || 'all',
+                  }));
                 }}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white"
               >
                 <option value="">Select Department…</option>
-                <option value="Kitchen">🍳 Kitchen (ኩሽና)</option>
-                <option value="Bar">☕ Bar (ባር)</option>
-                <option value="Main Store">🏢 Main Store (ዋና መጋዘን)</option>
-                <option value="Dining & Service">🍽️ Dining & Service (አስተናጋጅ / ሰርቪስ)</option>
-                <option value="Cashier & Billing">💵 Cashier & Billing (ካሸር)</option>
-                <option value="Management">👔 Management (አስተዳደር)</option>
-                <option value="Other">Other</option>
+                {allDepartments.map((d) => (
+                  <option key={d.label} value={d.label}>
+                    {d.icon ? `${d.icon} ` : ''}{d.label}
+                  </option>
+                ))}
+                {form.department && !allDepartments.some(d => d.label.toLowerCase() === String(form.department).toLowerCase()) && (
+                  <option value={form.department}>{form.department}</option>
+                )}
               </select>
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-700">
-                Assigned Station Scope *
-              </label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-ink-700">
+                  Assigned Station Scope *
+                </label>
+                {canRegisterRoles && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickStationOpen(v => !v);
+                      setQuickStationErr('');
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                  >
+                    {quickStationOpen ? 'Close' : '+ Register Station'}
+                  </button>
+                )}
+              </div>
               <select
                 value={form.assignedStation || 'all'}
                 onChange={e => f('assignedStation', e.target.value)}
@@ -877,9 +1015,79 @@ const Users = () => {
                 <option value="kitchen">🍳 Kitchen Station Only (Locked to Kitchen)</option>
                 <option value="bar">☕ Bar Station Only (Locked to Bar)</option>
                 <option value="main">🏢 Main Store Only (Locked to Warehouse)</option>
+                {customStations.length > 0 && (
+                  <optgroup label="Custom Registered Stations">
+                    {customStations.map((st) => (
+                      <option key={st.key} value={st.key}>🏷️ {st.label}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>
+
+          {canRegisterRoles && quickDeptOpen && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-indigo-900">Register New Department &amp; Match Station</p>
+                <span className="text-[10px] font-semibold text-indigo-700">Auto-matches station across system</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <input
+                  type="text"
+                  value={quickDeptName}
+                  onChange={(e) => setQuickDeptName(e.target.value)}
+                  placeholder="Department name (e.g. Pastry, Butcher)"
+                  className="sm:col-span-5 rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                />
+                <select
+                  value={quickDeptStation}
+                  onChange={(e) => setQuickDeptStation(e.target.value)}
+                  className="sm:col-span-4 rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                >
+                  {allStations.map((st) => (
+                    <option key={st.key} value={st.key}>Match: {st.shortLabel || st.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={quickDeptSaving}
+                  onClick={handleQuickRegisterDepartment}
+                  className="sm:col-span-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-2.5 py-1.5 text-xs font-semibold text-white transition"
+                >
+                  {quickDeptSaving ? 'Creating…' : 'Create & Select'}
+                </button>
+              </div>
+              {quickDeptErr && <p className="text-[11px] font-medium text-red-600">{quickDeptErr}</p>}
+            </div>
+          )}
+
+          {canRegisterRoles && quickStationOpen && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-emerald-900">Register New Assigned Station Scope</p>
+                <span className="text-[10px] font-semibold text-emerald-700">Synced with Store Locations</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <input
+                  type="text"
+                  value={quickStationName}
+                  onChange={(e) => setQuickStationName(e.target.value)}
+                  placeholder="Station name (e.g. Pastry Station, Cold Bar)"
+                  className="sm:col-span-9 rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  disabled={quickStationSaving}
+                  onClick={handleQuickRegisterStation}
+                  className="sm:col-span-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 px-2.5 py-1.5 text-xs font-semibold text-white transition"
+                >
+                  {quickStationSaving ? 'Creating…' : 'Create & Select'}
+                </button>
+              </div>
+              {quickStationErr && <p className="text-[11px] font-medium text-red-600">{quickStationErr}</p>}
+            </div>
+          )}
 
           {/* Security scope alert banner */}
           {form.assignedStation === 'kitchen' && (
@@ -898,6 +1106,12 @@ const Users = () => {
             <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-900 flex items-start gap-2 shadow-2xs">
               <span className="font-bold text-blue-700 whitespace-nowrap">🏢 Main Store Scope:</span>
               <span>This employee will access Main Store Warehouse items.</span>
+            </div>
+          )}
+          {form.assignedStation && !['all', 'kitchen', 'bar', 'main'].includes(form.assignedStation) && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs text-indigo-900 flex items-start gap-2 shadow-2xs">
+              <span className="font-bold text-indigo-700 whitespace-nowrap">🏷️ {getStationLabel ? getStationLabel(form.assignedStation) : form.assignedStation}:</span>
+              <span>Custom assigned station scope matched to this staff member.</span>
             </div>
           )}
 
@@ -1058,14 +1272,8 @@ const Users = () => {
             <div className="grid grid-cols-2 gap-3 text-sm rounded-xl border border-slate-200 bg-white p-3.5">
               <div>
                 <p className="text-[11px] text-ink-400">Assigned Station</p>
-                <p className="font-semibold capitalize">
-                  {detailUser.assignedStation === 'main'
-                    ? 'Main Store'
-                    : detailUser.assignedStation === 'kitchen'
-                      ? 'Kitchen Station'
-                      : detailUser.assignedStation === 'bar'
-                        ? 'Bar Station'
-                        : 'All Stations'}
+                <p className="font-semibold">
+                  {getStationLabel ? getStationLabel(detailUser.assignedStation || 'all') : (detailUser.assignedStation || 'All Stations')}
                 </p>
               </div>
               <div>

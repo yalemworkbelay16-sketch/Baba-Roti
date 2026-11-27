@@ -31,21 +31,37 @@ const getEmployees = asyncHandler(async (req, res) => {
 });
 // ── GET /api/employees/departments ────────────────────────────────────
 const getDepartments = asyncHandler(async (req, res) => {
-  res.json(DEPARTMENTS);
+  const Setting = require('../models/Setting');
+  const settings = await Setting.findOne().select('customDepartments').lean();
+  const customLabels = Array.isArray(settings?.customDepartments)
+    ? settings.customDepartments.map((d) => d.label).filter(Boolean)
+    : [];
+  const combined = [...DEPARTMENTS, ...customLabels.filter((l) => !DEPARTMENTS.some((b) => b.toLowerCase() === l.toLowerCase()))];
+  res.json(combined);
 });
 // ── POST /api/employees ───────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
-  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts, dailyMealLimit, mealLimits, mealsDisabled } = req.body;
+  const { firstName, lastName, department, assignedStation, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts, dailyMealLimit, mealLimits, mealsDisabled } = req.body;
 
   if (!firstName || !lastName) {
     res.status(400); throw new Error('First name and last name are required.');
   }
+  const Setting = require('../models/Setting');
+  const { resolveMatchedStation } = require('../utils/stationMatch');
+  const settings = await Setting.findOne().select('customDepartments').lean();
+  const resolvedStation = resolveMatchedStation({
+    department: department || 'Other',
+    assignedStation,
+    customDepartments: settings?.customDepartments,
+  });
+
   const isMealsDisabled = Boolean(mealsDisabled);
   const emp = await Employee.create({
     employeeId: employeeId || (await generateEmployeeId()),
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     department: department || 'Other',
+    assignedStation: resolvedStation,
     position: position || '',
     phone: phone || '',
     email: email || '',
@@ -90,12 +106,22 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const emp = await Employee.findById(req.params.id);
   if (!emp || emp.deletedAt) { res.status(404); throw new Error('Employee not found'); }
 
-  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts', 'dailyMealLimit', 'mealLimits', 'mealsDisabled'];
+  const fields = ['firstName', 'lastName', 'department', 'assignedStation', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts', 'dailyMealLimit', 'mealLimits', 'mealsDisabled'];
   fields.forEach(f => {
     if (req.body[f] !== undefined) {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];
     }
   });
+  if (req.body.assignedStation === undefined && req.body.department !== undefined) {
+    const Setting = require('../models/Setting');
+    const { resolveMatchedStation } = require('../utils/stationMatch');
+    const settings = await Setting.findOne().select('customDepartments').lean();
+    emp.assignedStation = resolveMatchedStation({
+      department: req.body.department,
+      assignedStation: '',
+      customDepartments: settings?.customDepartments,
+    });
+  }
   if (emp.mealsDisabled) {
     emp.allowedProducts = [];
     emp.mealLimits = [];

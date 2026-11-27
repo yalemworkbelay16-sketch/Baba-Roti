@@ -260,6 +260,31 @@ const settingSchema = new mongoose.Schema(
       ],
       default: [],
     },
+
+    // ── Custom Registered Departments & Stations (Admin / System Developer Only) ─
+    customDepartments: {
+      type: [
+        {
+          key: { type: String, required: true, trim: true, lowercase: true },
+          label: { type: String, required: true, trim: true },
+          defaultStation: { type: String, trim: true, lowercase: true, default: 'all' },
+          createdAt: { type: Date, default: Date.now },
+          createdByName: { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
+    customStations: {
+      type: [
+        {
+          key: { type: String, required: true, trim: true, lowercase: true },
+          label: { type: String, required: true, trim: true },
+          createdAt: { type: Date, default: Date.now },
+          createdByName: { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
