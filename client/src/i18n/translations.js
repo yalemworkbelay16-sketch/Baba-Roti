@@ -170,7 +170,7 @@ export const translations = {
       other: 'Other',
       cashTendered: 'CASH TENDERED (ETB)',
       changeDue: 'Change Due',
-      confirmCashSale: 'Confirm & Complete Cash Sale',
+      confirmCashSale: 'Confirm & Complete Baba Consumption',
       confirmTelebirrSale: 'Confirm & Complete Telebirr Sale',
       confirmCardSale: 'Confirm & Complete Card Sale',
       processingSale: 'Processing Sale & Deducting Stock...',

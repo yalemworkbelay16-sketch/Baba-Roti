@@ -125,7 +125,7 @@ export default function CashSales() {
       const res = await api.get(url);
       setPaidOrders(res.data || []);
     } catch (e) {
-      showToast("Failed to load cash sales", "error");
+      showToast("Failed to load Baba Consumption", "error");
     } finally {
       setLoading(false);
     }
@@ -137,8 +137,14 @@ export default function CashSales() {
       const today = new Date().toISOString().slice(0, 10);
       const res = await api.get(`/captain-orders?date=${today}&limit=200`);
       const all = res.data || [];
-      // Only include active orders that have not been paid, voided, or cancelled
-      setPendingOrders(all.filter((o) => ["open", "held", "sent_to_kitchen", "ready", "billed"].includes(o.status)));
+      // Only include active paid-customer orders that have not been paid, voided, or cancelled (Staff Meals auto-complete)
+      setPendingOrders(
+        all.filter((o) =>
+          ["open", "held", "sent_to_kitchen", "ready", "billed"].includes(o.status) &&
+          String(o.tableNo || "").toUpperCase() !== "STAFF MEAL" &&
+          !/^staff meal/i.test(String(o.tableLabel || ""))
+        )
+      );
     } catch (_) { }
   }, []);
 
@@ -305,7 +311,7 @@ export default function CashSales() {
       summary: [
         { label: "Total Paid Sales", value: filteredSales.length },
         { label: "Total Revenue", value: ETB(totalRevenue) },
-        { label: "Cash Sales", value: ETB(totalCash) },
+        { label: "Cash Payments", value: ETB(totalCash) },
         { label: "Telebirr Sales", value: ETB(totalTelebirr) },
       ],
     });
@@ -1275,7 +1281,7 @@ export default function CashSales() {
                     }}
                   >
                     <BadgeDollarSign size={16} />
-                    Settle &amp; Convert to Cash Sale
+                    Settle &amp; Convert to Baba Consumption
                   </button>
                 </div>
               ))}

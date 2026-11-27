@@ -64,7 +64,12 @@ async function computeSalesAnalytics(options = {}) {
       .select('items grandTotal totalCOGS createdAt paymentStatus')
       .lean()
       .catch(() => []),
-    CaptainOrder.find({ isVoided: { $ne: true }, status: { $in: ['open', 'sent_to_kitchen', 'ready', 'billed'] }, cashSaleRef: null })
+    CaptainOrder.find({
+      isVoided: { $ne: true },
+      status: { $in: ['open', 'sent_to_kitchen', 'ready', 'billed'] },
+      cashSaleRef: null,
+      tableNo: { $ne: 'STAFF MEAL' },
+    })
       .select('items grandTotal createdAt status')
       .lean()
       .catch(() => []),

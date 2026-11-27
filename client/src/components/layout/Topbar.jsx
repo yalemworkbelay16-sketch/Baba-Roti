@@ -632,7 +632,7 @@ const HELP_SECTIONS = [
       {
         title: 'Cashier & POS Operator Routine',
         titleAm: 'የካሳና የሽያጭ ሰራተኛ ዕለታዊ ስራ',
-        desc: 'Login at POS counter ➔ Select table and order type (Dine-in, Takeaway, Delivery) ➔ Settle payments via Cash, Telebirr, or Card ➔ Hand tax receipts to customers ➔ Print end-of-shift cash sales report.',
+        desc: 'Login at POS counter ➔ Select table and order type (Dine-in, Takeaway, Delivery) ➔ Settle payments via Cash, Telebirr, or Card ➔ Hand tax receipts to customers ➔ Print end-of-shift Baba Consumption report.',
         descAm: 'በካሳ ኮምፒውተር መግባት ➔ ጠረጴዛ መርጦ ትዕዛዝ ማስገባት ➔ በጥሬ ገንዘብ፣ በቴሌብር ወይም በካርድ ክፍያ መቀበል ➔ ደረሰኝ ማተም ➔ የፈረቃ መጨረሻ የሂሳብ ሪፖርት ማውጣት።',
         action: 'Primary pages: /pos, /cash-sales',
         actionAm: 'ዋና ገጾች፡ /pos, /cash-sales',

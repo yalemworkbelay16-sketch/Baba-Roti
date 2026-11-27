@@ -144,6 +144,9 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
   }
   const grandTotal = Math.round((taxableSubtotal + taxAmount + finalServiceCharge) * 100) / 100;
 
+  const isStaffMealOrder =
+    safeTableNo.toUpperCase() === "STAFF MEAL" || /^staff meal/i.test(safeTableLabel);
+
   const order = await CaptainOrder.create({
     orderNo, dailySequence,
     tableNo: safeTableNo, tableLabel: safeTableLabel,
@@ -158,7 +161,7 @@ const createCaptainOrder = asyncHandler(async (req, res) => {
     serviceCharge: finalServiceCharge,
     grandTotal,
     tableNotes: safeTableNotes,
-    status: req.body.status || "open",
+    status: isStaffMealOrder ? "paid" : (req.body.status || "open"),
   });
 
   broadcastOrderEvent("pos_order_updated", order);

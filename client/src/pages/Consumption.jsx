@@ -634,7 +634,7 @@ export default function Consumption() {
             waiterName: user?.name || 'Staff',
             tableNotes: `Staff Meal Consumption - Voucher ${savedRecord?.voucherNo || ''}`,
             items: orderItems,
-            status: 'sent_to_kitchen',
+            status: 'paid',
           };
 
           const capRes = await api.post('/captain-orders', captainPayload);

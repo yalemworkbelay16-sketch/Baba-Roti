@@ -413,8 +413,13 @@ export default function POS() {
       const all = res.data || [];
       const pending = all.filter((o) => o.status === "pending_approval");
       setPendingApprovalOrders(pending);
-      // Only open/held/sent_to_kitchen/ready orders
-      const active = all.filter((o) => ["held", "open", "sent_to_kitchen", "ready", "billed"].includes(o.status));
+      // Only open/held/sent_to_kitchen/ready customer orders (Staff Meals auto-complete)
+      const active = all.filter(
+        (o) =>
+          ["held", "open", "sent_to_kitchen", "ready", "billed"].includes(o.status) &&
+          String(o.tableNo || "").toUpperCase() !== "STAFF MEAL" &&
+          !/^staff meal/i.test(String(o.tableLabel || ""))
+      );
       setHeldOrdersList(active);
 
       // Sound & Voice Alert for Cashier on newly arriving QR orders
