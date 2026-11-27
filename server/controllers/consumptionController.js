@@ -92,6 +92,12 @@ async function applyConsumptionStock(items, reverse = false, actor = null) {
   }
 }
 
+function isDrinkCategoryProduct(p) {
+  const pc = String(p?.parentCategory || '').toLowerCase();
+  const cat = String(p?.category || '').toLowerCase();
+  return pc === 'beverage' || pc === 'juices' || /hot drink|cold drink|juice|soft drink/.test(cat);
+}
+
 // ── GET /api/consumption ──────────────────────────────────────────
 const getConsumptions = asyncHandler(async (req, res) => {
   const { category, status, from, to } = req.query;
@@ -106,7 +112,7 @@ const getConsumptions = asyncHandler(async (req, res) => {
   }
 
   const records = await Consumption.find(filter)
-    .populate('items.product', 'name code uom')
+    .populate('items.product', 'name code uom parentCategory category')
     .populate('performedBy', 'name')
     .populate('approvedBy', 'name')
     .populate('employee', 'firstName lastName department position dailyMealLimit mealLimits allowedProducts')
@@ -145,10 +151,12 @@ const createConsumption = asyncHandler(async (req, res) => {
   // Resolve products + compute costs
   let totalRecipeCost = 0;
   const resolvedItems = [];
+  const resolvedProductDocs = {};
   for (const item of items) {
     const product = await Product.findById(item.product)
       .populate('ingredients.material', 'name unit unitCost');
     if (!product) { res.status(404); throw new Error(`Product not found: ${item.product}`); }
+    resolvedProductDocs[String(product._id)] = product;
 
     let recipeCost = (product.ingredients || []).reduce((sum, ing) => {
       const baseQty = convertUnit(ing.quantity || 0, ing.unit || ing.material?.unit, ing.material?.unit);
@@ -217,10 +225,31 @@ const createConsumption = asyncHandler(async (req, res) => {
       }
     }
 
+    if (employeeDoc?._id) {
+      employeeDoc = await Employee.findById(employeeDoc._id)
+        .populate('allowedProducts', 'parentCategory category');
+    }
+
     // Check today's existing consumption for this employee to prevent exceeding daily quota
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const allowedProdsList = Array.isArray(employeeDoc?.allowedProducts) ? employeeDoc.allowedProducts : [];
+    const allowedSet = new Set(allowedProdsList.map(p => String(p?._id || p)));
+    const hasAllowedFood = allowedProdsList.length === 0
+      ? true
+      : allowedProdsList.some(p => !isDrinkCategoryProduct(p));
+
+    if (!['admin', 'dev'].includes(req.user.role) && allowedSet.size > 0) {
+      for (const itm of items) {
+        if (!allowedSet.has(String(itm.product))) {
+          const pName = resolvedProductDocs[String(itm.product)]?.name || 'this item';
+          res.status(403);
+          throw new Error(`Not allowed: "${pName}" is not included in ${beneficiary || 'your'} staff consumption allowance.`);
+        }
+      }
+    }
 
     const empMatchConditions = [];
     if (employeeDoc?._id) empMatchConditions.push({ employee: employeeDoc._id });
@@ -234,15 +263,22 @@ const createConsumption = asyncHandler(async (req, res) => {
         deletedAt: null,
         date: { $gte: startOfDay, $lte: endOfDay },
         $or: empMatchConditions,
-      }).lean();
+      })
+        .populate('items.product', 'parentCategory category')
+        .lean();
 
       let totalPortionsConsumedToday = 0;
+      let totalMealPortionsConsumedToday = 0;
       const productUsageToday = {};
       for (const rec of todayRecords) {
         for (const itm of rec.items || []) {
-          const pId = String(itm.product?._id || itm.product);
+          const prodObj = itm.product;
+          const pId = String(prodObj?._id || prodObj);
           const q = Number(itm.quantity) || 1;
           totalPortionsConsumedToday += q;
+          if (!isDrinkCategoryProduct(prodObj)) {
+            totalMealPortionsConsumedToday += q;
+          }
           productUsageToday[pId] = (productUsageToday[pId] || 0) + q;
         }
       }
@@ -255,16 +291,20 @@ const createConsumption = asyncHandler(async (req, res) => {
       }
 
       let requestedNewPortions = 0;
+      let requestedNewMealPortions = 0;
       for (const itm of items) {
         const pId = String(itm.product);
         const reqQty = Number(itm.quantity) || 1;
+        const prodDoc = resolvedProductDocs[pId];
         requestedNewPortions += reqQty;
+        if (!isDrinkCategoryProduct(prodDoc)) {
+          requestedNewMealPortions += reqQty;
+        }
 
         const maxForThisItem = mealLimitsMap[pId] || 1;
         const usedForThisItem = productUsageToday[pId] || 0;
 
         if (usedForThisItem + reqQty > maxForThisItem) {
-          const prodDoc = await Product.findById(pId).lean();
           const pName = prodDoc?.name || 'this item';
           res.status(400);
           throw new Error(
@@ -273,10 +313,13 @@ const createConsumption = asyncHandler(async (req, res) => {
         }
       }
 
-      if (totalPortionsConsumedToday + requestedNewPortions > overallDailyLimit) {
+      const effectiveConsumedToday = hasAllowedFood ? totalMealPortionsConsumedToday : totalPortionsConsumedToday;
+      const effectiveNewPortions = hasAllowedFood ? requestedNewMealPortions : requestedNewPortions;
+
+      if (effectiveNewPortions > 0 && effectiveConsumedToday + effectiveNewPortions > overallDailyLimit) {
         res.status(400);
         throw new Error(
-          `Daily meal quota reached: ${beneficiary || 'Staff'} has already ordered ${totalPortionsConsumedToday}/${overallDailyLimit} meal portions today. Allowed limit is ${overallDailyLimit} per day.`
+          `Daily meal quota reached: ${beneficiary || 'Staff'} has already ordered ${effectiveConsumedToday}/${overallDailyLimit} ${hasAllowedFood ? 'meal' : 'drink'} portions today. Allowed limit is ${overallDailyLimit} per day.`
         );
       }
     }

@@ -38,6 +38,12 @@ const emptyForm = {
   items: [emptyItem()],
 };
 
+const isDrinkProduct = (p) => {
+  const pc = String(p?.parentCategory || '').toLowerCase();
+  const cat = String(p?.category || '').toLowerCase();
+  return pc === 'beverage' || pc === 'juices' || /hot drink|cold drink|juice|soft drink/.test(cat);
+};
+
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function Consumption() {
@@ -276,7 +282,7 @@ export default function Consumption() {
 
   // ── Calculate today's staff meal consumption for currently selected employee / user ──
   const todayEmployeeConsumption = useMemo(() => {
-    if (form.category !== 'staff_meal') return { totalPortions: 0, byProduct: {}, recordsToday: [] };
+    if (form.category !== 'staff_meal') return { totalPortions: 0, totalFoodPortions: 0, byProduct: {}, recordsToday: [] };
 
     const empName = (form.beneficiary || '').trim().toLowerCase();
     const empId = selectedEmployeeObj?._id ? String(selectedEmployeeObj._id) : null;
@@ -297,19 +303,25 @@ export default function Consumption() {
       return false;
     });
 
+    const prodMap = new Map(products.map(p => [String(p._id), p]));
     let totalPortions = 0;
+    let totalFoodPortions = 0;
     const byProduct = {};
     for (const rec of matchingRecords) {
       for (const itm of rec.items || []) {
         const pId = String(itm.product?._id || itm.product);
+        const prodMeta = typeof itm.product === 'object' && itm.product?.parentCategory ? itm.product : prodMap.get(pId);
         const q = Number(itm.quantity) || 1;
         totalPortions += q;
+        if (!isDrinkProduct(prodMeta)) {
+          totalFoodPortions += q;
+        }
         byProduct[pId] = (byProduct[pId] || 0) + q;
       }
     }
 
-    return { totalPortions, byProduct, recordsToday: matchingRecords };
-  }, [records, form.category, form.beneficiary, selectedEmployeeObj, user, isPrivileged]);
+    return { totalPortions, totalFoodPortions, byProduct, recordsToday: matchingRecords };
+  }, [records, products, form.category, form.beneficiary, selectedEmployeeObj, user, isPrivileged]);
 
   // Overall daily meal limit (portions per day)
   const dailyMealLimit = useMemo(() => {
@@ -322,6 +334,16 @@ export default function Consumption() {
     return 1; // Default 1 portion/meal per day
   }, [isPrivileged, currentUserEmployee, selectedEmployeeObj]);
 
+  // Whether the employee's allowance includes food meals (so drinks don't eat into daily food meal limit)
+  const hasAllowedFoodItems = useMemo(() => {
+    if (form.category !== 'staff_meal') return true;
+    return availableProducts.some(p => !isDrinkProduct(p));
+  }, [form.category, availableProducts]);
+
+  const effectiveTodayUsed = hasAllowedFoodItems
+    ? todayEmployeeConsumption.totalFoodPortions
+    : todayEmployeeConsumption.totalPortions;
+
   // Per-product daily limit map
   const productDailyLimitsMap = useMemo(() => {
     const map = {};
@@ -333,7 +355,7 @@ export default function Consumption() {
     return map;
   }, [isPrivileged, currentUserEmployee, selectedEmployeeObj]);
 
-  const isDailyQuotaReached = form.category === 'staff_meal' && todayEmployeeConsumption.totalPortions >= dailyMealLimit;
+  const isDailyQuotaReached = form.category === 'staff_meal' && effectiveTodayUsed >= dailyMealLimit;
 
   /* ── form helpers ── */
   const openCreate = () => {
@@ -503,30 +525,26 @@ export default function Consumption() {
         return;
       }
 
-      // Check daily meal limit before submitting
-      if (!isPrivileged && form.category === 'staff_meal' && isDailyQuotaReached) {
-        setFormError(`Daily meal limit reached: You have already consumed your allowed meal for today (${todayEmployeeConsumption.totalPortions}/${dailyMealLimit} portions used). Daily allowance resets tomorrow.`);
-        setSubmitting(false);
-        return;
-      }
-
       if (form.category === 'staff_meal' && !isPrivileged) {
-        let requestedPortions = 0;
+        let requestedMealPortions = 0;
+        let requestedTotalPortions = 0;
         for (const item of cleanItems) {
           const pId = String(item.product);
           const q = Number(item.quantity) || 1;
-          requestedPortions += q;
+          const prod = products.find(p => String(p._id) === pId);
+          requestedTotalPortions += q;
+          if (!isDrinkProduct(prod)) requestedMealPortions += q;
           const usedForP = todayEmployeeConsumption.byProduct[pId] || 0;
           const maxForP = productDailyLimitsMap[pId] || 1;
           if (usedForP + q > maxForP) {
-            const prod = products.find(p => String(p._id) === pId);
             setFormError(`Daily limit exceeded for "${prod?.name || 'this item'}": Already ordered ${usedForP}/${maxForP} today. Limit is ${maxForP} portion per day.`);
             setSubmitting(false);
             return;
           }
         }
-        if (todayEmployeeConsumption.totalPortions + requestedPortions > dailyMealLimit) {
-          setFormError(`Daily meal quota exceeded: You can only order ${Math.max(0, dailyMealLimit - todayEmployeeConsumption.totalPortions)} more portion(s) today (Limit: ${dailyMealLimit} per day).`);
+        const effectiveReq = hasAllowedFoodItems ? requestedMealPortions : requestedTotalPortions;
+        if (effectiveReq > 0 && effectiveTodayUsed + effectiveReq > dailyMealLimit) {
+          setFormError(`Daily meal quota exceeded: You can only order ${Math.max(0, dailyMealLimit - effectiveTodayUsed)} more ${hasAllowedFoodItems ? 'meal' : 'drink'} portion(s) today (Limit: ${dailyMealLimit} per day).`);
           setSubmitting(false);
           return;
         }
@@ -1206,8 +1224,8 @@ export default function Consumption() {
                             : 'bg-emerald-100 text-emerald-900'
                             }`}>
                             <Clock size={11} />
-                            Daily Quota: {todayEmployeeConsumption.totalPortions} / {dailyMealLimit} portion(s) ordered today
-                            {isDailyQuotaReached ? ' (Limit Reached - Resets Tomorrow)' : ` (${Math.max(0, dailyMealLimit - todayEmployeeConsumption.totalPortions)} remaining today)`}
+                            Daily {hasAllowedFoodItems ? 'Meal' : 'Drink'} Quota: {effectiveTodayUsed} / {dailyMealLimit} portion(s) ordered today
+                            {isDailyQuotaReached ? ' (Meal Limit Reached - Drinks Still Available Below)' : ` (${Math.max(0, dailyMealLimit - effectiveTodayUsed)} remaining today)`}
                           </span>
                         </div>
                       </div>
