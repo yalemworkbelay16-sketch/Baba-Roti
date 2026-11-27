@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   Plus, Search, Pencil, Trash2, X, RefreshCw,
   UserCheck, UserX, Clock, Users, Building2, Phone, Mail, Calendar,
-  ChevronDown, Camera, Upload, Check, Award, UtensilsCrossed, Eye,
+  ChevronDown, Camera, Upload, Check, Award, UtensilsCrossed, Eye, Ban,
 } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/ui/Modal';
@@ -32,7 +32,7 @@ const emptyForm = {
   employeeId: '', firstName: '', lastName: '',
   department: 'Waiter', position: '', phone: '',
   email: '', hireDate: '', status: 'active', notes: '',
-  photoUrl: '', allowedProducts: [],
+  photoUrl: '', mealsDisabled: false, allowedProducts: [],
 };
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
@@ -149,6 +149,7 @@ export default function Employees() {
       status: emp.status || 'active',
       notes: emp.notes || '',
       photoUrl: emp.photoUrl || '',
+      mealsDisabled: Boolean(emp.mealsDisabled),
       allowedProducts: Array.isArray(emp.allowedProducts)
         ? emp.allowedProducts.map(p => (typeof p === 'object' && p !== null ? p._id : p))
         : [],
@@ -428,8 +429,13 @@ export default function Employees() {
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-600 whitespace-nowrap">
                       <div>{emp.position || '—'}</div>
-                      {Array.isArray(emp.allowedProducts) && emp.allowedProducts.length > 0 ? (
-                        <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md mt-0.5" title={emp.allowedProducts.map(p => (typeof p === 'object' ? p.name : p)).join(', ')}>
+                      {emp.mealsDisabled ? (
+                        <div className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md mt-0.5">
+                          <Ban size={9} className="text-red-600" />
+                          <span>Not allowed all meals</span>
+                        </div>
+                      ) : Array.isArray(emp.allowedProducts) && emp.allowedProducts.length > 0 ? (
+                        <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md mt-0.5" title={emp.allowedProducts.map(p => (p && typeof p === 'object' ? p.name : p)).filter(Boolean).join(', ')}>
                           <UtensilsCrossed size={9} className="text-amber-600" />
                           <span>{emp.allowedProducts.length} meals restricted</span>
                         </div>
@@ -646,8 +652,8 @@ export default function Employees() {
                 <div
                   onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
                   className={`w-full rounded-xl border-2 border-dashed px-3 py-2 text-center cursor-pointer transition flex items-center justify-center gap-2.5 ${uploadingPhoto
-                      ? 'border-blue-400 bg-blue-50/60 cursor-wait'
-                      : 'border-ink-200 hover:border-blue-400 hover:bg-blue-50/20 bg-ink-50/30'
+                    ? 'border-blue-400 bg-blue-50/60 cursor-wait'
+                    : 'border-ink-200 hover:border-blue-400 hover:bg-blue-50/20 bg-ink-50/30'
                     }`}
                   style={{ minHeight: '60px' }}
                 >
@@ -682,74 +688,117 @@ export default function Employees() {
           </div>
 
           {/* Allowed Staff Meal Products Quota */}
-          <div className="rounded-xl border border-amber-200/90 bg-amber-50/40 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <UtensilsCrossed size={14} className="text-amber-600" />
+          <div className={`rounded-xl border p-3 space-y-2 ${form.mealsDisabled
+            ? 'border-red-300 bg-red-50/50'
+            : 'border-amber-200/90 bg-amber-50/40'
+            }`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className={`text-xs font-bold flex items-center gap-1.5 ${form.mealsDisabled ? 'text-red-900' : 'text-amber-950'}`}>
+                {form.mealsDisabled
+                  ? <Ban size={14} className="text-red-600" />
+                  : <UtensilsCrossed size={14} className="text-amber-600" />}
                 Allowed Staff Meal Products
               </label>
-              <span className="text-[10px] text-amber-800 font-bold">
-                {form.allowedProducts?.length > 0
-                  ? `${form.allowedProducts.length} items allowed`
-                  : 'All Menu Items Allowed'}
-              </span>
-            </div>
-            <p className="text-[11px] text-amber-800/80 leading-relaxed">
-              When this employee orders Staff Meals in Consumption, they will strictly be limited to these permitted foods (e.g. Tibs, Tea, Sandwich). Leave empty to allow all menu items.
-            </p>
-
-            <SearchableSelect
-              placeholder="Search product to add to staff meal quota…"
-              options={products
-                .filter(p => !form.allowedProducts?.includes(p._id))
-                .map(p => ({
-                  value: p._id,
-                  label: `${p.name} (${p.uom || 'Unit'})`,
-                  sublabel: p.sellingPrice ? `Price: ETB ${p.sellingPrice} • ${p.category || 'General'}` : (p.category || ''),
-                }))}
-              value=""
-              onChange={val => {
-                if (val && !form.allowedProducts?.includes(val)) {
-                  f('allowedProducts', [...(form.allowedProducts || []), val]);
-                }
-              }}
-            />
-
-            {/* Chips of selected allowed products */}
-            {form.allowedProducts?.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {form.allowedProducts.map(pId => {
-                  const prod = products.find(p => p._id === pId);
-                  return (
-                    <span
-                      key={pId}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 border border-amber-300/80 px-2.5 py-1 text-xs font-bold text-amber-900 shadow-2xs"
-                    >
-                      <span>{prod?.name || 'Item'}</span>
-                      <button
-                        type="button"
-                        onClick={() => f('allowedProducts', form.allowedProducts.filter(id => id !== pId))}
-                        className="rounded-full hover:bg-amber-200 p-0.5 text-amber-700 hover:text-amber-950 transition cursor-pointer"
-                        title="Remove"
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  );
-                })}
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold ${form.mealsDisabled ? 'text-red-700' : 'text-amber-800'}`}>
+                  {form.mealsDisabled
+                    ? 'Not Allowed All Meals'
+                    : form.allowedProducts?.length > 0
+                      ? `${form.allowedProducts.length} items allowed`
+                      : 'All Menu Items Allowed'}
+                </span>
                 <button
                   type="button"
-                  onClick={() => f('allowedProducts', [])}
-                  className="text-[10.5px] font-bold text-amber-800 hover:text-amber-950 underline self-center ml-1 cursor-pointer"
+                  onClick={() => {
+                    if (form.mealsDisabled) {
+                      f('mealsDisabled', false);
+                    } else {
+                      setForm(prev => ({ ...prev, mealsDisabled: true, allowedProducts: [] }));
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold border transition cursor-pointer ${form.mealsDisabled
+                    ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
+                    }`}
+                  title={form.mealsDisabled ? 'Re-enable staff meals for this employee' : 'Restrict this employee from ordering any staff meals'}
                 >
-                  Clear all restrictions
+                  {form.mealsDisabled ? (
+                    <><Check size={11} /> Re-enable Meals</>
+                  ) : (
+                    <><Ban size={11} /> Not Allowed All Meals</>
+                  )}
                 </button>
               </div>
-            ) : (
-              <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-lg p-2 border border-emerald-200 flex items-center gap-1.5">
-                <Check size={12} className="text-emerald-600 shrink-0" />
-                No restrictions active. Employee can order any menu item.
+            </div>
+            <p className={`text-[11px] leading-relaxed ${form.mealsDisabled ? 'text-red-800/90' : 'text-amber-800/80'}`}>
+              When this employee orders Staff Meals in Consumption, they will strictly be limited to these permitted foods (e.g. Tibs, Tea, Sandwich). Leave empty to allow all menu items, or click <strong>Not Allowed All Meals</strong> to block staff meals completely.
+            </p>
+
+            {form.mealsDisabled ? (
+              <div className="text-[11px] font-semibold text-red-700 bg-red-50 rounded-lg p-2.5 border border-red-200 flex items-center gap-2">
+                <Ban size={13} className="text-red-600 shrink-0" />
+                <span>Restricted employee: All staff meals are blocked and cannot be ordered in Consumption Management.</span>
               </div>
+            ) : (
+              <>
+                <SearchableSelect
+                  placeholder="Search product to add to staff meal quota…"
+                  options={products
+                    .filter(p => !form.allowedProducts?.includes(p._id))
+                    .map(p => ({
+                      value: p._id,
+                      label: `${p.name} (${p.uom || 'Unit'})`,
+                      sublabel: p.sellingPrice ? `Price: ETB ${p.sellingPrice} • ${p.category || 'General'}` : (p.category || ''),
+                    }))}
+                  value=""
+                  onChange={val => {
+                    if (val && !form.allowedProducts?.includes(val)) {
+                      setForm(prev => ({
+                        ...prev,
+                        mealsDisabled: false,
+                        allowedProducts: [...(prev.allowedProducts || []), val],
+                      }));
+                    }
+                  }}
+                />
+
+                {/* Chips of selected allowed products */}
+                {form.allowedProducts?.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {form.allowedProducts.map(pId => {
+                      const prod = products.find(p => p._id === pId);
+                      return (
+                        <span
+                          key={pId}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 border border-amber-300/80 px-2.5 py-1 text-xs font-bold text-amber-900 shadow-2xs"
+                        >
+                          <span>{prod?.name || 'Item'}</span>
+                          <button
+                            type="button"
+                            onClick={() => f('allowedProducts', form.allowedProducts.filter(id => id !== pId))}
+                            className="rounded-full hover:bg-amber-200 p-0.5 text-amber-700 hover:text-amber-950 transition cursor-pointer"
+                            title="Remove"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => f('allowedProducts', [])}
+                      className="text-[10.5px] font-bold text-amber-800 hover:text-amber-950 underline self-center ml-1 cursor-pointer"
+                    >
+                      Clear all restrictions
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-lg p-2 border border-emerald-200 flex items-center gap-1.5">
+                    <Check size={12} className="text-emerald-600 shrink-0" />
+                    No restrictions active. Employee can order any menu item.
+                  </div>
+                )}
+              </>
             )}
           </div>
 

@@ -33,15 +33,14 @@ const getEmployees = asyncHandler(async (req, res) => {
 const getDepartments = asyncHandler(async (req, res) => {
   res.json(DEPARTMENTS);
 });
-
 // ── POST /api/employees ───────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
-  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts, dailyMealLimit, mealLimits } = req.body;
+  const { firstName, lastName, department, position, phone, email, hireDate, status, notes, employeeId, photoUrl, allowedProducts, dailyMealLimit, mealLimits, mealsDisabled } = req.body;
 
   if (!firstName || !lastName) {
     res.status(400); throw new Error('First name and last name are required.');
   }
-
+  const isMealsDisabled = Boolean(mealsDisabled);
   const emp = await Employee.create({
     employeeId: employeeId || (await generateEmployeeId()),
     firstName: firstName.trim(),
@@ -54,15 +53,15 @@ const createEmployee = asyncHandler(async (req, res) => {
     status: status || 'active',
     notes: notes || '',
     photoUrl: photoUrl || '',
-    allowedProducts: Array.isArray(allowedProducts) ? allowedProducts : [],
-    dailyMealLimit:  Number(dailyMealLimit) || 1,
-    mealLimits:      Array.isArray(mealLimits) ? mealLimits : [],
+    mealsDisabled: isMealsDisabled,
+    allowedProducts: isMealsDisabled ? [] : (Array.isArray(allowedProducts) ? allowedProducts : []),
+    dailyMealLimit: Number(dailyMealLimit) || 1,
+    mealLimits: isMealsDisabled ? [] : (Array.isArray(mealLimits) ? mealLimits : []),
     createdBy: req.user?._id || null,
     createdByName: req.user?.name || 'System',
     createdByRole: req.user?.role || '',
     registrationSource: 'manual',
   });
-
   tg.notifyEmployeeCreated(emp, req.user);
   notify.push({
     type: 'employee',
@@ -74,7 +73,6 @@ const createEmployee = asyncHandler(async (req, res) => {
     severity: 'info',
     userId: req.user?._id,
   });
-
   try {
     logActivity(req, {
       action: 'CREATE_EMPLOYEE',
@@ -87,18 +85,21 @@ const createEmployee = asyncHandler(async (req, res) => {
 
   res.status(201).json(emp);
 });
-
 // ── PUT /api/employees/:id ────────────────────────────────────────────
 const updateEmployee = asyncHandler(async (req, res) => {
   const emp = await Employee.findById(req.params.id);
   if (!emp || emp.deletedAt) { res.status(404); throw new Error('Employee not found'); }
 
-  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts', 'dailyMealLimit', 'mealLimits'];
+  const fields = ['firstName', 'lastName', 'department', 'position', 'phone', 'email', 'hireDate', 'status', 'notes', 'employeeId', 'photoUrl', 'allowedProducts', 'dailyMealLimit', 'mealLimits', 'mealsDisabled'];
   fields.forEach(f => {
     if (req.body[f] !== undefined) {
       emp[f] = f === 'hireDate' ? (req.body[f] ? new Date(req.body[f]) : null) : req.body[f];
     }
   });
+  if (emp.mealsDisabled) {
+    emp.allowedProducts = [];
+    emp.mealLimits = [];
+  }
   emp.updatedBy = req.user?._id || null;
   emp.updatedByName = req.user?.name || 'System';
   emp.updatedByRole = req.user?.role || '';
@@ -106,7 +107,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   await emp.save();
 
   // Sync allowed meal quota and daily limits to matching User record if one exists by email or name
-  if (req.body.allowedProducts !== undefined || req.body.dailyMealLimit !== undefined || req.body.mealLimits !== undefined) {
+  if (req.body.allowedProducts !== undefined || req.body.dailyMealLimit !== undefined || req.body.mealLimits !== undefined || req.body.mealsDisabled !== undefined) {
     try {
       const User = require('../models/User');
       const userMatch = await User.findOne({
@@ -116,9 +117,10 @@ const updateEmployee = asyncHandler(async (req, res) => {
         ]
       });
       if (userMatch) {
-        if (req.body.allowedProducts !== undefined) userMatch.allowedProducts = emp.allowedProducts;
+        if (req.body.mealsDisabled !== undefined) userMatch.mealsDisabled = Boolean(emp.mealsDisabled);
+        if (req.body.allowedProducts !== undefined || emp.mealsDisabled) userMatch.allowedProducts = emp.allowedProducts;
         if (req.body.dailyMealLimit !== undefined) userMatch.dailyMealLimit = emp.dailyMealLimit;
-        if (req.body.mealLimits !== undefined) userMatch.mealLimits = emp.mealLimits;
+        if (req.body.mealLimits !== undefined || emp.mealsDisabled) userMatch.mealLimits = emp.mealLimits;
         await userMatch.save();
       }
     } catch (_) { }

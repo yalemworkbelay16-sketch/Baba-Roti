@@ -119,6 +119,7 @@ async function syncUserToEmployee(user) {
       emp.status = status;
       if (photo) emp.photoUrl = photo;
       if (!emp.employeeId) emp.employeeId = finalEmpId;
+      if (typeof user.mealsDisabled === 'boolean') emp.mealsDisabled = user.mealsDisabled;
       if (user.allowedProducts?.length) emp.allowedProducts = user.allowedProducts;
       if (user.dailyMealLimit) emp.dailyMealLimit = user.dailyMealLimit;
       if (user.mealLimits?.length) emp.mealLimits = user.mealLimits;
@@ -140,6 +141,7 @@ async function syncUserToEmployee(user) {
       hireDate: user.createdAt || new Date(),
       status,
       photoUrl: photo,
+      mealsDisabled: Boolean(user.mealsDisabled),
       allowedProducts: user.allowedProducts || [],
       dailyMealLimit: user.dailyMealLimit || 1,
       mealLimits: user.mealLimits || [],

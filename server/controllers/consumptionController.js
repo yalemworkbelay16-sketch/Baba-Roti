@@ -115,7 +115,7 @@ const getConsumptions = asyncHandler(async (req, res) => {
     .populate('items.product', 'name code uom parentCategory category')
     .populate('performedBy', 'name')
     .populate('approvedBy', 'name')
-    .populate('employee', 'firstName lastName department position dailyMealLimit mealLimits allowedProducts')
+    .populate('employee', 'firstName lastName department position dailyMealLimit mealLimits allowedProducts mealsDisabled')
     .sort({ date: -1 })
     .lean();
 
@@ -228,6 +228,11 @@ const createConsumption = asyncHandler(async (req, res) => {
     if (employeeDoc?._id) {
       employeeDoc = await Employee.findById(employeeDoc._id)
         .populate('allowedProducts', 'parentCategory category');
+    }
+
+    if (employeeDoc?.mealsDisabled || (!employeeDoc && req.user?.mealsDisabled)) {
+      res.status(403);
+      throw new Error(`Not allowed: ${beneficiary || 'This employee'} is restricted and not allowed any staff meals.`);
     }
 
     // Check today's existing consumption for this employee to prevent exceeding daily quota

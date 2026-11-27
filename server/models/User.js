@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema(
       default: 'all',
     },
     // Allowed staff meal / consumption items and daily limits
+    mealsDisabled: { type: Boolean, default: false },
     allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
     dailyMealLimit: { type: Number, default: 1, min: 1 },
     mealLimits: [

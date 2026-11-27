@@ -32,6 +32,7 @@ const employeeSchema = new mongoose.Schema(
     notes: { type: String, trim: true, default: '' },
     photoUrl: { type: String, trim: true, default: '' },   // 3x4 portrait employee photo
     // Allowed staff meal / consumption items and daily limits
+    mealsDisabled: { type: Boolean, default: false }, // True = explicitly restricted from ALL staff meals
     allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
     dailyMealLimit: { type: Number, default: 1, min: 1 }, // Max meals/portions allowed per day
     mealLimits: [

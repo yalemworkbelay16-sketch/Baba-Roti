@@ -73,6 +73,7 @@ export default function Consumption() {
   const [allowedMealsModalOpen, setAllowedMealsModalOpen] = useState(false);
   const [selectedEmpForQuotaId, setSelectedEmpForQuotaId] = useState('');
   const [selectedProductIdsForQuota, setSelectedProductIdsForQuota] = useState(new Set());
+  const [quotaMealsDisabled, setQuotaMealsDisabled] = useState(false);
   const [quotaDailyMealLimit, setQuotaDailyMealLimit] = useState(1);
   const [productDailyLimits, setProductDailyLimits] = useState({});
   const [quotaSearchQuery, setQuotaSearchQuery] = useState('');
@@ -237,12 +238,22 @@ export default function Consumption() {
     }) || null;
   }, [form.category, form.beneficiary, employees, isPrivileged, currentUserEmployee]);
 
+  // Whether staff meals are explicitly disabled/restricted for the selected employee
+  const isMealsRestricted = useMemo(() => {
+    if (form.category !== 'staff_meal') return false;
+    if (!isPrivileged) {
+      return Boolean(currentUserEmployee?.mealsDisabled || user?.mealsDisabled);
+    }
+    return Boolean(selectedEmployeeObj?.mealsDisabled);
+  }, [form.category, isPrivileged, currentUserEmployee, user, selectedEmployeeObj]);
+
   // Allowed product IDs for the selected employee:
   // null = all menu products permitted (no quota restriction)
   // Set with IDs = restricted strictly to these products
   // empty Set = 0 allowed products configured (staff cannot order without admin quota)
   const allowedProductIds = useMemo(() => {
     if (form.category !== 'staff_meal') return null;
+    if (isMealsRestricted) return new Set();
 
     if (!isPrivileged) {
       const empList = Array.isArray(currentUserEmployee?.allowedProducts) ? currentUserEmployee.allowedProducts : [];
@@ -259,12 +270,15 @@ export default function Consumption() {
     const list = selectedEmployeeObj.allowedProducts;
     if (!Array.isArray(list) || list.length === 0) return null;
     return new Set(list.map(p => (typeof p === 'object' && p !== null ? String(p._id) : String(p))));
-  }, [form.category, selectedEmployeeObj, isPrivileged, currentUserEmployee, user]);
+  }, [form.category, isMealsRestricted, selectedEmployeeObj, isPrivileged, currentUserEmployee, user]);
 
   // Available products: strictly filtered to allowed meal products
   const availableProducts = useMemo(() => {
     if (form.category !== 'staff_meal') {
       return products;
+    }
+    if (isMealsRestricted) {
+      return [];
     }
     if (!isPrivileged) {
       // Non-privileged staff: if no allowed products configured, return empty list!
@@ -278,7 +292,7 @@ export default function Consumption() {
       return products;
     }
     return products.filter(p => allowedProductIds.has(String(p._id)));
-  }, [products, form.category, allowedProductIds, isPrivileged]);
+  }, [products, form.category, isMealsRestricted, allowedProductIds, isPrivileged]);
 
   // ── Calculate today's staff meal consumption for currently selected employee / user ──
   const todayEmployeeConsumption = useMemo(() => {
@@ -438,6 +452,7 @@ export default function Consumption() {
     const empId = targetEmp?._id || '';
     setSelectedEmpForQuotaId(empId);
     setSelectedProductIdsForQuota(new Set((targetEmp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+    setQuotaMealsDisabled(Boolean(targetEmp?.mealsDisabled));
     setQuotaDailyMealLimit(Number(targetEmp?.dailyMealLimit) || 1);
     const limits = {};
     (targetEmp?.mealLimits || []).forEach(ml => {
@@ -451,6 +466,7 @@ export default function Consumption() {
   };
 
   const handleToggleProductForQuota = (prodId) => {
+    setQuotaMealsDisabled(false);
     setSelectedProductIdsForQuota(prev => {
       const next = new Set(prev);
       if (next.has(prodId)) next.delete(prodId);
@@ -468,6 +484,7 @@ export default function Consumption() {
   }, [products, quotaCategoryFilter, quotaSearchQuery]);
 
   const handleSelectAllShownProducts = () => {
+    setQuotaMealsDisabled(false);
     setSelectedProductIdsForQuota(prev => {
       const next = new Set(prev);
       filteredQuotaProducts.forEach(p => next.add(p._id));
@@ -476,6 +493,12 @@ export default function Consumption() {
   };
 
   const handleClearAllQuotaProducts = () => {
+    setQuotaMealsDisabled(false);
+    setSelectedProductIdsForQuota(new Set());
+  };
+
+  const handleRestrictAllMeals = () => {
+    setQuotaMealsDisabled(true);
     setSelectedProductIdsForQuota(new Set());
   };
 
@@ -485,17 +508,24 @@ export default function Consumption() {
     try {
       const targetEmp = employees.find(e => e._id === selectedEmpForQuotaId);
       const res = await api.put(`/employees/${selectedEmpForQuotaId}`, {
-        allowedProducts: Array.from(selectedProductIdsForQuota),
+        mealsDisabled: quotaMealsDisabled,
+        allowedProducts: quotaMealsDisabled ? [] : Array.from(selectedProductIdsForQuota),
         dailyMealLimit: Math.max(1, Number(quotaDailyMealLimit) || 1),
-        mealLimits: Array.from(selectedProductIdsForQuota).map(pId => ({
-          product: pId,
-          maxPerDay: Math.max(1, Number(productDailyLimits[pId]) || 1),
-        })),
+        mealLimits: quotaMealsDisabled
+          ? []
+          : Array.from(selectedProductIdsForQuota).map(pId => ({
+            product: pId,
+            maxPerDay: Math.max(1, Number(productDailyLimits[pId]) || 1),
+          })),
       });
       const updatedEmp = res.data;
       setEmployees(prev => prev.map(e => e._id === selectedEmpForQuotaId ? updatedEmp : e));
       const empName = `${targetEmp?.firstName || ''} ${targetEmp?.lastName || ''}`.trim() || 'Employee';
-      setSuccessToast(`🍽️ Allowed meal quota for ${empName} saved! (Limit: ${quotaDailyMealLimit}/day, ${selectedProductIdsForQuota.size} allowed items)`);
+      setSuccessToast(
+        quotaMealsDisabled
+          ? `🚫 Staff meals restricted (Not allowed all meals) for ${empName}!`
+          : `🍽️ Allowed meal quota for ${empName} saved! (Limit: ${quotaDailyMealLimit}/day, ${selectedProductIdsForQuota.size} allowed items)`
+      );
       setAllowedMealsModalOpen(false);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save allowed meals.');
@@ -508,6 +538,12 @@ export default function Consumption() {
     setSubmitting(true);
     setFormError('');
     try {
+      if (isMealsRestricted) {
+        setFormError(`Not allowed: Staff meals are restricted for ${form.beneficiary || 'this employee'} (Not Allowed All Meals).`);
+        setSubmitting(false);
+        return;
+      }
+
       if (!isPrivileged && form.category === 'staff_meal' && availableProducts.length === 0) {
         setFormError('No allowed staff meals have been configured for your account. Please ask an Admin or Developer to assign your meals first.');
         setSubmitting(false);
@@ -1180,7 +1216,28 @@ export default function Consumption() {
 
             {/* Allowed Meal Quota Banner */}
             {form.category === 'staff_meal' && (
-              !isPrivileged && (!allowedProductIds || allowedProductIds.size === 0) ? (
+              isMealsRestricted ? (
+                <div className="p-3 rounded-xl border border-red-300 bg-red-50 text-red-900 text-xs flex items-start justify-between gap-2.5 mb-2.5 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <Ban size={17} className="text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Not Allowed All Meals (Restricted Employee)</p>
+                      <p className="text-red-800 text-[11px] mt-0.5">
+                        Staff meals are disabled for <strong>{selectedEmployeeObj ? `${selectedEmployeeObj.firstName || ''} ${selectedEmployeeObj.lastName || ''}`.trim() : (form.beneficiary || 'this employee')}</strong>. They cannot order staff meals in Consumption.
+                      </p>
+                    </div>
+                  </div>
+                  {canManageStaffMeals && (
+                    <button
+                      type="button"
+                      onClick={() => openAllowedMealsModal(form.beneficiary)}
+                      className="text-[10.5px] font-bold bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <Settings2 size={11} /> Edit Quota
+                    </button>
+                  )}
+                </div>
+              ) : !isPrivileged && (!allowedProductIds || allowedProductIds.size === 0) ? (
                 <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-xs flex items-start gap-2.5 mb-2.5 shadow-2xs">
                   <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
                   <div>
@@ -1535,6 +1592,7 @@ export default function Consumption() {
                 setSelectedEmpForQuotaId(empId);
                 const emp = employees.find(x => x._id === empId);
                 setSelectedProductIdsForQuota(new Set((emp?.allowedProducts || []).map(p => typeof p === 'object' && p !== null ? p._id : p)));
+                setQuotaMealsDisabled(Boolean(emp?.mealsDisabled));
                 setQuotaDailyMealLimit(Number(emp?.dailyMealLimit) || 1);
                 const limits = {};
                 (emp?.mealLimits || []).forEach(ml => {
@@ -1547,7 +1605,7 @@ export default function Consumption() {
             >
               {employees.map(e => (
                 <option key={e._id} value={e._id}>
-                  {e.firstName} {e.lastName} ({[e.department, e.position].filter(Boolean).join(' • ') || 'Staff'}) — {(e.allowedProducts?.length || 0)} allowed items
+                  {e.firstName} {e.lastName} ({[e.department, e.position].filter(Boolean).join(' • ') || 'Staff'}) — {e.mealsDisabled ? '🚫 Not Allowed All Meals' : `${(e.allowedProducts?.length || 0)} allowed items`}
                 </option>
               ))}
             </select>
@@ -1616,7 +1674,7 @@ export default function Consumption() {
                 )}
               </div>
 
-              {/* Quick action buttons: Select All Filtered / Clear All */}
+              {/* Quick action buttons: Select All Filtered / Clear All / Not Allowed All Meals */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
@@ -1632,8 +1690,35 @@ export default function Consumption() {
                 >
                   Clear All
                 </button>
+                <button
+                  type="button"
+                  onClick={handleRestrictAllMeals}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer ${quotaMealsDisabled
+                    ? 'bg-red-600 border-red-600 text-white shadow-2xs'
+                    : 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
+                    }`}
+                  title="Block all staff meals for this restricted employee"
+                >
+                  <Ban size={11} /> Not Allowed All Meals
+                </button>
               </div>
             </div>
+
+            {quotaMealsDisabled && (
+              <div className="rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs font-semibold text-red-800 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Ban size={14} className="text-red-600 shrink-0" />
+                  Not Allowed All Meals is active — this employee will be blocked from all staff meals.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuotaMealsDisabled(false)}
+                  className="text-[11px] font-bold underline text-red-900 hover:text-red-950 shrink-0 cursor-pointer"
+                >
+                  Allow Meals
+                </button>
+              </div>
+            )}
 
             {/* Category Filter Pills */}
             <div className="flex flex-wrap items-center gap-1">
@@ -1722,7 +1807,11 @@ export default function Consumption() {
           {/* Summary & Save Footer */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-ink-100">
             <div className="text-xs text-ink-600">
-              <span className="font-bold text-indigo-700">{selectedProductIdsForQuota.size}</span> items selected for staff allowance
+              {quotaMealsDisabled ? (
+                <span className="font-bold text-red-600">🚫 Not Allowed All Meals (Restricted)</span>
+              ) : (
+                <><span className="font-bold text-indigo-700">{selectedProductIdsForQuota.size}</span> items selected for staff allowance</>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
