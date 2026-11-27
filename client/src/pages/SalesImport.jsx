@@ -40,6 +40,29 @@ function extractRowAmount(row, preferredCol) {
   return 0;
 }
 
+const normCnetCode = (c) =>
+  String(c || '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .trim()
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/-+$/, '')
+    .toLowerCase();
+
+const compactCnetCode = (c) => normCnetCode(c).replace(/[^a-z0-9]/g, '');
+
+const normCnetName = (n) =>
+  String(n || '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/&/g, ' and ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[-–—_.,:;]+$/g, '')
+    .trim()
+    .toLowerCase();
+
 /* ─────────────────────────────────────────────────────────────────────
    CNET / NOBIR POS Excel format detector + parser
    Columns: Article Code | Article Name | Quantity | Avg Amount | Total Amount
@@ -47,7 +70,7 @@ function extractRowAmount(row, preferredCol) {
    Also extracts financial summary: Sub Total, Add Charge, Discount, Total Tax, Grand Total.
 ───────────────────────────────────────────────────────────────────────── */
 function parseCnetPosSheet(rawRows) {
-  // Find the header row: must contain both "Article Code" and "Article Name"
+  // Find the header row: must contain both "Article Code" and "Article Name" (or Item Code / Item Name)
   let headerIdx = -1;
   let colMap = {};
 
@@ -55,40 +78,37 @@ function parseCnetPosSheet(rawRows) {
     const row = rawRows[i];
     const keys = Object.keys(row).map(k => String(k).trim());
     const vals = Object.values(row).map(v => String(v || '').trim().toLowerCase());
-    // Look for the header in values (sheet_to_json with header:1 style) or keys
     const allText = [...keys, ...vals];
     if (
-      allText.some(t => /article.?code/i.test(t)) &&
-      allText.some(t => /article.?name/i.test(t))
+      allText.some(t => /(article|item|product).?code|^code$|^plu$/i.test(t)) &&
+      allText.some(t => /(article|item|product).?name/i.test(t))
     ) {
       headerIdx = i;
-      // Map column keys → our field names
       for (const k of Object.keys(row)) {
         const v = String(row[k] || '').trim().toLowerCase();
-        if (/article.?code/i.test(v) || /article.?code/i.test(k)) colMap.code = k;
-        if (/article.?name/i.test(v) || /article.?name/i.test(k)) colMap.name = k;
-        if (/^quantity$/i.test(v) || /^quantity$/i.test(k)) colMap.qty = k;
-        if (/avg.?amount/i.test(v) || /avg.?amount/i.test(k)) colMap.avgAmt = k;
-        if (/total.?amount/i.test(v) || /total.?amount/i.test(k)) colMap.totalAmt = k;
+        const kl = String(k || '').trim().toLowerCase();
+        if (/(article|item|product).?code|^code$|^plu$/i.test(v) || /(article|item|product).?code/i.test(kl)) colMap.code = k;
+        if (/(article|item|product).?name/i.test(v) || /(article|item|product).?name/i.test(kl)) colMap.name = k;
+        if (/^(quantity|qty|sold.?qty|sales.?qty)$/i.test(v) || /^(quantity|qty|sold.?qty|sales.?qty)$/i.test(kl)) colMap.qty = k;
+        if (/avg.?amount|unit.?price|^rate$|^price$/i.test(v) || /avg.?amount|unit.?price/i.test(kl)) colMap.avgAmt = k;
+        if (/total.?amount|net.?amount|^total$/i.test(v) || /total.?amount|net.?amount/i.test(kl)) colMap.totalAmt = k;
       }
       break;
     }
   }
-  // If we didn't find the header row inside the data rows, it might BE the column keys
-  // (sheet_to_json uses first row as keys by default)
   if (headerIdx === -1 && rawRows.length > 0) {
     const keys = Object.keys(rawRows[0]);
     if (
-      keys.some(k => /article.?code/i.test(k)) &&
-      keys.some(k => /article.?name/i.test(k))
+      keys.some(k => /(article|item|product).?code/i.test(k)) &&
+      keys.some(k => /(article|item|product).?name/i.test(k))
     ) {
-      headerIdx = -1; // data starts from row 0, colMap built from keys
+      headerIdx = -1;
       for (const k of keys) {
-        if (/article.?code/i.test(k)) colMap.code = k;
-        if (/article.?name/i.test(k)) colMap.name = k;
-        if (/quantity/i.test(k)) colMap.qty = k;
-        if (/avg.?amount/i.test(k)) colMap.avgAmt = k;
-        if (/total.?amount/i.test(k)) colMap.totalAmt = k;
+        if (/(article|item|product).?code/i.test(k)) colMap.code = k;
+        if (/(article|item|product).?name/i.test(k)) colMap.name = k;
+        if (/quantity|qty/i.test(k)) colMap.qty = k;
+        if (/avg.?amount|unit.?price/i.test(k)) colMap.avgAmt = k;
+        if (/total.?amount|net.?amount/i.test(k)) colMap.totalAmt = k;
       }
     }
   }
@@ -101,24 +121,19 @@ function parseCnetPosSheet(rawRows) {
   const parsed = [];
   for (const row of dataRows) {
     const rawCode = String(row[colMap.code] || '').trim();
-    const name = String(row[colMap.name] || '').trim();
+    const name = String(row[colMap.name] || '').trim().replace(/\s+/g, ' ');
     const qty = parseSafeNum(row[colMap.qty]);
     const avgAmt = parseSafeNum(row[colMap.avgAmt]);
     const totalAmt = parseSafeNum(row[colMap.totalAmt]);
 
-    // ── STRICT PRODUCT CODE REQUIRED ───────────────────────────────
-    // Category subtotal rows (BEVERAGES, SOFT DRINKS, LUNCH & DINNER, etc.)
-    // always have an empty or dash Article Code.  Real product lines always
-    // have a code like P-0080.  Reject anything without a proper code.
-    const isRealCode = rawCode && !/^[-–—]+$/.test(rawCode); // not empty, not just dashes
+    // Category subtotal rows always have empty or dash Article Code
+    const isRealCode = rawCode && !/^[-–—]+$/.test(rawCode);
     if (!isRealCode) continue;
 
-    const code = rawCode.replace(/-+$/, ''); // strip trailing dashes (e.g. "p-00107-" → "p-00107")
+    const code = rawCode.replace(/\s*-\s*/g, '-').replace(/-+$/, '').trim();
 
-    // Skip summary / footer rows regardless
     if (/^(sub[\s-]?total|grand[\s-]?total|total[\s-]?tax|add[\s-]?charge|discount|erp\s|page\s|count:)/i.test(name)) continue;
 
-    // Must have qty > 0 to be a real sold line
     if (qty <= 0) continue;
 
     parsed.push({ code, name, qty, avgAmt, totalAmt });
@@ -753,16 +768,88 @@ export default function SalesImport() {
         )}
 
         {/* ── 2a. CNET Auto-detected Preview ── */}
-        {fileData && parsed && isCnetFmt && !result?.success && (
+        {fileData && parsed && isCnetFmt && !result?.success && (() => {
+          const prodByCode = new Map();
+          const prodByCompact = new Map();
+          const prodByName = new Map();
+          for (const p of products) {
+            const nc = normCnetCode(p.code);
+            const cc = compactCnetCode(p.code);
+            const nn = normCnetName(p.name);
+            if (nc) prodByCode.set(nc, p);
+            if (cc && !prodByCompact.has(cc)) prodByCompact.set(cc, p);
+            if (nn) prodByName.set(nn, p);
+          }
+
+          let exactCnt = 0;
+          let diffCnt = 0;
+          let unmatchedCnt = 0;
+          const previewRows = parsed.rows.map((row) => {
+            const nc = normCnetCode(row.code);
+            const cc = compactCnetCode(row.code);
+            const nn = normCnetName(row.name);
+            const byCode = (nc && prodByCode.get(nc)) || (cc && prodByCompact.get(cc)) || null;
+            const byName = (nn && prodByName.get(nn)) || null;
+            let status = 'unmatched';
+            let matched = null;
+            let note = '';
+            if (byCode && byName && byCode._id === byName._id) {
+              status = 'exact';
+              matched = byCode;
+              exactCnt++;
+            } else if (byCode) {
+              matched = byCode;
+              if (nn && normCnetName(byCode.name) !== nn) {
+                status = 'diff';
+                note = `System name: "${byCode.name}"`;
+                diffCnt++;
+              } else {
+                status = 'exact';
+                exactCnt++;
+              }
+            } else if (byName) {
+              matched = byName;
+              if (nc && normCnetCode(byName.code) !== nc) {
+                status = 'diff';
+                note = `System code: "${byName.code || '—'}"`;
+                diffCnt++;
+              } else {
+                status = 'exact';
+                exactCnt++;
+              }
+            } else {
+              unmatchedCnt++;
+            }
+            return { ...row, status, matched, note };
+          });
+
+          return (
           <div className="space-y-5">
-            <div className="flex items-center justify-between border-b border-ink-100 pb-4">
-              <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 pb-4">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-300">
                   <Zap size={12} /> Standard POS Format Auto-Detected
                 </span>
                 <span className="text-sm font-semibold text-ink-700">
-                  {parsed.rows.length} product lines ready to import
+                  {parsed.rows.length} product lines
                 </span>
+                {products.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-0.5">
+                      ✓ {exactCnt} Exact Match
+                    </span>
+                    {diffCnt > 0 && (
+                      <span className="rounded-full bg-amber-50 border border-amber-300 text-amber-800 px-2.5 py-0.5">
+                        ⚠ {diffCnt} Name/Code Differ
+                      </span>
+                    )}
+                    {unmatchedCnt > 0 && (
+                      <span className="rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-0.5">
+                        ✕ {unmatchedCnt} Not Found
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <button onClick={resetAll} className="text-xs text-red-600 font-semibold hover:underline">
                 Cancel / Upload Different File
@@ -770,24 +857,42 @@ export default function SalesImport() {
             </div>
 
             {/* Parsed preview table */}
-            <div className="overflow-x-auto rounded-xl border border-ink-200 shadow-xs max-h-72">
+            <div className="overflow-x-auto rounded-xl border border-ink-200 shadow-xs max-h-80">
               <table className="min-w-full text-xs divide-y divide-ink-100">
                 <thead className="bg-ink-100/80 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left font-bold text-ink-700">#</th>
                     <th className="px-3 py-2 text-left font-bold text-ink-700">Article Code</th>
                     <th className="px-3 py-2 text-left font-bold text-ink-700">Article Name</th>
+                    <th className="px-3 py-2 text-left font-bold text-ink-700">System Match</th>
                     <th className="px-3 py-2 text-right font-bold text-ink-700">Qty</th>
                     <th className="px-3 py-2 text-right font-bold text-ink-700">Avg Amount (ETB)</th>
                     <th className="px-3 py-2 text-right font-bold text-ink-700">Total Amount (ETB)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-50 text-ink-700">
-                  {parsed.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-blue-50/20">
+                  {previewRows.map((row, i) => (
+                    <tr key={i} className={`hover:bg-blue-50/20 ${row.status === 'diff' ? 'bg-amber-50/40' : row.status === 'unmatched' ? 'bg-rose-50/30' : ''}`}>
                       <td className="px-3 py-1.5 text-ink-400 font-mono text-[11px]">{i + 1}</td>
                       <td className="px-3 py-1.5 font-mono text-blue-700 font-semibold">{row.code || '—'}</td>
                       <td className="px-3 py-1.5 font-semibold text-ink-900">{row.name}</td>
+                      <td className="px-3 py-1.5 text-[11px]">
+                        {row.status === 'exact' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 font-bold">
+                            ✓ Matched
+                          </span>
+                        )}
+                        {row.status === 'diff' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 font-semibold">
+                            ⚠ {row.note}
+                          </span>
+                        )}
+                        {row.status === 'unmatched' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 font-semibold">
+                            Not Found
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-1.5 text-right tabular">{row.qty}</td>
                       <td className="px-3 py-1.5 text-right tabular text-ink-600">{row.avgAmt.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-3 py-1.5 text-right tabular font-semibold text-blue-700">{row.totalAmt.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
@@ -797,7 +902,7 @@ export default function SalesImport() {
                 <tfoot className="bg-ink-50/90 text-xs border-t-2 border-ink-200 divide-y divide-ink-200/60 font-medium">
                   {/* Total sold items count & line sum */}
                   <tr className="bg-ink-100/70 font-semibold text-ink-900">
-                    <td colSpan={3} className="px-3 py-2 font-bold text-ink-900">
+                    <td colSpan={4} className="px-3 py-2 font-bold text-ink-900">
                       Total ({parsed.rows.length} items)
                     </td>
                     <td className="px-3 py-2 text-right tabular font-bold text-ink-900">
@@ -811,7 +916,7 @@ export default function SalesImport() {
 
                   {/* Financial Breakdown Section (Sub Total, Add Charge, Discount, Total Tax, Grand Total) */}
                   <tr className="bg-white/80">
-                    <td colSpan={4} className="px-3 py-1.5 text-right font-semibold text-ink-700">
+                    <td colSpan={5} className="px-3 py-1.5 text-right font-semibold text-ink-700">
                       Sub Total:
                     </td>
                     <td className="px-3 py-1.5 text-right text-ink-400">—</td>
@@ -821,7 +926,7 @@ export default function SalesImport() {
                   </tr>
 
                   <tr className="bg-white/80">
-                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-amber-700">
+                    <td colSpan={5} className="px-3 py-1.5 text-right font-medium text-amber-700">
                       + Add Charge (Service Charge):
                     </td>
                     <td className="px-3 py-1.5 text-right text-ink-400">—</td>
@@ -831,7 +936,7 @@ export default function SalesImport() {
                   </tr>
 
                   <tr className="bg-white/80">
-                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-purple-700">
+                    <td colSpan={5} className="px-3 py-1.5 text-right font-medium text-purple-700">
                       - Discount:
                     </td>
                     <td className="px-3 py-1.5 text-right text-ink-400">—</td>
@@ -841,7 +946,7 @@ export default function SalesImport() {
                   </tr>
 
                   <tr className="bg-white/80">
-                    <td colSpan={4} className="px-3 py-1.5 text-right font-medium text-blue-700">
+                    <td colSpan={5} className="px-3 py-1.5 text-right font-medium text-blue-700">
                       + Total Tax (VAT):
                     </td>
                     <td className="px-3 py-1.5 text-right text-ink-400">—</td>
@@ -851,7 +956,7 @@ export default function SalesImport() {
                   </tr>
 
                   <tr className="bg-emerald-50/90 border-t-2 border-emerald-300 font-extrabold text-emerald-950">
-                    <td colSpan={4} className="px-3 py-2 text-right uppercase tracking-wider text-emerald-900 text-xs">
+                    <td colSpan={5} className="px-3 py-2 text-right uppercase tracking-wider text-emerald-900 text-xs">
                       Grand Total:
                     </td>
                     <td className="px-3 py-2 text-right text-emerald-600">—</td>
@@ -869,10 +974,10 @@ export default function SalesImport() {
               <div>
                 <p className="font-bold text-blue-950">How this import works</p>
                 <ul className="mt-1 space-y-0.5 text-blue-800 list-disc pl-4">
-                  <li><strong>Article Code</strong> is matched against your Product codes first, then by name.</li>
+                  <li><strong>Article Code</strong> and <strong>Article Name</strong> are matched strictly by exact normalized code/name (no accidental partial matches).</li>
                   <li>Matched products with recipes → ingredients deducted from stock automatically.</li>
                   <li><strong>Total Amount</strong> is used as the line revenue; <strong>Avg Amount</strong> as the unit selling price.</li>
-                  <li>Unmatched items are recorded but don't affect stock.</li>
+                  <li>Unmatched items are recorded without affecting stock.</li>
                 </ul>
               </div>
             </div>
@@ -888,7 +993,8 @@ export default function SalesImport() {
               </Button>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── 2b. Generic Manual Column Mapping (fallback) ── */}
         {fileData && !isCnetFmt && !result?.success && (
@@ -1005,6 +1111,23 @@ export default function SalesImport() {
                 <button onClick={() => setTelegramNotice('')} className="text-emerald-700 hover:text-emerald-950 p-1">
                   <X size={14} />
                 </button>
+              </div>
+            )}
+
+            {/* CNET vs System Name/Code difference alert */}
+            {result.data?.mismatches?.length > 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs shadow-xs">
+                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-amber-900">
+                    {result.data.mismatches.length} item(s) matched with a Code or Name difference between CNET Excel and your system:
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5 text-[11px] font-mono text-amber-900 max-h-28 overflow-y-auto">
+                    {result.data.mismatches.slice(0, 20).map((m, idx) => (
+                      <li key={idx}>• {m.warning}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
 

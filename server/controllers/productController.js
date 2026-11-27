@@ -10,6 +10,7 @@ const { uploadBufferToGridFS, saveLocalCache } = require('../utils/gridfs');
 const { generateAndSaveProductImage } = require('../utils/aiImageService');
 const { logActivity } = require('../utils/activityLogger');
 const { convertUnit } = require('../utils/unitConverter');
+const { normalizeCode, normalizeName, buildLookupMaps, matchCatalogItem } = require('../utils/cnetMatcher');
 
 // ── Pricing helper — applies settings-based adjustments to recipe cost ──
 // Returns full cost breakdown:
@@ -472,23 +473,71 @@ const exportProductsExcel = asyncHandler(async (req, res) => {
 });
 
 // POST /api/products/import/excel
-// Accepts the Baba Roti  Caféformat:
-// Code | Name | UOM | Child Category | Parent Category | Default Value | Default Tax | Created On | State
+// Accepts Baba Roti export format AND CNET Excel format:
+// Code / Article Code | Name / Article Name | UOM / Unit | Child Category / Category | Parent Category | Default Value / Selling Price / Avg Amount | Description
 const importProductsExcel = asyncHandler(async (req, res) => {
   if (!req.file) { res.status(400); throw new Error('No file uploaded'); }
 
   const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  let rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-  // Pre-filter valid rows — only skip truly empty names and the "Count:" summary row
-  const validRows = rows.filter(row => {
-    const name = String(row['Name'] || row['Product Name'] || '').trim();
+  const pickCell = (row, candidates) => {
+    const keys = Object.keys(row || {});
+    for (const c of candidates) {
+      const cleanC = c.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const k = keys.find((key) => String(key).toLowerCase().replace(/[^a-z0-9]/g, '') === cleanC);
+      if (k !== undefined && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+        return { value: row[k], present: true };
+      }
+    }
+    const anyHeader = keys.some((key) => {
+      const cleanKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+      return candidates.some((c) => c.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey);
+    });
+    return { value: '', present: anyHeader };
+  };
+
+  const nameKeys = ['Name', 'Article Name', 'Product Name', 'Item Name', 'Description'];
+  const codeKeys = ['Code', 'Article Code', 'Item Code', 'Product Code', 'SKU', 'PLU'];
+  const uomKeys = ['UOM', 'Unit', 'Base Unit', 'Unit of Measure', 'Measure'];
+  const catKeys = ['Child Category', 'Category', 'Article Group', 'Sub Category', 'Group'];
+  const parentCatKeys = ['Parent Category', 'Department', 'Main Category', 'Parent Group'];
+  const priceKeys = ['Default Value', 'Selling Price', 'Avg Amount', 'Unit Price', 'Sales Price', 'Price', 'Rate'];
+  const descKeys = ['Description', 'Notes'];
+
+  // Scan top 15 rows if CNET report has title/banner rows before the actual header row
+  const firstHasName = rows.some((r) => pickCell(r, nameKeys).value);
+  if (!firstHasName && ws) {
+    const rawGrid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rawGrid.length, 15); i++) {
+      const r = rawGrid[i];
+      if (Array.isArray(r) && r.some((cell) => /article.?name|article.?code|product.?name|\bname\b/i.test(String(cell || '')))) {
+        headerIdx = i;
+        break;
+      }
+    }
+    if (headerIdx !== -1 && headerIdx < rawGrid.length - 1) {
+      const headers = rawGrid[headerIdx].map((h) => String(h || '').trim());
+      rows = rawGrid.slice(headerIdx + 1).map((r) => {
+        const obj = {};
+        headers.forEach((h, idx) => { if (h) obj[h] = r[idx] ?? ''; });
+        return obj;
+      });
+    }
+  }
+
+  // Pre-filter valid rows — skip empty names, category/subtotal rows, and header repeats
+  const validRows = rows.filter((row) => {
+    const name = String(pickCell(row, nameKeys).value || '').trim();
+    const codeRaw = String(pickCell(row, codeKeys).value || '').trim();
     if (!name) return false;
-    // Skip the Excel summary row "Count: 203" etc.
-    if (/^Count:/i.test(name)) return false;
-    // Skip rows where Name is literally a header repeat
-    if (name.toLowerCase() === 'name') return false;
+    if (/^(count:|sub[\s-]?total|grand[\s-]?total|total[\s-]?tax|add[\s-]?charge|discount|erp\s|page\s)/i.test(name)) return false;
+    if (/^(name|article name|product name)$/i.test(name)) return false;
+    // In CNET sheets that have an Article Code column, skip category sub-header rows with blank/dash codes
+    const hasCodeCol = Object.keys(row).some((k) => /article.?code/i.test(k));
+    if (hasCodeCol && (!codeRaw || /^[-–—]+$/.test(codeRaw))) return false;
     return true;
   });
 
@@ -508,80 +557,102 @@ const importProductsExcel = asyncHandler(async (req, res) => {
 
   send({ type: 'start', total });
 
-  // Track which DB _ids have already been updated in THIS import run.
-  // If the same _id is matched again (duplicate row in Excel), we create a NEW product.
+  // Pre-load all products so matching by Code & Name never creates duplicates or drifts
+  const allProducts = await Product.find({}).lean();
+  const productMaps = buildLookupMaps(allProducts);
   const processedIds = new Set();
 
   for (let i = 0; i < validRows.length; i++) {
     const row = validRows[i];
 
-    const name = String(row['Name'] || row['Product Name'] || '').trim();
-    // Normalize code — strip trailing dashes/spaces (source system quirk)
-    const code = String(row['Code'] || '').trim().replace(/-+$/, '');
+    const name = String(pickCell(row, nameKeys).value || '').trim().replace(/\s+/g, ' ');
+    const rawCodeVal = String(pickCell(row, codeKeys).value || '').trim();
+    const code = /^[-–—]+$/.test(rawCodeVal) ? '' : rawCodeVal.replace(/-+$/, '').trim();
 
-    const data = {
-      name,
-      code,
-      uom: String(row['UOM'] || 'Pcs').trim(),
-      category: String(row['Child Category'] || row['Category'] || 'General').trim(),
-      parentCategory: String(row['Parent Category'] || 'FOOD').trim(),
-      sellingPrice: Number(row['Default Value'] ?? row['Selling Price'] ?? 0) || 0,
-      description: String(row['Description'] || '').trim(),
-    };
+    const uomCell = pickCell(row, uomKeys);
+    const catCell = pickCell(row, catKeys);
+    const parentCell = pickCell(row, parentCatKeys);
+    const priceCell = pickCell(row, priceKeys);
+    const descCell = pickCell(row, descKeys);
+
+    const parsedPrice = Number(String(priceCell.value ?? '').replace(/,/g, '').trim());
+    const hasValidPrice = priceCell.present && String(priceCell.value ?? '').trim() !== '' && !isNaN(parsedPrice);
 
     try {
-      let existing = null;
+      const match = matchCatalogItem(productMaps, { code, name });
+      let existing = match.item ? await Product.findById(match.item._id) : null;
 
-      // 1️⃣ Match by normalized Code (exact, case-insensitive)
-      if (code) {
-        const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Also try matching the code with trailing dash (stored format)
-        existing = await Product.findOne({
-          code: { $regex: `^${escapedCode}-?$`, $options: 'i' },
+      // Never allow code matching one product while name matches a different existing product
+      if (match.nameConflictItem) {
+        errors.push(`Row ${i + 1} "${name}" (${code}): ${match.mismatchWarning} Skipped to prevent mismatch.`);
+        skipped++;
+        send({
+          type: 'progress',
+          current: i + 1,
+          total,
+          percent: Math.round(((i + 1) / total) * 100),
+          created,
+          updated,
+          skipped,
         });
-        // Only use this match if it hasn't been processed already
-        if (existing && processedIds.has(existing._id.toString())) {
-          existing = null; // Force create — this DB record was already updated this run
-        }
-      }
-
-      // 2️⃣ Fall back to exact name match (only if no code match)
-      if (!existing) {
-        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const byName = await Product.findOne({ name: { $regex: `^${escapedName}$`, $options: 'i' } });
-        // Only use name match if this record hasn't been updated yet this run
-        if (byName && !processedIds.has(byName._id.toString())) {
-          existing = byName;
-        }
+        continue;
       }
 
       if (existing) {
-        // Update existing record — preserve ingredients
-        existing.name = data.name;
-        existing.code = data.code || existing.code;
-        existing.uom = data.uom;
-        existing.category = data.category;
-        existing.parentCategory = data.parentCategory;
-        existing.sellingPrice = data.sellingPrice;
-        existing.description = data.description || existing.description;
-        existing.isActive = true;
-        existing.updatedBy = req.user?._id || null;
-        existing.updatedByName = req.user?.name || 'System';
-        existing.updatedByRole = req.user?.role || '';
-        if (!existing.registrationSource) existing.registrationSource = 'excel_import';
-        await existing.save();
-        processedIds.add(existing._id.toString()); // Mark as processed
-        updated++;
+        // Duplicate row inside the same Excel sheet — merge/skip without creating a duplicate product
+        if (processedIds.has(existing._id.toString())) {
+          skipped++;
+        } else {
+          // Preserve existing code/name/uom/category/price if Excel didn't supply them
+          existing.name = name || existing.name;
+          if (code && (!existing.code || normalizeCode(existing.code) === normalizeCode(code))) {
+            existing.code = code;
+          }
+          if (uomCell.present && String(uomCell.value).trim()) {
+            existing.uom = String(uomCell.value).trim();
+          }
+          if (catCell.present && String(catCell.value).trim()) {
+            existing.category = String(catCell.value).trim();
+          }
+          if (parentCell.present && String(parentCell.value).trim()) {
+            existing.parentCategory = String(parentCell.value).trim();
+          }
+          if (hasValidPrice) {
+            existing.sellingPrice = parsedPrice;
+          }
+          if (descCell.present && String(descCell.value).trim() && String(descCell.value).trim() !== name) {
+            existing.description = String(descCell.value).trim();
+          }
+          existing.isActive = true;
+          existing.updatedBy = req.user?._id || null;
+          existing.updatedByName = req.user?.name || 'System';
+          existing.updatedByRole = req.user?.role || '';
+          if (!existing.registrationSource) existing.registrationSource = 'excel_import';
+          await existing.save();
+          processedIds.add(existing._id.toString());
+          updated++;
+        }
       } else {
-        // No match found (or already updated this run) — create a brand-new product
         const created_ = await Product.create({
-          ...data,
+          name,
+          code,
+          uom: (uomCell.present && String(uomCell.value).trim()) ? String(uomCell.value).trim() : 'Pcs',
+          category: (catCell.present && String(catCell.value).trim()) ? String(catCell.value).trim() : 'General',
+          parentCategory: (parentCell.present && String(parentCell.value).trim()) ? String(parentCell.value).trim() : 'FOOD',
+          sellingPrice: hasValidPrice ? parsedPrice : 0,
+          description: (descCell.present && String(descCell.value).trim() && String(descCell.value).trim() !== name)
+            ? String(descCell.value).trim()
+            : '',
           ingredients: [],
           createdBy: req.user?._id || null,
           createdByName: req.user?.name || 'System',
           createdByRole: req.user?.role || '',
           registrationSource: 'excel_import',
         });
+        const normC = normalizeCode(created_.code);
+        const normN = normalizeName(created_.name);
+        if (normC) productMaps.byCode.set(normC, created_);
+        if (normN) productMaps.byName.set(normN, created_);
         processedIds.add(created_._id.toString());
         created++;
       }

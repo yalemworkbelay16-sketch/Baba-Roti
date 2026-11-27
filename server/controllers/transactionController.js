@@ -10,6 +10,7 @@ const tg = require('../utils/telegramNotifier');
 const notify = require('../utils/notificationHelper');
 const { determineProductStation, determineMaterialStation } = require('../utils/stationHelper');
 const { convertUnit } = require('../utils/unitConverter');
+const { normalizeCode, normalizeName, buildLookupMaps, matchCatalogItem } = require('../utils/cnetMatcher');
 const Setting = require('../models/Setting');
 const { logActivity } = require('../utils/activityLogger');
 
@@ -679,32 +680,13 @@ const importSales = asyncHandler(async (req, res) => {
     Setting.findOne().lean(),
   ]);
 
-  // Build high-speed in-memory lookup maps (O(1) lookups instead of sequential DB queries)
+  // Build high-speed in-memory lookup maps (O(1) normalized exact matching)
   const rawMaterialById = new Map();
-  const rawMaterialByCode = new Map();
-  const rawMaterialByName = new Map();
-
   for (const mat of allRawMaterials) {
-    const idStr = String(mat._id);
-    rawMaterialById.set(idStr, mat);
-    if (mat.code) rawMaterialByCode.set(String(mat.code).trim().toLowerCase(), mat);
-    if (mat.name) rawMaterialByName.set(String(mat.name).trim().toLowerCase(), mat);
+    rawMaterialById.set(String(mat._id), mat);
   }
-
-  const productByCode = new Map();
-  const productByName = new Map();
-
-  for (const p of allProducts) {
-    if (p.code) {
-      const trimmed = String(p.code).trim().toLowerCase();
-      productByCode.set(trimmed, p);
-      // Also index stripped code without trailing dashes (e.g. "P-0001-")
-      productByCode.set(trimmed.replace(/-+$/, ''), p);
-    }
-    if (p.name) {
-      productByName.set(String(p.name).trim().toLowerCase(), p);
-    }
-  }
+  const rawMaterialMaps = buildLookupMaps(allRawMaterials);
+  const productMaps = buildLookupMaps(allProducts);
 
   // Resolve best saleDate (either top-level, or from row timestamps, or current time)
   let resolvedSaleDate = saleDate ? new Date(saleDate) : null;
@@ -769,6 +751,7 @@ const importSales = asyncHandler(async (req, res) => {
   const saleLines = [];
   const allSoldProducts = [];
   const notFound = [];
+  const mismatches = [];
   const seenInBatch = new Set();
   let skippedDuplicates = 0;
   const skippedCodes = [];
@@ -782,11 +765,11 @@ const importSales = asyncHandler(async (req, res) => {
 
     // ── Validation: if code already imported before or duplicated within batch, jump it! ──
     const rawCode = codeStr;
-    const cleanCode = rawCode.toLowerCase();
+    const cleanCode = normalizeCode(rawCode);
     const isTxn = isUniqueTxnCode(codeStr);
 
     if (cleanCode) {
-      const isAlreadyImported = existingCodesSet.has(cleanCode);
+      const isAlreadyImported = existingCodesSet.has(cleanCode) || existingCodesSet.has(rawCode.toLowerCase());
       const isDupeInBatch = isTxn && seenInBatch.has(cleanCode);
 
       if (isAlreadyImported || isDupeInBatch) {
@@ -804,19 +787,16 @@ const importSales = asyncHandler(async (req, res) => {
     const price = Number(unitPrice) || 0;
     const lineIngredients = [];
 
-    const normCode = codeStr ? codeStr.toLowerCase().replace(/-+$/, '') : '';
-    const normName = nameStr ? nameStr.toLowerCase() : '';
-
-    // 1. Try to find in Product in-memory
-    let product = (normCode ? productByCode.get(normCode) : null) ||
-      (normName ? productByName.get(normName) : null);
-
-    // Fallback: in-memory partial match
-    if (!product && (normCode || normName)) {
-      product = allProducts.find(p => {
-        const pCode = p.code ? p.code.toLowerCase() : '';
-        const pName = p.name ? p.name.toLowerCase() : '';
-        return (normCode && pCode.includes(normCode)) || (normName && pName.includes(normName));
+    // 1. Strict normalized match in Products (no dangerous partial `.includes()`)
+    const prodResult = matchCatalogItem(productMaps, { code: codeStr, name: nameStr });
+    const product = prodResult.item;
+    if (product && prodResult.mismatchWarning) {
+      mismatches.push({
+        cnetCode: codeStr,
+        cnetName: nameStr,
+        matchedCode: product.code || '',
+        matchedName: product.name || '',
+        warning: prodResult.mismatchWarning,
       });
     }
 
@@ -885,15 +865,16 @@ const importSales = asyncHandler(async (req, res) => {
       continue;
     }
 
-    // 2. Try RawMaterial in-memory directly
-    let material = (normCode ? rawMaterialByCode.get(normCode) : null) ||
-      (normName ? rawMaterialByName.get(normName) : null);
-
-    if (!material && (normCode || normName)) {
-      material = allRawMaterials.find(m => {
-        const mCode = m.code ? m.code.toLowerCase() : '';
-        const mName = m.name ? m.name.toLowerCase() : '';
-        return (normCode && mCode.includes(normCode)) || (normName && mName.includes(normName));
+    // 2. Strict normalized match in RawMaterial directly (no dangerous partial `.includes()`)
+    const matResult = matchCatalogItem(rawMaterialMaps, { code: codeStr, name: nameStr });
+    const material = matResult.item;
+    if (material && matResult.mismatchWarning) {
+      mismatches.push({
+        cnetCode: codeStr,
+        cnetName: nameStr,
+        matchedCode: material.code || '',
+        matchedName: material.name || '',
+        warning: matResult.mismatchWarning,
       });
     }
 
@@ -1139,6 +1120,7 @@ const importSales = asyncHandler(async (req, res) => {
     summary: summaryPayload,
     items: allSoldProducts,
     unmatchedProducts: notFound,
+    mismatches,
   });
 });
 

@@ -1614,7 +1614,25 @@ export default function Settings() {
                     min={0}
                     max={100}
                     value={systemForm.serviceChargeRate}
-                    onChange={(e) => setSystemForm({ ...systemForm, serviceChargeRate: Number(e.target.value) })}
+                    onChange={(e) => {
+                      if (e.target.value === '') {
+                        setSystemForm({ ...systemForm, serviceChargeRate: '' });
+                        return;
+                      }
+                      const num = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                      const prevRate = Number(systemForm.serviceChargeRate) || 0;
+                      const prevPresets = Array.isArray(systemForm.serviceChargePresets) ? systemForm.serviceChargePresets : [10, 15];
+                      const nextPresets = Array.from(new Set([
+                        ...prevPresets.filter((p) => p !== prevRate || p === num),
+                        ...(num > 0 ? [num] : []),
+                      ])).sort((a, b) => a - b);
+                      setSystemForm({
+                        ...systemForm,
+                        enableServiceCharge: num > 0,
+                        serviceChargeRate: num,
+                        serviceChargePresets: nextPresets.length > 0 ? nextPresets : [10],
+                      });
+                    }}
                     className="w-full rounded-xl border border-ink-200 py-2.5 px-3 text-sm outline-none focus:border-blue-500"
                   />
                 </div>
@@ -4508,7 +4526,15 @@ export default function Settings() {
                     <input
                       type="checkbox"
                       checked={systemForm.enableServiceCharge}
-                      onChange={(e) => setSystemForm({ ...systemForm, enableServiceCharge: e.target.checked })}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const rate = Number(systemForm.serviceChargeRate) || 0;
+                        setSystemForm({
+                          ...systemForm,
+                          enableServiceCharge: checked,
+                          ...(checked && rate === 0 ? { serviceChargeRate: 10 } : {}),
+                        });
+                      }}
                       className="sr-only peer"
                     />
                     <div className="w-14 h-7 bg-ink-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>

@@ -5,6 +5,7 @@ const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
 const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
+const { normalizeCode, normalizeName, buildLookupMaps, matchCatalogItem } = require('../utils/cnetMatcher');
 
 const getMaterials = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
@@ -501,20 +502,20 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: msg });
   }
 
-  // 2. Comprehensive column headers (English & Amharic)
+  // 2. Comprehensive column headers (English, CNET & Amharic)
   const nameKeys = [
-    'name', 'material name', 'material', 'raw material', 'raw material name',
+    'name', 'article name', 'material name', 'material', 'raw material', 'raw material name',
     'item name', 'item', 'ingredient', 'description', 'product', 'product name',
     'item description', 'materials', 'items', 'ingredients',
     'ዕቃ', 'የዕቃ ስም', 'ስም', 'የጥሬ ዕቃ ስም', 'የጥሬ ዕቃ'
   ];
   const codeKeys = [
-    'code', 'material code', 'raw material code', 'item code', 'rm code',
-    'item no', 'item #', 'sku', 'id', 'part number', 'code no',
+    'code', 'article code', 'material code', 'raw material code', 'item code', 'rm code',
+    'item no', 'item #', 'sku', 'plu', 'id', 'part number', 'code no',
     'መለያ', 'ኮድ', 'የዕቃ ኮድ'
   ];
   const categoryKeys = [
-    'category', 'material category', 'group', 'type', 'department', 'section', 'ምድብ'
+    'category', 'article group', 'material category', 'sub category', 'group', 'type', 'department', 'section', 'ምድብ'
   ];
   const stockKeys = [
     'current stock', 'total stock', 'in stock', 'stock', 'current qty', 'qty', 'quantity',
@@ -530,29 +531,30 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     'bar', 'bar stock', 'barista', 'bar store', 'ባር'
   ];
   const unitKeys = [
-    'unit', 'uom', 'unit of measure', 'unit of measurement', 'measurement', 'መለኪያ', 'መጠኛ'
+    'unit', 'uom', 'base unit', 'unit of measure', 'unit of measurement', 'measurement', 'measure', 'መለኪያ', 'መጠኛ'
   ];
   const reorderKeys = [
     'reorder level', 'reorder at', 'reorder point', 'reorder', 'min stock', 'minimum stock', 'min', 'safety stock', 'ዝቅተኛ'
   ];
   const costKeys = [
-    'unit cost', 'unit cost (etb)', 'unit cost (birr)', 'cost', 'unit price', 'price', 'purchase cost', 'rate', 'buying price', 'ዋጋ', 'የአንዱ ዋጋ', 'ወጪ'
+    'unit cost', 'unit cost (etb)', 'unit cost (birr)', 'avg cost', 'avg amount', 'default value',
+    'cost', 'unit price', 'price', 'purchase cost', 'rate', 'buying price', 'ዋጋ', 'የአንዱ ዋጋ', 'ወጪ'
   ];
   const locationKeys = [
     'store location', 'location', 'store', 'warehouse', 'storage', 'room', 'መጋዘን'
   ];
 
-  // 3. Scan first 10 rows if row 1 was a decorative banner or title
+  // 3. Scan first 15 rows if row 1 was a decorative banner or title
   let hasValidHeader = rows.some(r => getColValue(r, nameKeys) !== undefined);
   if (!hasValidHeader && ws) {
     const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    const maxScan = Math.min(rawRows.length, 10);
+    const maxScan = Math.min(rawRows.length, 15);
     let headerIdx = -1;
     for (let i = 0; i < maxScan; i++) {
       const r = rawRows[i];
       if (Array.isArray(r) && r.some(cell => {
         const str = String(cell || '').trim();
-        return /^(name|material|item|code|category|stock|ዕቃ|ስም|ኮድ|ዋጋ)/i.test(str);
+        return /^(name|article\s*name|article\s*code|material|item|code|category|stock|ዕቃ|ስም|ኮድ|ዋጋ)/i.test(str);
       })) {
         headerIdx = i;
         break;
@@ -595,19 +597,13 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
     send({ type: 'start', total });
   }
 
-  // 4. Pre-load all existing materials once into memory for instant O(1) matching
-  const allExisting = await RawMaterial.find({}, 'code name isActive deletedAt').lean();
-  const codeMap = new Map();
-  const nameMap = new Map();
+  // 4. Pre-load all existing materials once into memory for instant O(1) normalized matching
+  const allExisting = await RawMaterial.find({}, 'code name category unit unitCost reorderLevel storeLocation mainStoreStock kitchenStock barStock currentStock isActive deletedAt').lean();
+  const materialMaps = buildLookupMaps(allExisting);
+  const codeMap = materialMaps.byCode;
 
   let nextCodeNum = 1;
   for (const doc of allExisting) {
-    const c = String(doc.code || '').trim().replace(/-+$/, '').toLowerCase();
-    if (c) codeMap.set(c, doc);
-
-    const n = String(doc.name || '').trim().toLowerCase();
-    if (n) nameMap.set(n, doc);
-
     const match = String(doc.code || '').match(/^RM-?(\d+)$/i);
     if (match) {
       const num = parseInt(match[1], 10);
@@ -626,12 +622,12 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
   for (let i = 0; i < validRows.length; i++) {
     const row = validRows[i];
     try {
-      const name = row._resolvedName;
+      const name = String(row._resolvedName || '').replace(/\s+/g, ' ').trim();
       const rawCode = getColValue(row, codeKeys);
       let code = String(rawCode || '').trim().replace(/-+$/, '');
-      if (code === '—' || code === '-' || code.toLowerCase() === 'null') code = '';
+      if (/^[-–—]+$/.test(code) || code.toLowerCase() === 'null') code = '';
 
-      const category = String(getColValue(row, categoryKeys) || 'General').trim();
+      const rawCategory = getColValue(row, categoryKeys);
       const rawMainStock = getColValue(row, mainStockKeys);
       const rawKitchenStock = getColValue(row, kitchenStockKeys);
       const rawBarStock = getColValue(row, barStockKeys);
@@ -639,85 +635,126 @@ const importMaterialsExcel = asyncHandler(async (req, res) => {
       const rawReorder = getColValue(row, reorderKeys);
       const rawCost = getColValue(row, costKeys);
       const rawUnit = getColValue(row, unitKeys);
-      const storeLocation = String(getColValue(row, locationKeys) || 'Main Store').trim();
+      const rawLocation = getColValue(row, locationKeys);
 
-      let unit = String(rawUnit || extractUnit(rawStock) || extractUnit(rawReorder) || 'pcs').trim();
-      if (!unit) unit = 'pcs';
+      const hasExplicitUnit = rawUnit !== undefined && String(rawUnit).trim() !== '';
+      const extractedUnit = extractUnit(rawStock) || extractUnit(rawReorder);
+      const unit = (hasExplicitUnit ? String(rawUnit).trim() : (extractedUnit || '')).trim();
 
-      const parsedTotal = parseNumber(rawStock, 0);
+      const parsedTotal = rawStock !== undefined ? parseNumber(rawStock, 0) : undefined;
       let mainStoreStock = rawMainStock !== undefined ? parseNumber(rawMainStock, 0) : undefined;
-      let kitchenStock = rawKitchenStock !== undefined ? parseNumber(rawKitchenStock, 0) : 0;
-      let barStock = rawBarStock !== undefined ? parseNumber(rawBarStock, 0) : 0;
-      let currentStock = parsedTotal;
+      let kitchenStock = rawKitchenStock !== undefined ? parseNumber(rawKitchenStock, 0) : undefined;
+      let barStock = rawBarStock !== undefined ? parseNumber(rawBarStock, 0) : undefined;
 
-      if (mainStoreStock === undefined) {
-        mainStoreStock = currentStock;
-      } else {
-        currentStock = mainStoreStock + kitchenStock + barStock;
-      }
+      const matchRes = matchCatalogItem(materialMaps, { code, name });
+      const matched = matchRes.item;
 
-      const reorderLevel = parseNumber(rawReorder, 10);
-      const unitCost = parseNumber(rawCost, 0);
-
-      const updateData = {
-        name,
-        category,
-        unit,
-        mainStoreStock,
-        kitchenStock,
-        barStock,
-        currentStock,
-        reorderLevel,
-        unitCost,
-        storeLocation,
-        isActive: true,
-        deletedAt: null,
-        deletedBy: null,
-        deletedFrom: null,
-      };
-
-      const cleanCode = code.toLowerCase();
-      const cleanName = name.toLowerCase();
-
-      let matched = null;
-      if (cleanCode && codeMap.has(cleanCode) && !processedIds.has(codeMap.get(cleanCode)._id.toString())) {
-        matched = codeMap.get(cleanCode);
-      } else if (nameMap.has(cleanName) && !processedIds.has(nameMap.get(cleanName)._id.toString())) {
-        matched = nameMap.get(cleanName);
+      if (matchRes.nameConflictItem) {
+        skipped++;
+        errors.push(`Row ${i + 1} "${name}" (${code}): ${matchRes.mismatchWarning} Skipped to prevent mismatch.`);
+        continue;
       }
 
       if (matched) {
-        if (code && !matched.code) updateData.code = code;
-        updateData.updatedBy = req.user?._id || null;
-        updateData.updatedByName = req.user?.name || 'System';
-        updateData.updatedByRole = req.user?.role || '';
-        bulkOps.push({
-          updateOne: {
-            filter: { _id: matched._id },
-            update: { $set: updateData },
-          },
-        });
-        processedIds.add(matched._id.toString());
-        updated++;
+        if (processedIds.has(matched._id.toString())) {
+          // Duplicate row in same Excel sheet — skip rather than creating a duplicate material
+          skipped++;
+        } else {
+          const updateData = {
+            name,
+            isActive: true,
+            deletedAt: null,
+            deletedBy: null,
+            deletedFrom: null,
+            updatedBy: req.user?._id || null,
+            updatedByName: req.user?.name || 'System',
+            updatedByRole: req.user?.role || '',
+          };
+          if (code && (!matched.code || normalizeCode(matched.code) === normalizeCode(code))) {
+            updateData.code = code;
+          }
+          if (rawCategory !== undefined && String(rawCategory).trim() !== '') {
+            updateData.category = String(rawCategory).trim();
+          }
+          if (unit) {
+            updateData.unit = unit;
+          }
+          if (rawLocation !== undefined && String(rawLocation).trim() !== '') {
+            updateData.storeLocation = String(rawLocation).trim();
+          }
+          if (rawReorder !== undefined && String(rawReorder).trim() !== '') {
+            updateData.reorderLevel = parseNumber(rawReorder, matched.reorderLevel ?? 10);
+          }
+          if (rawCost !== undefined && String(rawCost).trim() !== '') {
+            updateData.unitCost = parseNumber(rawCost, matched.unitCost ?? 0);
+          }
+
+          // Update stock only if stock columns were supplied in the sheet
+          if (mainStoreStock !== undefined || kitchenStock !== undefined || barStock !== undefined) {
+            const mStock = mainStoreStock !== undefined ? mainStoreStock : Number(matched.mainStoreStock || 0);
+            const kStock = kitchenStock !== undefined ? kitchenStock : Number(matched.kitchenStock || 0);
+            const bStock = barStock !== undefined ? barStock : Number(matched.barStock || 0);
+            updateData.mainStoreStock = mStock;
+            updateData.kitchenStock = kStock;
+            updateData.barStock = bStock;
+            updateData.currentStock = mStock + kStock + bStock;
+          } else if (parsedTotal !== undefined) {
+            updateData.mainStoreStock = parsedTotal;
+            updateData.currentStock = parsedTotal + Number(matched.kitchenStock || 0) + Number(matched.barStock || 0);
+          }
+
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: matched._id },
+              update: { $set: updateData },
+            },
+          });
+          processedIds.add(matched._id.toString());
+          updated++;
+        }
       } else {
         let finalCode = code;
-        if (!finalCode || processedCodes.has(finalCode.toLowerCase()) || codeMap.has(finalCode.toLowerCase())) {
+        if (!finalCode || processedCodes.has(normalizeCode(finalCode)) || codeMap.has(normalizeCode(finalCode))) {
           while (processedCodes.has(`rm-${String(nextCodeNum).padStart(4, '0')}`) || codeMap.has(`rm-${String(nextCodeNum).padStart(4, '0')}`)) {
             nextCodeNum++;
           }
           finalCode = `RM-${String(nextCodeNum++).padStart(4, '0')}`;
         }
-        processedCodes.add(finalCode.toLowerCase());
-        nameMap.set(cleanName, { _id: new mongoose.Types.ObjectId(), name: updateData.name, code: finalCode });
-        updateData.code = finalCode;
-        updateData.createdBy = req.user?._id || null;
-        updateData.createdByName = req.user?.name || 'System';
-        updateData.createdByRole = req.user?.role || '';
-        updateData.registrationSource = 'excel_import';
+        const mStock = mainStoreStock !== undefined ? mainStoreStock : (parsedTotal ?? 0);
+        const kStock = kitchenStock ?? 0;
+        const bStock = barStock ?? 0;
+        const newDoc = {
+          name,
+          code: finalCode,
+          category: (rawCategory !== undefined && String(rawCategory).trim()) ? String(rawCategory).trim() : 'General',
+          unit: unit || 'pcs',
+          mainStoreStock: mStock,
+          kitchenStock: kStock,
+          barStock: bStock,
+          currentStock: (mainStoreStock !== undefined || kitchenStock !== undefined || barStock !== undefined)
+            ? (mStock + kStock + bStock)
+            : (parsedTotal ?? 0),
+          reorderLevel: rawReorder !== undefined ? parseNumber(rawReorder, 10) : 10,
+          unitCost: rawCost !== undefined ? parseNumber(rawCost, 0) : 0,
+          storeLocation: (rawLocation !== undefined && String(rawLocation).trim()) ? String(rawLocation).trim() : 'Main Store',
+          isActive: true,
+          deletedAt: null,
+          deletedBy: null,
+          deletedFrom: null,
+          createdBy: req.user?._id || null,
+          createdByName: req.user?.name || 'System',
+          createdByRole: req.user?.role || '',
+          registrationSource: 'excel_import',
+        };
+        processedCodes.add(normalizeCode(finalCode));
+        const newObj = { _id: new mongoose.Types.ObjectId(), ...newDoc };
+        materialMaps.byCode.set(normalizeCode(finalCode), newObj);
+        materialMaps.byName.set(normalizeName(name), newObj);
+        processedIds.add(String(newObj._id));
 
         bulkOps.push({
           insertOne: {
-            document: updateData,
+            document: newDoc,
           },
         });
         created++;

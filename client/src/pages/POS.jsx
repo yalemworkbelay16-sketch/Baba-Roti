@@ -363,15 +363,15 @@ export default function POS() {
         } catch (_) { }
       }
 
-      if (settRes.data) {
+      if (settRes.data && (settRes.data._id || settRes.data.taxRate !== undefined || settRes.data.serviceChargeRate !== undefined)) {
         const newSettings = {
           taxRate: Number(settRes.data?.taxRate ?? 15),
           currency: settRes.data?.currencySymbol || "ETB",
-          enableServiceCharge: Boolean(settRes.data?.enableServiceCharge),
+          enableServiceCharge: settRes.data?.enableServiceCharge !== undefined ? Boolean(settRes.data.enableServiceCharge) : true,
           serviceChargeRate: Number(settRes.data?.serviceChargeRate ?? 10),
           serviceChargePresets: Array.isArray(settRes.data?.serviceChargePresets) && settRes.data.serviceChargePresets.length > 0
             ? settRes.data.serviceChargePresets
-            : [5, 10, 15],
+            : [10, 15],
           autoApplyServiceChargeDineIn: Boolean(settRes.data?.autoApplyServiceChargeDineIn),
         };
         setSettings(newSettings);
@@ -2006,8 +2006,8 @@ export default function POS() {
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {Array.from(new Set([
                   0,
-                  ...(settings.serviceChargePresets || [5, 10, 15]),
-                  ...(settings.enableServiceCharge && Number(settings.serviceChargeRate) > 0 ? [Number(settings.serviceChargeRate)] : []),
+                  ...(settings.serviceChargePresets || [10, 15]),
+                  ...(Number(settings.serviceChargeRate) > 0 ? [Number(settings.serviceChargeRate)] : []),
                   ...(serviceChargePct > 0 ? [serviceChargePct] : []),
                 ])).sort((a, b) => a - b).map((s) => {
                   const active = serviceChargePct === s;
