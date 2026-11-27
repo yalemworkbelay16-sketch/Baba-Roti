@@ -776,7 +776,7 @@ export default function CashSales() {
 
           {/* Payment Method filter pills */}
           <div style={{ display: "flex", gap: 6 }}>
-            {["all", "Cash", "Telebirr", "Payo", "Card"].map((m) => {
+            {["all", "Cash", "Telebirr", "Card"].map((m) => {
               const active = payMethodFilter === m;
               return (
                 <button
@@ -1557,11 +1557,10 @@ export default function CashSales() {
             </div>
 
             {/* Methods */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
               {[
                 ["Cash", Banknote, "#059669"],
                 ["Telebirr", Smartphone, "#2563eb"],
-                ["Payo", Smartphone, "#7c3aed"],
                 ["Card", CreditCard, "#d97706"],
               ].map(([m, Icon, clr]) => (
                 <button

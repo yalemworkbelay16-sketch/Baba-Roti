@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const RawMaterial = require('../models/RawMaterial');
 const { invalidateDashboardCache } = require('./dashboardController');
@@ -133,7 +134,7 @@ const createMaterial = asyncHandler(async (req, res) => {
       status: 'success',
       details: { id: material._id, name: material.name, unit: material.unit, unitCost: material.unitCost, category: material.category },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.status(201).json(material);
 });
@@ -243,7 +244,7 @@ const updateMaterial = asyncHandler(async (req, res) => {
       status: 'success',
       details: { id: material._id, name: material.name, changes },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json(material);
 });
@@ -267,7 +268,7 @@ const deleteMaterial = asyncHandler(async (req, res) => {
       status: 'warning',
       details: { id: material._id, name: material.name },
     });
-  } catch (_) {}
+  } catch (_) { }
 
   res.json({ message: 'Raw material moved to recycle bin.' });
 });

@@ -222,14 +222,8 @@ export default function DigitalMenu() {
     taxRate: 15,
     serviceChargeRate: 10,
     enableServiceCharge: false,
-    payoEnabled: false,
     digitalMenuSettings: {},
   });
-
-  // Payo Online Payment State
-  const [payoCheckout, setPayoCheckout] = useState(null); // { reference, checkoutUrl, amount, orderNo, status }
-  const [payoLoading, setPayoLoading] = useState(false);
-  const [payoError, setPayoError] = useState('');
 
   const [tableNo, setTableNo] = useState(initialTable);
   const [customerName, setCustomerName] = useState('');
@@ -374,7 +368,6 @@ export default function DigitalMenu() {
           taxRate: Number(res.data.taxRate ?? 15),
           serviceChargeRate: Number(res.data.serviceChargeRate ?? 10),
           enableServiceCharge: !!res.data.enableServiceCharge,
-          payoEnabled: !!res.data.payoEnabled,
           digitalMenuSettings: res.data.digitalMenuSettings || {},
         });
       }
@@ -721,74 +714,6 @@ export default function DigitalMenu() {
       setSubmittingOrder(false);
     }
   };
-
-  // Initiate Payo Online Payment for a placed table/guest order
-  const handlePayWithPayo = async (targetOrderNo) => {
-    if (!targetOrderNo) return;
-    setPayoLoading(true);
-    setPayoError('');
-    try {
-      const res = await axios.post(`${API_BASE}/payments/payo/menu-initiate`, { orderNo: targetOrderNo });
-      if (res.data?.alreadyPaid) {
-        setPayoCheckout({
-          reference: res.data.reference || targetOrderNo,
-          orderNo: targetOrderNo,
-          amount: res.data.amount,
-          status: 'approved',
-        });
-        fetchTableHistory();
-        return;
-      }
-      if (res.data?.checkoutUrl) {
-        setPayoCheckout({
-          reference: res.data.reference,
-          checkoutUrl: res.data.checkoutUrl,
-          orderNo: res.data.orderNo || targetOrderNo,
-          amount: res.data.amount,
-          status: 'pending',
-        });
-        window.open(res.data.checkoutUrl, '_blank', 'noopener,noreferrer');
-      }
-    } catch (err) {
-      setPayoError(err.response?.data?.message || 'Could not start Payo payment. Please try again or pay your waiter.');
-    } finally {
-      setPayoLoading(false);
-    }
-  };
-
-  // Auto-check Payo status when customer returns with ?payoRef=... or has active pending checkout
-  useEffect(() => {
-    const urlRef = searchParams.get('payoRef');
-    const activeRef = payoCheckout?.reference || urlRef;
-    if (!activeRef) return;
-    if (payoCheckout?.status === 'approved') return;
-
-    let stopped = false;
-    const pollStatus = async () => {
-      try {
-        const res = await axios.get(`${API_BASE}/payments/payo/status/${encodeURIComponent(activeRef)}`);
-        if (stopped || !res.data) return;
-        setPayoCheckout((prev) => ({
-          ...(prev || {}),
-          reference: res.data.reference,
-          orderNo: res.data.orderNo,
-          amount: res.data.amount,
-          checkoutUrl: res.data.checkoutUrl || prev?.checkoutUrl,
-          status: res.data.status,
-        }));
-        if (res.data.status === 'approved') {
-          fetchTableHistory();
-          fetchLiveTracking(res.data.orderNo);
-        }
-      } catch (_) { }
-    };
-    pollStatus();
-    const timer = setInterval(pollStatus, 3500);
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-    };
-  }, [payoCheckout?.reference, payoCheckout?.status, searchParams]);
 
   // ── Call Waiter / Request Bill ─────────────────────────────────────────
   const handleServiceRequest = async (action) => {
@@ -1164,28 +1089,6 @@ export default function DigitalMenu() {
             <div className="py-1">
               {renderTrackingStepper(liveTrackingData?.status || confirmedOrder.status || 'pending_approval')}
             </div>
-
-            {/* Action Buttons */}
-            {menuData?.payoEnabled && (liveTrackingData?.status || confirmedOrder.status) !== 'paid' && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  disabled={payoLoading}
-                  onClick={() => handlePayWithPayo(confirmedOrder.orderNo)}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {payoLoading ? <RefreshCw size={14} className="animate-spin" /> : <span>💳</span>}
-                  <span>
-                    {payoLoading
-                      ? 'Opening Payo Checkout…'
-                      : (lang === 'am' ? 'አሁን በPayo (CBE / Telebirr) ይክፈሉ' : 'Pay Now via Payo (CBE / Telebirr / BoA)')}
-                  </span>
-                </button>
-                {payoError && (
-                  <p className="text-[11px] font-bold text-red-600">{payoError}</p>
-                )}
-              </div>
-            )}
 
             {/* Orange Button: CHECK YOUR ORDER STATUS (Opens interactive Live Tracker) */}
             <button
@@ -2446,17 +2349,6 @@ export default function DigitalMenu() {
 
                 {/* Action Buttons */}
                 <div className="space-y-2 pt-1">
-                  {menuData?.payoEnabled && (liveTrackingData?.status || activeTrackingOrder.status) !== 'paid' && (
-                    <button
-                      type="button"
-                      disabled={payoLoading}
-                      onClick={() => handlePayWithPayo(activeTrackingOrder.orderNo)}
-                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      {payoLoading ? <RefreshCw size={14} className="animate-spin" /> : <span>💳</span>}
-                      <span>{payoLoading ? 'Opening Payo…' : 'Pay Now via Payo (CBE / Telebirr / BoA)'}</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       setStatusSheetOpen(false);
@@ -2611,20 +2503,10 @@ export default function DigitalMenu() {
 
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                         <span className="font-bold text-slate-500">Order Total</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <strong className="font-black text-slate-950 font-serif">
                             {Number(o.grandTotal || 0).toFixed(0)} ETB
                           </strong>
-                          {menuData?.payoEnabled && o.status !== 'paid' && (
-                            <button
-                              type="button"
-                              disabled={payoLoading}
-                              onClick={() => handlePayWithPayo(o.orderNo)}
-                              className="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px] flex items-center gap-1 transition cursor-pointer"
-                            >
-                              <span>💳 Pay</span>
-                            </button>
-                          )}
                           <button
                             onClick={() => {
                               setActiveTrackingOrder(o);
@@ -2653,67 +2535,6 @@ export default function DigitalMenu() {
                 {t.orderMoreBtn}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── PAYO ONLINE PAYMENT TRACKING MODAL ── */}
-      {payoCheckout && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setPayoCheckout(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-violet-200 text-center space-y-4 relative"
-          >
-            <button
-              type="button"
-              onClick={() => setPayoCheckout(null)}
-              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
-            >
-              ✕
-            </button>
-            <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${payoCheckout.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'}`}>
-              {payoCheckout.status === 'approved' ? '✅' : '💳'}
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">
-                {payoCheckout.status === 'approved' ? 'Payment Verified!' : 'Complete Payment via Payo'}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Order <strong className="font-mono text-slate-900">#{payoCheckout.orderNo}</strong> &bull; <strong>{Number(payoCheckout.amount || 0).toFixed(2)} ETB</strong>
-              </p>
-            </div>
-            {payoCheckout.status === 'approved' ? (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3 text-xs font-bold text-emerald-800">
-                Thank you! Your transfer was confirmed and your order is settled.
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                <p className="text-[11px] text-slate-500">
-                  Transfer via CBE, Telebirr, or Bank of Abyssinia on the Payo page and upload your receipt. This window updates automatically once verified.
-                </p>
-                {payoCheckout.checkoutUrl && (
-                  <a
-                    href={payoCheckout.checkoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md"
-                  >
-                    <span>Open Payo Checkout Page</span>
-                    <ExternalLink size={13} />
-                  </a>
-                )}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setPayoCheckout(null)}
-              className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

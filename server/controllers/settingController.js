@@ -70,6 +70,7 @@ function buildSettingsDiff(before, after, body = {}) {
       changes.push({ label, from: fmtSettingVal(oldVal), to: fmtSettingVal(newVal) });
     }
   }
+
   // Diff nested permission maps (rolePermissions, navVisibility)
   const diffBoolMap = (prefix, oldMap = {}, newMap = {}) => {
     const keys = new Set([...Object.keys(oldMap || {}), ...Object.keys(newMap || {})]);
@@ -182,58 +183,7 @@ function buildSettingsDiff(before, after, body = {}) {
     }
   }
 
-  if (body.payoSettings !== undefined) {
-    const oPayo = before?.payoSettings || {};
-    const nPayo = after?.payoSettings || {};
-    const payoLabels = {
-      enabled: 'Payo Gateway Enabled',
-      enableInPos: 'Payo in POS Ordering',
-      enableInDigitalMenu: 'Payo in Digital Menu',
-      apiBaseUrl: 'Payo API Base URL',
-    };
-    for (const [k, label] of Object.entries(payoLabels)) {
-      if (JSON.stringify(oPayo[k]) !== JSON.stringify(nPayo[k])) {
-        changes.push({
-          label,
-          from: fmtSettingVal(oPayo[k]),
-          to: fmtSettingVal(nPayo[k]),
-        });
-      }
-    }
-    if ((oPayo.apiKey || '') !== (nPayo.apiKey || '')) {
-      changes.push({ label: 'Payo API Key', summary: 'Updated (hidden for security)' });
-    }
-    if ((oPayo.webhookSecret || '') !== (nPayo.webhookSecret || '')) {
-      changes.push({ label: 'Payo Webhook Secret', summary: 'Updated (hidden for security)' });
-    }
-  }
-
   return changes;
-}
-
-function sanitizeSettingsResponse(settingsDoc) {
-  const obj = settingsDoc?.toJSON ? settingsDoc.toJSON() : { ...(settingsDoc || {}) };
-  const payo = obj.payoSettings || {};
-  const rawKey = String(payo.apiKey || '').trim();
-  const envKey = String(process.env.PAYO_API_KEY || '').trim();
-  const effectiveKey = rawKey || envKey;
-  const rawSecret = String(payo.webhookSecret || '').trim();
-  const normalizedBaseUrl = (!payo.apiBaseUrl || /^https?:\/\/(checkout\.|www\.)?payment\.et$/i.test(String(payo.apiBaseUrl).trim()) || /^https?:\/\/api\.pygate\.et$/i.test(String(payo.apiBaseUrl).trim()))
-    ? 'https://dashboard.payment.et'
-    : String(payo.apiBaseUrl).trim().replace(/\/+$/, '');
-  obj.payoSettings = {
-    enabled: Boolean(payo.enabled),
-    enableInPos: payo.enableInPos !== false,
-    enableInDigitalMenu: payo.enableInDigitalMenu !== false,
-    apiBaseUrl: normalizedBaseUrl,
-    apiKeyConfigured: Boolean(effectiveKey),
-    apiKeySource: rawKey ? 'settings' : (envKey ? 'env' : 'none'),
-    apiKeyMasked: rawKey ? `${rawKey.slice(0, 8)}...${rawKey.slice(-4)}` : (envKey ? 'Configured via ENV' : ''),
-    webhookSecretConfigured: Boolean(rawSecret),
-    apiKey: '',
-    webhookSecret: '',
-  };
-  return obj;
 }
 
 const DEFAULT_NAV_VISIBILITY = {
@@ -283,10 +233,11 @@ const getSettings = asyncHandler(async (req, res) => {
       currencySymbol: 'ETB',
       lowStockThresholdDefault: 15,
       taxRate: 15,
-      enableServiceCharge: false,
+      enableServiceCharge: true,
       serviceChargeRate: 10,
       serviceChargePresets: [5, 10, 15],
       autoApplyServiceChargeDineIn: false,
+      serviceChargeAutoInitDone: true,
       autoGenerateVoucherNo: true,
       allowNegativeStock: false,
       rolePermissions: DEFAULT_ROLE_PERMISSIONS,
@@ -396,7 +347,15 @@ const getSettings = asyncHandler(async (req, res) => {
       modified = true;
     }
     if (settings.enableServiceCharge === undefined) {
-      settings.enableServiceCharge = false;
+      settings.enableServiceCharge = true;
+      settings.serviceChargeAutoInitDone = true;
+      modified = true;
+    } else if (!settings.serviceChargeAutoInitDone) {
+      // One-time upgrade from legacy default=false so configured default rate (e.g. 10% or 15%) applies out of the box
+      if (settings.enableServiceCharge === false && Number(settings.serviceChargeRate ?? 10) > 0) {
+        settings.enableServiceCharge = true;
+      }
+      settings.serviceChargeAutoInitDone = true;
       modified = true;
     }
     if (settings.autoApplyServiceChargeDineIn === undefined) {
@@ -444,7 +403,7 @@ const getSettings = asyncHandler(async (req, res) => {
     }
     if (modified) await settings.save();
   }
-  res.json(sanitizeSettingsResponse(settings));
+  res.json(settings);
 });
 
 // @desc   Update system settings
@@ -484,6 +443,9 @@ const updateSettings = asyncHandler(async (req, res) => {
         settings.markModified('serviceChargePresets');
       } else if (field === 'enableServiceCharge' || field === 'autoApplyServiceChargeDineIn') {
         settings[field] = Boolean(req.body[field]);
+        if (field === 'enableServiceCharge') {
+          settings.serviceChargeAutoInitDone = true;
+        }
       } else if (field === 'sidebarMaterialIcons') {
         if (settings.licensedModules?.themeCustomization !== false || req.user?.role === 'dev') {
           settings.sidebarMaterialIcons = Boolean(req.body.sidebarMaterialIcons);
@@ -568,41 +530,6 @@ const updateSettings = asyncHandler(async (req, res) => {
     }
   }
 
-  // Payo (payment.et) Payment Gateway Configuration (Admin & System Developer only)
-  if (req.body.payoSettings !== undefined && typeof req.body.payoSettings === 'object') {
-    if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
-      res.status(403);
-      throw new Error('Access denied: Payment gateway credentials can only be managed by Administrator or System Developer.');
-    }
-    const existingPayo = settings.payoSettings || {};
-    const incoming = req.body.payoSettings || {};
-    const nextPayo = {
-      enabled: incoming.enabled !== undefined ? Boolean(incoming.enabled) : Boolean(existingPayo.enabled),
-      enableInPos: incoming.enableInPos !== undefined ? Boolean(incoming.enableInPos) : (existingPayo.enableInPos !== false),
-      enableInDigitalMenu: incoming.enableInDigitalMenu !== undefined ? Boolean(incoming.enableInDigitalMenu) : (existingPayo.enableInDigitalMenu !== false),
-      apiBaseUrl: (() => {
-        const raw = String(incoming.apiBaseUrl || existingPayo.apiBaseUrl || 'https://dashboard.payment.et').trim().replace(/\/+$/, '');
-        return (!raw || /^https?:\/\/(checkout\.|www\.)?payment\.et$/i.test(raw) || /^https?:\/\/api\.pygate\.et$/i.test(raw)) ? 'https://dashboard.payment.et' : raw;
-      })(),
-      apiKey: existingPayo.apiKey || '',
-      webhookSecret: existingPayo.webhookSecret || '',
-    };
-    const submittedKey = String(incoming.apiKey || '').trim();
-    if (submittedKey && !submittedKey.includes('...')) {
-      nextPayo.apiKey = submittedKey;
-    } else if (incoming.clearApiKey === true) {
-      nextPayo.apiKey = '';
-    }
-    const submittedSecret = String(incoming.webhookSecret || '').trim();
-    if (submittedSecret && !submittedSecret.includes('...')) {
-      nextPayo.webhookSecret = submittedSecret;
-    } else if (incoming.clearWebhookSecret === true) {
-      nextPayo.webhookSecret = '';
-    }
-    settings.payoSettings = nextPayo;
-    settings.markModified('payoSettings');
-  }
-
   // Telegram Process Notifications & Security Settings (Restricted to Administrator & System Developer only)
   if (req.body.telegramNotificationSettings !== undefined && typeof req.body.telegramNotificationSettings === 'object') {
     if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
@@ -679,7 +606,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     });
   } catch (_) { }
 
-  res.json({ ...sanitizeSettingsResponse(updated), rawMaterialsUpdated });
+  res.json({ ...updated.toJSON(), rawMaterialsUpdated });
 });
 
 // @desc   Apply bulk % increase to ALL product selling prices

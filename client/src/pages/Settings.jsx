@@ -41,8 +41,6 @@ import {
   BarChart3,
   RefreshCw,
   Boxes,
-  CreditCard,
-  Copy,
 } from 'lucide-react';
 import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
 import StationSettings from '../components/settings/StationSettings';
@@ -159,7 +157,7 @@ export default function Settings() {
     sidebarTheme: 'navy',
     sidebarMaterialIcons: true,
     // Service Charge & Table Service Fees
-    enableServiceCharge: false,
+    enableServiceCharge: true,
     serviceChargeRate: 10,
     serviceChargePresets: [5, 10, 15],
     autoApplyServiceChargeDineIn: false,
@@ -249,23 +247,6 @@ export default function Settings() {
   const [devError, setDevError] = useState('');
   const [devKeyConfirmOpen, setDevKeyConfirmOpen] = useState(false);
   const [newDevKey, setNewDevKey] = useState('');
-
-  // Payo (payment.et) Gateway State (Admin & Dev only)
-  const [payoForm, setPayoForm] = useState({
-    enabled: false,
-    enableInPos: true,
-    enableInDigitalMenu: true,
-    apiBaseUrl: 'https://dashboard.payment.et',
-    apiKey: '',
-    webhookSecret: '',
-    apiKeyConfigured: false,
-    apiKeyMasked: '',
-    apiKeySource: 'none',
-    webhookSecretConfigured: false,
-  });
-  const [payoSaving, setPayoSaving] = useState(false);
-  const [payoTesting, setPayoTesting] = useState(false);
-  const [payoMsg, setPayoMsg] = useState({ type: '', text: '' });
 
   // ── Printer Settings state ──────────────────────────────────────────────
   const PRINTER_BRANDS = ['Epson', 'Datecs', 'Bixolon', 'Rongta', 'Xprinter', 'Star', 'Citizen', 'HP', 'Generic'];
@@ -567,14 +548,6 @@ export default function Settings() {
                 ...res.data.telegramNotificationSettings,
               }));
             }
-            if (res.data.payoSettings) {
-              setPayoForm((prev) => ({
-                ...prev,
-                ...res.data.payoSettings,
-                apiKey: '',
-                webhookSecret: '',
-              }));
-            }
           }
         })
         .catch((err) => console.error('Failed to load settings', err))
@@ -596,62 +569,6 @@ export default function Settings() {
     } catch (e) {
       setDevError(e.response?.data?.message || 'Failed to save developer license settings.');
     } finally { setDevSaving(false); }
-  };
-
-  const handlePayoSave = async (e) => {
-    e.preventDefault();
-    setPayoSaving(true);
-    setPayoMsg({ type: '', text: '' });
-    try {
-      const payload = {
-        payoSettings: {
-          enabled: Boolean(payoForm.enabled),
-          enableInPos: Boolean(payoForm.enableInPos),
-          enableInDigitalMenu: Boolean(payoForm.enableInDigitalMenu),
-          apiBaseUrl: payoForm.apiBaseUrl || 'https://checkout.payment.et',
-          ...(payoForm.apiKey.trim() ? { apiKey: payoForm.apiKey.trim() } : {}),
-          ...(payoForm.webhookSecret.trim() ? { webhookSecret: payoForm.webhookSecret.trim() } : {}),
-        },
-      };
-      const res = await api.put('/settings', payload);
-      if (res.data?.payoSettings) {
-        setPayoForm((prev) => ({
-          ...prev,
-          ...res.data.payoSettings,
-          apiKey: '',
-          webhookSecret: '',
-        }));
-        try {
-          const cached = JSON.parse(localStorage.getItem('baba_roti_pos_settings_cache') || '{}');
-          localStorage.setItem('baba_roti_pos_settings_cache', JSON.stringify({
-            ...cached,
-            payoEnabled: Boolean(
-              res.data.payoSettings.enabled &&
-              res.data.payoSettings.enableInPos !== false &&
-              res.data.payoSettings.apiKeyConfigured
-            ),
-          }));
-        } catch (_) { }
-      }
-      setPayoMsg({ type: 'success', text: 'Payo Payment Gateway configuration saved securely.' });
-    } catch (err) {
-      setPayoMsg({ type: 'error', text: err.response?.data?.message || 'Failed to save Payo settings.' });
-    } finally {
-      setPayoSaving(false);
-    }
-  };
-
-  const handleTestPayo = async () => {
-    setPayoTesting(true);
-    setPayoMsg({ type: '', text: '' });
-    try {
-      const res = await api.post('/payments/payo/test');
-      setPayoMsg({ type: 'success', text: res.data?.message || 'Payo server connection verified!' });
-    } catch (err) {
-      setPayoMsg({ type: 'error', text: err.response?.data?.message || 'Payo connection test failed.' });
-    } finally {
-      setPayoTesting(false);
-    }
   };
 
   // Load Telegram subscribers (admin only)
@@ -949,6 +866,20 @@ export default function Settings() {
     try {
       const res = await api.put('/settings', systemForm);
       setSystemForm((prev) => ({ ...prev, ...res.data }));
+      try {
+        const cached = JSON.parse(localStorage.getItem('baba_roti_pos_settings_cache') || '{}');
+        localStorage.setItem('baba_roti_pos_settings_cache', JSON.stringify({
+          ...cached,
+          taxRate: Number(res.data?.taxRate ?? systemForm.taxRate ?? 15),
+          currency: res.data?.currencySymbol || systemForm.currencySymbol || 'ETB',
+          enableServiceCharge: Boolean(res.data?.enableServiceCharge ?? systemForm.enableServiceCharge),
+          serviceChargeRate: Number(res.data?.serviceChargeRate ?? systemForm.serviceChargeRate ?? 10),
+          serviceChargePresets: Array.isArray(res.data?.serviceChargePresets) && res.data.serviceChargePresets.length > 0
+            ? res.data.serviceChargePresets
+            : systemForm.serviceChargePresets,
+          autoApplyServiceChargeDineIn: Boolean(res.data?.autoApplyServiceChargeDineIn ?? systemForm.autoApplyServiceChargeDineIn),
+        }));
+      } catch (_) { }
       await refreshPermissions(res.data);
       if (res.data?.rawMaterialsUpdated > 0) {
         setSystemSuccess(`Baba Roti Café settings saved! Successfully adjusted ${res.data.rawMaterialsUpdated} raw materials in inventory.`);
@@ -1147,18 +1078,6 @@ export default function Settings() {
               }`}
           >
             <QrCode size={16} /> Digital Menu &amp; QR
-          </button>
-        )}
-
-        {(user?.role === 'admin' || user?.role === 'dev') && (
-          <button
-            onClick={() => setTab('payo')}
-            className={`flex items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-semibold transition whitespace-nowrap ${currentTab === 'payo'
-              ? 'border-emerald-600 text-emerald-700 font-bold'
-              : 'border-transparent text-ink-400 hover:text-ink-700'
-              }`}
-          >
-            <CreditCard size={16} /> Payo Gateway
           </button>
         )}
 
@@ -3284,6 +3203,7 @@ export default function Settings() {
                   </label>
                 </div>
               </div>
+
               <div>
                 <label className="block font-semibold text-ink-700 mb-1">Scheduled Delivery Time (Addis Ababa)</label>
                 <div className="flex items-center gap-2">
@@ -4512,6 +4432,7 @@ export default function Settings() {
           ])).sort((a, b) => a - b);
           setSystemForm({
             ...systemForm,
+            enableServiceCharge: num > 0,
             serviceChargeRate: num,
             serviceChargePresets: nextPresets.length > 0 ? nextPresets : [10],
           });
@@ -4830,198 +4751,6 @@ export default function Settings() {
       {currentTab === 'digitalMenu' && <DigitalMenuSettings />}
 
       {currentTab === 'stations' && <StationSettings />}
-
-      {/* ── Tab: Payo (payment.et) Payment Gateway (Admin & Dev only) ── */}
-      {currentTab === 'payo' && (user?.role === 'admin' || user?.role === 'dev') && (
-        <Card className="max-w-3xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-ink-100">
-            <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 border border-emerald-200">
-                <CreditCard size={20} />
-              </span>
-              <div>
-                <h3 className="font-display text-base font-bold text-ink-900 flex items-center gap-2">
-                  Payo Online Payment Gateway (CBE / Telebirr / BoA)
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${payoForm.enabled && payoForm.apiKeyConfigured
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    : 'bg-ink-100 text-ink-600 border border-ink-200'
-                    }`}>
-                    {payoForm.enabled && payoForm.apiKeyConfigured ? 'Connected' : payoForm.enabled ? 'Needs API Key' : 'Disabled'}
-                  </span>
-                </h3>
-                <p className="text-xs text-ink-400 mt-0.5">
-                  Accept direct Ethiopian bank &amp; wallet payments with automatic HMAC-SHA256 webhook verification in POS Ordering and Customer Digital Menu.
-                </p>
-              </div>
-            </div>
-
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={Boolean(payoForm.enabled)}
-                onChange={(e) => setPayoForm((p) => ({ ...p, enabled: e.target.checked }))}
-                className="sr-only peer"
-              />
-              <div className="w-14 h-7 bg-ink-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600" />
-              <span className="ml-2.5 text-xs font-bold uppercase text-ink-700">
-                {payoForm.enabled ? 'Active' : 'Off'}
-              </span>
-            </label>
-          </div>
-
-          {payoForm.apiKeyConfigured && !payoForm.enabled && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-semibold text-amber-900 flex items-center gap-2">
-              <AlertCircle size={16} className="text-amber-600 shrink-0" />
-              <span>
-                Your Payo API Key is saved, but the <strong>Payo Gateway toggle is currently OFF</strong>. Switch the toggle at the top-right to <strong>Active</strong> and click <strong>Save Payo Gateway Settings</strong> so Payo shows in POS &amp; Digital Menu.
-              </span>
-            </div>
-          )}
-
-          {payoMsg.text && (
-            <div className={`mt-4 rounded-xl border p-3.5 text-xs font-semibold flex items-center gap-2 ${payoMsg.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-800'
-              }`}>
-              {payoMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-              <span>{payoMsg.text}</span>
-            </div>
-          )}
-
-          <form onSubmit={handlePayoSave} className="space-y-5 mt-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="flex items-start gap-3 rounded-xl border border-ink-100 bg-ink-50/50 p-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(payoForm.enableInPos)}
-                  onChange={(e) => setPayoForm((p) => ({ ...p, enableInPos: e.target.checked }))}
-                  className="mt-0.5 h-4 w-4 rounded border-ink-300 text-emerald-600"
-                />
-                <div>
-                  <span className="text-xs font-bold text-ink-900 block">Enable in POS Ordering</span>
-                  <span className="text-[11px] text-ink-500">Adds Payo payment checkout button beside Cash, Telebirr, and Card in POS.</span>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 rounded-xl border border-ink-100 bg-ink-50/50 p-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(payoForm.enableInDigitalMenu)}
-                  onChange={(e) => setPayoForm((p) => ({ ...p, enableInDigitalMenu: e.target.checked }))}
-                  className="mt-0.5 h-4 w-4 rounded border-ink-300 text-emerald-600"
-                />
-                <div>
-                  <span className="text-xs font-bold text-ink-900 block">Enable in Digital QR Menu</span>
-                  <span className="text-[11px] text-ink-500">Allows table/QR guests to pay online via Payo after submitting an order.</span>
-                </div>
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1.5">
-                Payo API Base URL
-              </label>
-              <input
-                type="url"
-                value={payoForm.apiBaseUrl}
-                onChange={(e) => setPayoForm((p) => ({ ...p, apiBaseUrl: e.target.value }))}
-                placeholder="https://dashboard.payment.et"
-                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm font-mono text-ink-900 outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-ink-700">
-                  Payo Project API Key (Secret)
-                </label>
-                {payoForm.apiKeyConfigured && (
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                    Saved: {payoForm.apiKeyMasked}
-                  </span>
-                )}
-              </div>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={payoForm.apiKey}
-                onChange={(e) => setPayoForm((p) => ({ ...p, apiKey: e.target.value }))}
-                placeholder={payoForm.apiKeyConfigured ? 'Enter new pgk_... key to replace existing key' : 'Paste your pgk_... API key'}
-                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm font-mono text-ink-900 outline-none focus:border-emerald-500"
-              />
-              <p className="text-[11px] text-ink-400 mt-1">
-                Stored strictly on the server (never sent to customer browsers). Leave blank to keep your existing saved key.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-ink-700">
-                  Webhook Signing Secret (Optional — defaults to API Key)
-                </label>
-                {payoForm.webhookSecretConfigured && (
-                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                    Custom Secret Set
-                  </span>
-                )}
-              </div>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={payoForm.webhookSecret}
-                onChange={(e) => setPayoForm((p) => ({ ...p, webhookSecret: e.target.value }))}
-                placeholder="Leave blank to sign/verify x-pygate-signature using your API Key"
-                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm font-mono text-ink-900 outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 space-y-2">
-              <span className="text-xs font-bold text-blue-950 block">
-                Payo Dashboard Webhook URL (Copy &amp; paste in payment.et)
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={`${window.location.origin}/api/payments/payo/webhook`}
-                  className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-mono text-blue-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(`${window.location.origin}/api/payments/payo/webhook`);
-                    setPayoMsg({ type: 'success', text: 'Webhook URL copied to clipboard!' });
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <Copy size={13} /> Copy
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-ink-100">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={payoTesting}
-                onClick={handleTestPayo}
-                className="inline-flex items-center gap-1.5 text-xs font-bold"
-              >
-                <RefreshCw size={14} className={payoTesting ? 'animate-spin' : ''} />
-                {payoTesting ? 'Testing…' : 'Test Payo Connection'}
-              </Button>
-              <Button
-                type="submit"
-                disabled={payoSaving}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl inline-flex items-center gap-2"
-              >
-                <Save size={14} />
-                {payoSaving ? 'Saving…' : 'Save Payo Gateway Settings'}
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
 
     </div>
   );

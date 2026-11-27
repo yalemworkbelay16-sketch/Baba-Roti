@@ -43,10 +43,11 @@ const settingSchema = new mongoose.Schema(
     lowStockThresholdDefault: { type: Number, default: 15 },
     taxRate: { type: Number, default: 15 },
     // ── Service Charge & Hospitality Fees ────────────────────────
-    enableServiceCharge: { type: Boolean, default: false },
+    enableServiceCharge: { type: Boolean, default: true },
     serviceChargeRate: { type: Number, default: 10, min: 0, max: 100 },
     serviceChargePresets: { type: [Number], default: [5, 10, 15] },
     autoApplyServiceChargeDineIn: { type: Boolean, default: false },
+    serviceChargeAutoInitDone: { type: Boolean, default: false },
     autoGenerateVoucherNo: { type: Boolean, default: true },
     allowNegativeStock: { type: Boolean, default: false },
     rolePermissions: {
@@ -99,18 +100,6 @@ const settingSchema = new mongoose.Schema(
     telegramSubscribers: {
       type: Array,
       default: [],
-    },
-    // Payo (payment.et) Online Payment Gateway Configuration (API Key stored server-side)
-    payoSettings: {
-      type: Object,
-      default: {
-        enabled: false,
-        enableInPos: true,
-        enableInDigitalMenu: true,
-        apiBaseUrl: 'https://dashboard.payment.et',
-        apiKey: '',
-        webhookSecret: '',
-      },
     },
     // Granular process notifications and security controls
     telegramNotificationSettings: {
