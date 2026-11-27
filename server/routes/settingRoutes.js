@@ -10,12 +10,17 @@ const {
   createMenuReview,
   getMenuReviews,
   deleteMenuReview,
+  registerCustomRole,
+  deleteCustomRole,
 } = require('../controllers/settingController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.route('/')
   .get(protect, getSettings)
   .put(protect, authorize('admin', 'manager', 'dev'), updateSettings);
+
+router.post('/custom-roles', protect, authorize('admin', 'dev'), registerCustomRole);
+router.delete('/custom-roles/:key', protect, authorize('admin', 'dev'), deleteCustomRole);
 
 router.put('/developer-license', protect, updateDeveloperLicense);
 router.post('/apply-product-price-adjustment', protect, authorize('admin', 'dev'), applyProductPriceAdjustment);

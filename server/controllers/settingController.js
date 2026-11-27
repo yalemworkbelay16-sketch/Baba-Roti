@@ -15,9 +15,24 @@ const ROLE_LABELS = {
   executive_chef: 'Executive Chef',
   operation_manager: 'Operation Manager',
   manager: 'Manager',
+  finance: 'Finance',
   admin: 'Admin',
   dev: 'System Developer',
 };
+
+const BUILTIN_ROLE_KEYS = new Set([
+  'dev',
+  'admin',
+  'manager',
+  'operation_manager',
+  'executive_chef',
+  'finance',
+  'supervisor',
+  'storekeeper',
+  'cashier',
+  'waiter',
+  'fb_team',
+]);
 
 const SCALAR_SETTING_LABELS = {
   hotelName: 'Hotel / Café Name',
@@ -187,35 +202,35 @@ function buildSettingsDiff(before, after, body = {}) {
 }
 
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: false, admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
 };
 
 const DEFAULT_CRUD_PERMISSIONS = {
-  rawMaterials: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: true, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  products: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: true, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  suppliers: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  expenses: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  stockMovements: { view: { storekeeper: true, fb_team: true, executive_chef: true, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  purchases: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
-  employees: { view: { storekeeper: true, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, edit: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: true, manager: true, admin: true }, delete: { storekeeper: false, fb_team: false, executive_chef: false, operation_manager: false, manager: false, admin: true } },
+  rawMaterials: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  products: { view: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  suppliers: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  expenses: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  stockMovements: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: false, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  purchases: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
+  employees: { view: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true }, edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, finance: false, admin: true }, delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true } },
 };
 
 // @desc   Get system settings (creates default if none exists)
@@ -246,6 +261,11 @@ const getSettings = asyncHandler(async (req, res) => {
     });
   } else {
     let modified = false;
+    if (!Array.isArray(settings.customRoles)) {
+      settings.customRoles = [];
+      settings.markModified('customRoles');
+      modified = true;
+    }
     if (!settings.rolePermissions) {
       settings.rolePermissions = DEFAULT_ROLE_PERMISSIONS;
       settings.markModified('rolePermissions');
@@ -253,7 +273,7 @@ const getSettings = asyncHandler(async (req, res) => {
     } else {
       for (const [cap, defs] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
         settings.rolePermissions[cap] = settings.rolePermissions[cap] || {};
-        for (const r of ['operation_manager', 'executive_chef']) {
+        for (const r of ['operation_manager', 'executive_chef', 'finance']) {
           if (settings.rolePermissions[cap][r] === undefined) {
             settings.rolePermissions[cap][r] = defs[r];
             settings.markModified('rolePermissions');
@@ -269,7 +289,7 @@ const getSettings = asyncHandler(async (req, res) => {
     } else {
       for (const [navKey, defs] of Object.entries(DEFAULT_NAV_VISIBILITY)) {
         settings.navVisibility[navKey] = settings.navVisibility[navKey] || {};
-        for (const r of ['operation_manager', 'executive_chef']) {
+        for (const r of ['operation_manager', 'executive_chef', 'finance']) {
           if (settings.navVisibility[navKey][r] === undefined) {
             settings.navVisibility[navKey][r] = defs[r];
             settings.markModified('navVisibility');
@@ -287,7 +307,7 @@ const getSettings = asyncHandler(async (req, res) => {
         settings.crudPermissions[mod] = settings.crudPermissions[mod] || {};
         for (const op of ['view', 'edit', 'delete']) {
           settings.crudPermissions[mod][op] = settings.crudPermissions[mod][op] || {};
-          for (const r of ['operation_manager', 'executive_chef']) {
+          for (const r of ['operation_manager', 'executive_chef', 'finance']) {
             if (settings.crudPermissions[mod][op][r] === undefined) {
               settings.crudPermissions[mod][op][r] = ops[op]?.[r] ?? false;
               settings.markModified('crudPermissions');
@@ -469,6 +489,17 @@ const updateSettings = asyncHandler(async (req, res) => {
       }
     }
   });
+
+  if (
+    (req.body.rolePermissions !== undefined ||
+      req.body.navVisibility !== undefined ||
+      req.body.crudPermissions !== undefined) &&
+    req.user?.role !== 'dev' &&
+    req.user?.role !== 'admin'
+  ) {
+    res.status(403);
+    throw new Error('Access denied: Role privileges can only be managed by Administrator or System Developer.');
+  }
 
   if (req.body.rolePermissions !== undefined) {
     settings.rolePermissions = req.body.rolePermissions;
@@ -917,6 +948,226 @@ const applyStationCategoryMapping = asyncHandler(async (req, res) => {
   res.json({ success: true, count: materials.length, updatedCount });
 });
 
+function slugifyRoleKey(raw = '') {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/^[^a-z]+/, '')
+    .slice(0, 40);
+}
+
+// @desc   Register a new custom role with auto-generated key & cloned privileges
+// @route  POST /api/settings/custom-roles
+// @access Private (Admin & System Developer only)
+const registerCustomRole = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can register roles.');
+  }
+
+  const cleanLabel = String(req.body.label || '').trim();
+  if (cleanLabel.length < 2) {
+    res.status(400);
+    throw new Error('Role name must be at least 2 characters.');
+  }
+
+  const roleKey = slugifyRoleKey(req.body.key || cleanLabel);
+  if (!/^[a-z][a-z0-9_]{1,40}$/.test(roleKey)) {
+    res.status(400);
+    throw new Error('Role key must start with a letter and use at least 2 lowercase letters/numbers/underscores.');
+  }
+
+  if (BUILTIN_ROLE_KEYS.has(roleKey)) {
+    res.status(400);
+    throw new Error(`"${roleKey}" is a built-in system role key.`);
+  }
+
+  let settings = await Setting.findOne();
+  if (!settings) {
+    settings = new Setting();
+  }
+
+  const existingCustom = Array.isArray(settings.customRoles) ? settings.customRoles : [];
+  if (existingCustom.some((r) => r.key === roleKey || r.label?.toLowerCase() === cleanLabel.toLowerCase())) {
+    res.status(400);
+    throw new Error(`Role "${cleanLabel}" (${roleKey}) is already registered.`);
+  }
+
+  const rawTemplate = String(req.body.templateRole || 'supervisor').trim().toLowerCase();
+  const templateRole = rawTemplate === 'dev' ? 'admin' : rawTemplate;
+
+  // Ensure permission objects exist before populating
+  settings.rolePermissions = settings.rolePermissions || JSON.parse(JSON.stringify(DEFAULT_ROLE_PERMISSIONS));
+  settings.navVisibility = settings.navVisibility || JSON.parse(JSON.stringify(DEFAULT_NAV_VISIBILITY));
+  settings.crudPermissions = settings.crudPermissions || JSON.parse(JSON.stringify(DEFAULT_CRUD_PERMISSIONS));
+
+  for (const [cap, defs] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    settings.rolePermissions[cap] = settings.rolePermissions[cap] || {};
+    if (templateRole === 'none') {
+      settings.rolePermissions[cap][roleKey] = false;
+    } else {
+      settings.rolePermissions[cap][roleKey] = Boolean(
+        settings.rolePermissions[cap]?.[templateRole] ?? defs?.[templateRole] ?? false
+      );
+    }
+  }
+
+  for (const [navKey, defs] of Object.entries(DEFAULT_NAV_VISIBILITY)) {
+    settings.navVisibility[navKey] = settings.navVisibility[navKey] || {};
+    if (templateRole === 'none') {
+      settings.navVisibility[navKey][roleKey] = navKey === 'dashboard';
+    } else {
+      settings.navVisibility[navKey][roleKey] = Boolean(
+        settings.navVisibility[navKey]?.[templateRole] ?? defs?.[templateRole] ?? false
+      );
+    }
+  }
+
+  for (const [mod, ops] of Object.entries(DEFAULT_CRUD_PERMISSIONS)) {
+    settings.crudPermissions[mod] = settings.crudPermissions[mod] || {};
+    for (const op of ['view', 'edit', 'delete']) {
+      settings.crudPermissions[mod][op] = settings.crudPermissions[mod][op] || {};
+      if (templateRole === 'none') {
+        settings.crudPermissions[mod][op][roleKey] = op === 'view' && mod === 'products';
+      } else {
+        settings.crudPermissions[mod][op][roleKey] = Boolean(
+          settings.crudPermissions[mod][op]?.[templateRole] ?? ops?.[op]?.[templateRole] ?? false
+        );
+      }
+    }
+  }
+
+  const createdRole = {
+    key: roleKey,
+    label: cleanLabel,
+    templateRole,
+    createdAt: new Date(),
+    createdByName: req.user?.name || '',
+  };
+
+  settings.customRoles = [...existingCustom, createdRole];
+  settings.markModified('customRoles');
+  settings.markModified('rolePermissions');
+  settings.markModified('navVisibility');
+  settings.markModified('crudPermissions');
+
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  if (tg?.notifySettingsChanged) {
+    tg.notifySettingsChanged(
+      [{ label: 'New Custom Role Registered', summary: `${cleanLabel} (${roleKey}) from template "${ROLE_LABELS[templateRole] || templateRole}"` }],
+      req.user,
+      'ROLE REGISTERED'
+    );
+  }
+  notify.push({
+    type: 'system',
+    title: 'New Custom Role Registered',
+    message: `${req.user?.name || 'Admin'} registered role "${cleanLabel}" (${roleKey}).`,
+    icon: '🛡️',
+    link: '/settings',
+    allowedRoles: ['admin', 'dev'],
+    severity: 'info',
+    userId: req.user?._id,
+  });
+
+  try {
+    logActivity(req, {
+      action: 'REGISTER_CUSTOM_ROLE',
+      module: 'Settings',
+      description: `Registered custom role "${cleanLabel}" (${roleKey}) copying privileges from "${templateRole}"`,
+      status: 'success',
+      details: { roleKey, label: cleanLabel, templateRole },
+    });
+  } catch (_) { }
+
+  res.status(201).json({
+    message: `Role "${cleanLabel}" registered successfully.`,
+    role: createdRole,
+    settings: updated,
+  });
+});
+
+// @desc   Delete a custom role (only if not assigned to any user)
+// @route  DELETE /api/settings/custom-roles/:key
+// @access Private (Admin & System Developer only)
+const deleteCustomRole = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'dev' && req.user?.role !== 'admin') {
+    res.status(403);
+    throw new Error('Access denied: Only Administrator or System Developer can delete custom roles.');
+  }
+
+  const roleKey = String(req.params.key || '').trim().toLowerCase();
+  if (!roleKey || BUILTIN_ROLE_KEYS.has(roleKey)) {
+    res.status(400);
+    throw new Error('Built-in roles cannot be deleted.');
+  }
+
+  const User = require('../models/User');
+  const assignedCount = await User.countDocuments({ role: roleKey });
+  if (assignedCount > 0) {
+    res.status(400);
+    throw new Error(`Cannot delete role "${roleKey}" because ${assignedCount} staff account(s) currently use it. Reassign them first.`);
+  }
+
+  const settings = await Setting.findOne();
+  if (!settings) {
+    res.status(404);
+    throw new Error('Settings not found');
+  }
+
+  const existingCustom = Array.isArray(settings.customRoles) ? settings.customRoles : [];
+  const target = existingCustom.find((r) => r.key === roleKey);
+  if (!target) {
+    res.status(404);
+    throw new Error('Custom role not found.');
+  }
+
+  settings.customRoles = existingCustom.filter((r) => r.key !== roleKey);
+  if (settings.rolePermissions) {
+    for (const cap of Object.keys(settings.rolePermissions)) {
+      if (settings.rolePermissions[cap]) delete settings.rolePermissions[cap][roleKey];
+    }
+    settings.markModified('rolePermissions');
+  }
+  if (settings.navVisibility) {
+    for (const navKey of Object.keys(settings.navVisibility)) {
+      if (settings.navVisibility[navKey]) delete settings.navVisibility[navKey][roleKey];
+    }
+    settings.markModified('navVisibility');
+  }
+  if (settings.crudPermissions) {
+    for (const mod of Object.keys(settings.crudPermissions)) {
+      for (const op of ['view', 'edit', 'delete']) {
+        if (settings.crudPermissions[mod]?.[op]) delete settings.crudPermissions[mod][op][roleKey];
+      }
+    }
+    settings.markModified('crudPermissions');
+  }
+  settings.markModified('customRoles');
+
+  const updated = await settings.save();
+  clearSettingsCache();
+
+  try {
+    logActivity(req, {
+      action: 'DELETE_CUSTOM_ROLE',
+      module: 'Settings',
+      description: `Deleted custom role "${target.label}" (${roleKey})`,
+      status: 'warning',
+      details: { roleKey, label: target.label },
+    });
+  } catch (_) { }
+
+  res.json({
+    message: `Custom role "${target.label}" deleted.`,
+    settings: updated,
+  });
+});
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -927,6 +1178,8 @@ module.exports = {
   createMenuReview,
   getMenuReviews,
   deleteMenuReview,
+  registerCustomRole,
+  deleteCustomRole,
 };
 
 

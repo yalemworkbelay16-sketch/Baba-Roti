@@ -106,26 +106,26 @@ async function getChatIds(options = {}) {
       return true;
     });
 
-    const MANAGEMENT_ROLES = new Set(['admin', 'manager', 'operation_manager', 'supervisor', 'dev']);
+    const MANAGEMENT_ROLES = new Set(['admin', 'manager', 'operation_manager', 'finance', 'supervisor', 'dev']);
     const isFinancialProcess = ['salesImport', 'dailyReports', 'expenses'].includes(processKey);
     const isOrderProcess = ['posOrders', 'customerQrOrders', 'captainOrders'].includes(processKey);
 
     const restrictFinancial = notifSettings.restrictFinancialToManagement !== false;
     const staffOwnOrdersOnly = notifSettings.staffSeeOwnOrdersOnly !== false;
 
-    // Default allowed operational roles per process (Registered Roles: admin, manager, operation_manager, executive_chef, supervisor, storekeeper, cashier, waiter, fb_team, dev)
+    // Default allowed operational roles per process (Registered Roles: admin, manager, operation_manager, executive_chef, finance, supervisor, storekeeper, cashier, waiter, fb_team, dev)
     const DEFAULT_PROCESS_ROLES = {
-      salesImport: ['admin', 'manager', 'operation_manager', 'dev'],
+      salesImport: ['admin', 'manager', 'operation_manager', 'finance', 'dev'],
       posOrders: ['admin', 'manager', 'operation_manager', 'cashier', 'dev'],
       customerQrOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'waiter', 'fb_team', 'dev'],
       captainOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'dev'],
-      stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
+      stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'finance', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
       stockRequests: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team', 'dev'],
       consumption: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper', 'dev'],
-      expenses: ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'],
-      dailyReports: ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'],
+      expenses: ['admin', 'manager', 'operation_manager', 'finance', 'supervisor', 'dev'],
+      dailyReports: ['admin', 'manager', 'operation_manager', 'finance', 'supervisor', 'dev'],
       authLogins: ['admin', 'dev'],
-      masterData: ['admin', 'manager', 'operation_manager', 'executive_chef', 'dev'],
+      masterData: ['admin', 'manager', 'operation_manager', 'executive_chef', 'finance', 'dev'],
     };
 
     // Staff lookup by chatId

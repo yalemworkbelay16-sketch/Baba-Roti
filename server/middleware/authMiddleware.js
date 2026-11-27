@@ -6,15 +6,15 @@ const Setting = require('../models/Setting');
 const JWT_SECRET = process.env.JWT_SECRET || 'baba_roti_cafe_super_secret_jwt_key_2024';
 
 const DEFAULT_ROLE_PERMISSIONS = {
-  recordGoods:      { storekeeper: true,  cashier: false, waiter: false, fb_team: false, supervisor: true,  executive_chef: true,  operation_manager: true,  manager: true,  admin: true },
-  checkReview:      { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  executive_chef: true,  operation_manager: true,  manager: true,  admin: true },
-  approveGoods:     { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-  postLedger:       { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  executive_chef: false, operation_manager: true,  manager: true,  admin: true },
-  voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-  transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  viewReports:      { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true,  executive_chef: false, operation_manager: true,  manager: true,  admin: true },
-  manageAccounts:   { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+  recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+  postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+  transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
 };
 
 let cachedSettings = null;
@@ -71,7 +71,7 @@ const protect = asyncHandler(async (req, res, next) => {
         User.updateOne(
           { _id: req.user._id },
           { $set: { isOnline: true, lastActiveAt: new Date() } }
-        ).catch(() => {});
+        ).catch(() => { });
       }
 
       return next();

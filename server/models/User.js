@@ -7,7 +7,9 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 6 },
     role: {
       type: String,
-      enum: ['dev', 'admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team'],
+      trim: true,
+      lowercase: true,
+      match: [/^[a-z][a-z0-9_]{1,40}$/, 'Invalid role key format'],
       default: 'storekeeper',
     },
     phone: { type: String, trim: true, default: '' },

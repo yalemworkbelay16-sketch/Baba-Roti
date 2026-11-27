@@ -6,6 +6,7 @@ const ROLE_LABELS = {
   manager: 'Manager',
   operation_manager: 'Operation Manager',
   executive_chef: 'Executive Chef',
+  finance: 'Finance',
   supervisor: 'Supervisor',
   storekeeper: 'Store Keeper',
   cashier: 'Cashier',

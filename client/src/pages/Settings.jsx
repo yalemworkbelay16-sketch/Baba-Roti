@@ -107,6 +107,7 @@ const SETTINGS_ROLES = [
   { key: 'executive_chef', label: 'Executive Chef' },
   { key: 'operation_manager', label: 'Operation Manager' },
   { key: 'manager', label: 'Manager' },
+  { key: 'finance', label: 'Finance' },
   { key: 'admin', label: 'Admin' },
 ];
 
@@ -172,46 +173,47 @@ export default function Settings() {
     rawMaterialPriceAdjustValue: 0,
     productSellingPriceAdjustPercent: 0,
     applyToMaterialsNow: false,
+    customRoles: [],
     rolePermissions: {
-      recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-      postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-      transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true }
+      recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+      postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+      transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true }
     },
     navVisibility: {
-      dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-      reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, admin: true },
-      staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+      dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: false, admin: true },
+      production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+      suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+      reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+      staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
     },
     // CRUD privileges per module
     crudPermissions: Object.fromEntries(
       CRUD_MODULES_LIST.map(({ key }) => [
         key,
         {
-          view: { storekeeper: true, cashier: key === 'products', waiter: key === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(key), supervisor: true, executive_chef: ['rawMaterials', 'products', 'stockMovements'].includes(key), operation_manager: true, manager: true, admin: true },
-          edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(key), executive_chef: ['rawMaterials', 'products'].includes(key), operation_manager: true, manager: true, admin: true },
-          delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+          view: { storekeeper: true, cashier: key === 'products', waiter: key === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(key), supervisor: true, executive_chef: ['rawMaterials', 'products', 'stockMovements'].includes(key), operation_manager: true, manager: true, finance: true, admin: true },
+          edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(key), executive_chef: ['rawMaterials', 'products'].includes(key), operation_manager: true, manager: true, finance: ['suppliers', 'expenses', 'purchases'].includes(key), admin: true },
+          delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
         },
       ])
     ),
@@ -416,6 +418,7 @@ export default function Settings() {
     { key: 'manager', label: 'Manager', icon: '👔', color: 'green' },
     { key: 'operation_manager', label: 'Operation Manager', icon: '🏢', color: 'emerald' },
     { key: 'executive_chef', label: 'Executive Chef', icon: '👨‍🍳', color: 'amber' },
+    { key: 'finance', label: 'Finance', icon: '💼', color: 'blue' },
     { key: 'supervisor', label: 'Supervisor', icon: '📋', color: 'blue' },
     { key: 'storekeeper', label: 'Storekeeper', icon: '📦', color: 'ink' },
     { key: 'cashier', label: 'Cashier', icon: '💳', color: 'emerald' },
@@ -425,17 +428,17 @@ export default function Settings() {
 
   // Default allowed operational roles per process (Registered roles only)
   const DEFAULT_PROCESS_ROLES = {
-    salesImport: ['admin', 'manager', 'operation_manager'],
+    salesImport: ['admin', 'manager', 'operation_manager', 'finance'],
     posOrders: ['admin', 'manager', 'operation_manager', 'cashier'],
     customerQrOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'waiter', 'fb_team'],
     captainOrders: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team'],
-    stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team'],
+    stockTransactions: ['admin', 'manager', 'operation_manager', 'executive_chef', 'finance', 'supervisor', 'storekeeper', 'fb_team'],
     stockRequests: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'fb_team'],
     consumption: ['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'cashier', 'waiter', 'fb_team', 'storekeeper'],
-    expenses: ['admin', 'manager', 'operation_manager', 'supervisor'],
-    dailyReports: ['admin', 'manager', 'operation_manager', 'supervisor'],
+    expenses: ['admin', 'manager', 'operation_manager', 'finance', 'supervisor'],
+    dailyReports: ['admin', 'manager', 'operation_manager', 'finance', 'supervisor'],
     authLogins: ['admin'],
-    masterData: ['admin', 'manager', 'operation_manager', 'executive_chef'],
+    masterData: ['admin', 'manager', 'operation_manager', 'executive_chef', 'finance'],
   };
 
   // Telegram Process Settings State & Privacy Controls
@@ -479,11 +482,14 @@ export default function Settings() {
         .then((res) => {
           if (res.data) {
             setSystemForm((prev) => {
+              const serverCustomRoles = Array.isArray(res.data.customRoles) ? res.data.customRoles : [];
+              const allRolesForLoad = [...SETTINGS_ROLES, ...serverCustomRoles];
+
               const loadedNav = res.data.navVisibility || {};
               const normalizedNav = {};
               NAV_ITEMS.forEach((navItem) => {
                 normalizedNav[navItem.key] = {};
-                SETTINGS_ROLES.forEach((r) => {
+                allRolesForLoad.forEach((r) => {
                   const storedVal = loadedNav[navItem.key]?.[r.key];
                   normalizedNav[navItem.key][r.key] = storedVal !== undefined
                     ? Boolean(storedVal)
@@ -495,7 +501,7 @@ export default function Settings() {
               const normalizedRolePerms = {};
               Object.keys(prev.rolePermissions || {}).forEach((permKey) => {
                 normalizedRolePerms[permKey] = {};
-                SETTINGS_ROLES.forEach((r) => {
+                allRolesForLoad.forEach((r) => {
                   const storedVal = loadedRolePerms[permKey]?.[r.key];
                   normalizedRolePerms[permKey][r.key] = storedVal !== undefined
                     ? Boolean(storedVal)
@@ -509,7 +515,7 @@ export default function Settings() {
                 normalizedCrud[key] = {};
                 ['view', 'edit', 'delete'].forEach((act) => {
                   normalizedCrud[key][act] = {};
-                  SETTINGS_ROLES.forEach((r) => {
+                  allRolesForLoad.forEach((r) => {
                     const storedVal = loadedCrud[key]?.[act]?.[r.key];
                     normalizedCrud[key][act][r.key] = storedVal !== undefined
                       ? Boolean(storedVal)
@@ -521,6 +527,7 @@ export default function Settings() {
               return {
                 ...prev,
                 ...res.data,
+                customRoles: serverCustomRoles,
                 rolePermissions: normalizedRolePerms,
                 navVisibility: normalizedNav,
                 crudPermissions: normalizedCrud,
@@ -857,6 +864,93 @@ export default function Settings() {
       setPasswordSaving(false);
     }
   };
+  const [newRoleForm, setNewRoleForm] = useState({ label: '', key: '', templateRole: 'supervisor' });
+  const [roleKeyTouched, setRoleKeyTouched] = useState(false);
+  const [roleRegSaving, setRoleRegSaving] = useState(false);
+  const [roleRegSuccess, setRoleRegSuccess] = useState('');
+  const [roleRegError, setRoleRegError] = useState('');
+
+  const slugifyRoleKey = (raw = '') =>
+    String(raw || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/^[^a-z]+/, '')
+      .slice(0, 40);
+
+  const allSettingsRoles = [
+    ...SETTINGS_ROLES,
+    ...(Array.isArray(systemForm.customRoles) ? systemForm.customRoles : []).map((cr) => ({
+      key: cr.key,
+      label: cr.label,
+      isCustom: true,
+      templateRole: cr.templateRole,
+    })),
+  ];
+
+  const handleRegisterCustomRole = async (e) => {
+    e.preventDefault();
+    if (!newRoleForm.label.trim()) {
+      setRoleRegError('Please enter a role name.');
+      return;
+    }
+    setRoleRegSaving(true);
+    setRoleRegError('');
+    setRoleRegSuccess('');
+    try {
+      const payload = {
+        label: newRoleForm.label.trim(),
+        key: roleKeyTouched ? newRoleForm.key.trim() : slugifyRoleKey(newRoleForm.label),
+        templateRole: newRoleForm.templateRole || 'supervisor',
+      };
+      const res = await api.post('/settings/custom-roles', payload);
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customRoles: updatedSettings.customRoles || prev.customRoles,
+          rolePermissions: updatedSettings.rolePermissions || prev.rolePermissions,
+          navVisibility: updatedSettings.navVisibility || prev.navVisibility,
+          crudPermissions: updatedSettings.crudPermissions || prev.crudPermissions,
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setRoleRegSuccess(res.data?.message || `Role "${payload.label}" registered.`);
+      setNewRoleForm({ label: '', key: '', templateRole: 'supervisor' });
+      setRoleKeyTouched(false);
+      setTimeout(() => setRoleRegSuccess(''), 5000);
+    } catch (err) {
+      setRoleRegError(err.response?.data?.message || 'Failed to register custom role.');
+    } finally {
+      setRoleRegSaving(false);
+    }
+  };
+
+  const handleDeleteCustomRole = async (cr) => {
+    if (!window.confirm(`Delete custom role "${cr.label}" (${cr.key})? This only succeeds if no staff account uses it.`)) return;
+    setRoleRegError('');
+    setRoleRegSuccess('');
+    try {
+      const res = await api.delete(`/settings/custom-roles/${encodeURIComponent(cr.key)}`);
+      const updatedSettings = res.data?.settings;
+      if (updatedSettings) {
+        setSystemForm((prev) => ({
+          ...prev,
+          customRoles: updatedSettings.customRoles || [],
+          rolePermissions: updatedSettings.rolePermissions || prev.rolePermissions,
+          navVisibility: updatedSettings.navVisibility || prev.navVisibility,
+          crudPermissions: updatedSettings.crudPermissions || prev.crudPermissions,
+        }));
+        await refreshPermissions(updatedSettings);
+      }
+      setRoleRegSuccess(res.data?.message || `Custom role "${cr.label}" deleted.`);
+      setTimeout(() => setRoleRegSuccess(''), 4000);
+    } catch (err) {
+      setRoleRegError(err.response?.data?.message || 'Failed to delete custom role.');
+    }
+  };
+
   // Handle System Settings Update
   const handleSystemSubmit = async (e) => {
     e.preventDefault();
@@ -2251,7 +2345,7 @@ export default function Settings() {
 
       {/* ── Tab 4: Role Privileges (Admin & System Developer only) ── */}
       {currentTab === 'permissions' && canManageRolePrivileges && (
-        <Card className="max-w-3xl">
+        <Card className="max-w-5xl">
           <div className="flex items-center gap-2 mb-1">
             <span className="rounded-lg bg-blue-50 p-1.5 text-blue-600">
               <Shield size={16} />
@@ -2262,8 +2356,117 @@ export default function Settings() {
           </div>
           <p className="text-xs text-ink-400 mb-5">
             Your current assigned role is <strong className="capitalize text-ink-800">{user?.role}</strong>.
-            {hasRole('admin') ? ' You can modify the system permissions below.' : ' You do not have permission to modify these settings.'}
+            {canManageRolePrivileges ? ' You can register custom roles and modify system permissions below.' : ' You do not have permission to modify these settings.'}
           </p>
+
+          {/* ── Register Custom / Auto Role (Admin & System Developer) ── */}
+          <form onSubmit={handleRegisterCustomRole} className="mb-6 rounded-xl border border-blue-200/80 bg-blue-50/40 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-blue-600 p-1.5 text-white">
+                  <Sparkles size={14} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-ink-900">Register Custom / Auto Role</h4>
+                  <p className="text-[11px] text-ink-500">
+                    Create a new system role with an auto-generated key and inherit initial permissions from any existing role template.
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full bg-white border border-blue-200 px-2.5 py-0.5 text-[10px] font-bold text-blue-700">
+                Admin &amp; System Developer Only
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+              <div className="sm:col-span-4">
+                <label className="mb-1 block text-[11px] font-semibold text-ink-700">Role Display Name *</label>
+                <input
+                  type="text"
+                  value={newRoleForm.label}
+                  onChange={(e) => {
+                    const labelVal = e.target.value;
+                    setNewRoleForm((prev) => ({
+                      ...prev,
+                      label: labelVal,
+                      key: roleKeyTouched ? prev.key : slugifyRoleKey(labelVal),
+                    }));
+                  }}
+                  placeholder="e.g. Cost Controller, Sous Chef"
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="mb-1 block text-[11px] font-semibold text-ink-700">Auto Role Key</label>
+                <input
+                  type="text"
+                  value={newRoleForm.key}
+                  onChange={(e) => {
+                    setRoleKeyTouched(true);
+                    setNewRoleForm((prev) => ({ ...prev, key: slugifyRoleKey(e.target.value) }));
+                  }}
+                  placeholder="cost_controller"
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs font-mono text-ink-700 outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="mb-1 block text-[11px] font-semibold text-ink-700">Auto-Copy Privileges From</label>
+                <select
+                  value={newRoleForm.templateRole}
+                  onChange={(e) => setNewRoleForm((prev) => ({ ...prev, templateRole: e.target.value }))}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-blue-500"
+                >
+                  {allSettingsRoles.map((tpl) => (
+                    <option key={tpl.key} value={tpl.key}>{tpl.label}</option>
+                  ))}
+                  <option value="none">Minimal (Dashboard only)</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <Button
+                  type="submit"
+                  disabled={roleRegSaving}
+                  className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white py-1.5 text-xs"
+                >
+                  <Plus size={14} /> {roleRegSaving ? 'Adding…' : 'Register'}
+                </Button>
+              </div>
+            </div>
+
+            {roleRegSuccess && (
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
+                <CheckCircle2 size={14} /> <span>{roleRegSuccess}</span>
+              </div>
+            )}
+            {roleRegError && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle size={14} /> <span>{roleRegError}</span>
+              </div>
+            )}
+
+            {Array.isArray(systemForm.customRoles) && systemForm.customRoles.length > 0 && (
+              <div className="pt-2 border-t border-blue-200/70 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-ink-600 mr-1">Registered Custom Roles:</span>
+                {systemForm.customRoles.map((cr) => (
+                  <span
+                    key={cr.key}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white border border-blue-200 px-2.5 py-0.5 text-[11px] font-semibold text-blue-900 shadow-2xs"
+                  >
+                    <span>{cr.label}</span>
+                    <span className="font-mono text-[10px] text-ink-400">({cr.key})</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomRole(cr)}
+                      title={`Delete custom role "${cr.label}"`}
+                      className="rounded-full p-0.5 text-ink-400 hover:bg-red-50 hover:text-red-600 transition"
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </form>
 
           <form onSubmit={handleSystemSubmit}>
             <div className="overflow-x-auto">
@@ -2271,8 +2474,11 @@ export default function Settings() {
                 <thead>
                   <tr className="border-b border-ink-100 bg-ink-50/70 text-ink-600 font-semibold">
                     <th className="py-2.5 px-3">System Capability</th>
-                    {SETTINGS_ROLES.map((r) => (
-                      <th key={r.key} className="py-2.5 px-3 text-center">{r.label}</th>
+                    {allSettingsRoles.map((r) => (
+                      <th key={r.key} className="py-2.5 px-3 text-center">
+                        <div>{r.label}</div>
+                        {r.isCustom && <div className="text-[9px] font-bold uppercase text-blue-600">Custom</div>}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -2280,11 +2486,11 @@ export default function Settings() {
                   {CAPABILITIES.map((cap) => (
                     <tr key={cap.key}>
                       <td className="py-2.5 px-3 font-medium">{cap.label}</td>
-                      {SETTINGS_ROLES.map((r) => (
+                      {allSettingsRoles.map((r) => (
                         <td key={r.key} className="py-2.5 px-3 text-center">
                           <input
                             type="checkbox"
-                            disabled={!hasRole('admin')}
+                            disabled={!canManageRolePrivileges}
                             checked={systemForm.rolePermissions?.[cap.key]?.[r.key] || false}
                             onChange={(e) => {
                               const checked = e.target.checked;
@@ -2325,8 +2531,11 @@ export default function Settings() {
                   <thead>
                     <tr className="border-b border-ink-100 bg-ink-50/70 text-ink-600 font-semibold">
                       <th className="py-2.5 px-3">Sidebar Section</th>
-                      {SETTINGS_ROLES.map((r) => (
-                        <th key={r.key} className="py-2.5 px-3 text-center">{r.label}</th>
+                      {allSettingsRoles.map((r) => (
+                        <th key={r.key} className="py-2.5 px-3 text-center">
+                          <div>{r.label}</div>
+                          {r.isCustom && <div className="text-[9px] font-bold uppercase text-blue-600">Custom</div>}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -2334,11 +2543,11 @@ export default function Settings() {
                     {NAV_ITEMS.map((nav) => (
                       <tr key={nav.key}>
                         <td className="py-2.5 px-3 font-medium">{nav.label}</td>
-                        {SETTINGS_ROLES.map((r) => (
+                        {allSettingsRoles.map((r) => (
                           <td key={r.key} className="py-2.5 px-3 text-center">
                             <input
                               type="checkbox"
-                              disabled={!hasRole('admin')}
+                              disabled={!canManageRolePrivileges}
                               checked={Boolean(systemForm.navVisibility?.[nav.key]?.[r.key])}
                               onChange={(e) => {
                                 const checked = e.target.checked;
@@ -2380,13 +2589,16 @@ export default function Settings() {
                   <thead>
                     <tr className="border-b border-ink-100 bg-ink-50/70 text-ink-600 font-semibold">
                       <th className="py-2.5 px-3">Module</th>
-                      {SETTINGS_ROLES.map((r) => (
-                        <th key={r.key} className="py-2.5 px-3 text-center" colSpan={3}>{r.label}</th>
+                      {allSettingsRoles.map((r) => (
+                        <th key={r.key} className="py-2.5 px-3 text-center" colSpan={3}>
+                          {r.label}
+                          {r.isCustom && <span className="ml-1 text-[9px] font-bold uppercase text-blue-600">(Custom)</span>}
+                        </th>
                       ))}
                     </tr>
                     <tr className="border-b border-ink-100 bg-ink-50/40 text-ink-500 text-[10px] font-bold uppercase tracking-wider">
                       <th className="py-1.5 px-3"></th>
-                      {SETTINGS_ROLES.map(r =>
+                      {allSettingsRoles.map(r =>
                         ['View', 'Edit', 'Delete'].map(act => (
                           <th key={`${r.key}-${act}`} className={`py-1.5 px-2 text-center ${act === 'Delete' ? 'text-red-500' : act === 'Edit' ? 'text-amber-600' : 'text-emerald-600'}`}>{act}</th>
                         ))
@@ -2397,12 +2609,12 @@ export default function Settings() {
                     {CRUD_MODULES_LIST.map((mod) => (
                       <tr key={mod.key} className="hover:bg-blue-50/20">
                         <td className="py-2.5 px-3 font-semibold text-ink-800">{mod.label}</td>
-                        {SETTINGS_ROLES.map((r) =>
+                        {allSettingsRoles.map((r) =>
                           ['view', 'edit', 'delete'].map((action) => (
                             <td key={`${r.key}-${action}`} className="py-2.5 px-2 text-center">
                               <input
                                 type="checkbox"
-                                disabled={!hasRole('admin')}
+                                disabled={!canManageRolePrivileges}
                                 checked={systemForm.crudPermissions?.[mod.key]?.[action]?.[r.key] ?? (r.key === 'admin')}
                                 onChange={(e) => {
                                   const checked = e.target.checked;
@@ -2437,7 +2649,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {hasRole('admin') && (
+            {canManageRolePrivileges && (
               <div className="pt-5 flex justify-end">
                 <Button type="submit" disabled={systemSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
                   <Save size={15} /> {systemSaving ? 'Saving Permissions…' : 'Save Role Permissions'}

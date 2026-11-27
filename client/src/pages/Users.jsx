@@ -26,6 +26,7 @@ const roleColor = {
   manager: 'green',
   operation_manager: 'emerald',
   executive_chef: 'amber',
+  finance: 'blue',
   supervisor: 'blue',
   storekeeper: 'ink',
   cashier: 'emerald',
@@ -38,6 +39,7 @@ const roleLabels = {
   manager: 'Manager',
   operation_manager: 'Operation Manager',
   executive_chef: 'Executive Chef',
+  finance: 'Finance',
   supervisor: 'Supervisor',
   storekeeper: 'Store Keeper',
   cashier: 'Cashier',
@@ -58,7 +60,44 @@ const formatRelativeTime = (isoDate) => {
   return `${days}d ago`;
 };
 const Users = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, customRoles = [], getRoleLabel, refreshPermissions } = useAuth();
+  const canRegisterRoles = currentUser?.role === 'admin' || currentUser?.role === 'dev';
+  const resolveRoleLabel = (r) => (getRoleLabel ? getRoleLabel(r) : (roleLabels[r] || r));
+
+  // Quick inline custom/auto role registration state (Admin & System Developer only)
+  const [quickRoleOpen, setQuickRoleOpen] = useState(false);
+  const [quickRoleName, setQuickRoleName] = useState('');
+  const [quickRoleTemplate, setQuickRoleTemplate] = useState('supervisor');
+  const [quickRoleSaving, setQuickRoleSaving] = useState(false);
+  const [quickRoleErr, setQuickRoleErr] = useState('');
+
+  const handleQuickRegisterRole = async () => {
+    const label = quickRoleName.trim();
+    if (!label || label.length < 2) {
+      setQuickRoleErr('Enter a role name (at least 2 characters).');
+      return;
+    }
+    setQuickRoleSaving(true);
+    setQuickRoleErr('');
+    try {
+      const res = await api.post('/settings/custom-roles', {
+        label,
+        templateRole: quickRoleTemplate || 'supervisor',
+      });
+      if (res.data?.settings) {
+        await refreshPermissions(res.data.settings);
+      }
+      if (res.data?.role?.key) {
+        f('role', res.data.role.key);
+      }
+      setQuickRoleName('');
+      setQuickRoleOpen(false);
+    } catch (err) {
+      setQuickRoleErr(err.response?.data?.message || 'Failed to register role.');
+    } finally {
+      setQuickRoleSaving(false);
+    }
+  };
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -172,7 +211,7 @@ const Users = () => {
         const matchEmail = u.email?.toLowerCase().includes(q);
         const matchPhone = u.phone?.toLowerCase().includes(q);
         const matchIp = u.lastLoginIp?.toLowerCase().includes(q);
-        const matchRole = roleLabels[u.role]?.toLowerCase().includes(q);
+        const matchRole = resolveRoleLabel(u.role)?.toLowerCase().includes(q);
         if (!matchName && !matchEmail && !matchPhone && !matchIp && !matchRole) return false;
       }
       return true;
@@ -370,7 +409,13 @@ const Users = () => {
             </span>
           </button>
 
-          {['admin', 'manager', 'operation_manager', 'executive_chef', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team'].map((r) => {
+          {[
+            'admin', 'manager', 'operation_manager', 'executive_chef', 'finance',
+            'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team',
+            ...customRoles.map((cr) => cr.key),
+          ]
+            .filter((r, idx, arr) => arr.indexOf(r) === idx)
+            .map((r) => {
             if (!roleCounts[r]) return null;
             const isActive = roleFilter === r;
             return (
@@ -383,7 +428,7 @@ const Users = () => {
                   : 'bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100'
                   }`}
               >
-                <span>{roleLabels[r] || r}</span>
+                <span>{resolveRoleLabel(r)}</span>
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-blue-200 text-blue-900'
                   }`}>
                   {roleCounts[r]}
@@ -486,7 +531,7 @@ const Users = () => {
                   {/* Role & Station */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex flex-col items-start gap-1">
-                      <Badge color={roleColor[u.role] || 'ink'}>{roleLabels[u.role] || u.role}</Badge>
+                      <Badge color={roleColor[u.role] || 'ink'}>{resolveRoleLabel(u.role)}</Badge>
                       {u.assignedStation === 'kitchen' ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                           🍳 Kitchen Station
@@ -693,7 +738,21 @@ const Users = () => {
           {/* Role + Password */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-700">Role *</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-ink-700">Role *</label>
+                {canRegisterRoles && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickRoleOpen((v) => !v);
+                      setQuickRoleErr('');
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                  >
+                    {quickRoleOpen ? 'Close' : '+ Register Auto Role'}
+                  </button>
+                )}
+              </div>
               <select value={form.role} onChange={e => f('role', e.target.value)}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
                 <option value="storekeeper">Store Keeper</option>
@@ -704,7 +763,15 @@ const Users = () => {
                 <option value="executive_chef">Executive Chef</option>
                 <option value="operation_manager">Operation Manager</option>
                 <option value="manager">Manager</option>
+                <option value="finance">Finance</option>
                 <option value="admin">Admin</option>
+                {customRoles.length > 0 && (
+                  <optgroup label="Custom Registered Roles">
+                    {customRoles.map((cr) => (
+                      <option key={cr.key} value={cr.key}>{cr.label}</option>
+                    ))}
+                  </optgroup>
+                )}
                 {/* Dev option only visible to system owner */}
                 {currentUser?.role === 'dev' && (
                   <option value="dev">🔒 System Developer (Owner)</option>
@@ -721,6 +788,51 @@ const Users = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
           </div>
+
+          {canRegisterRoles && quickRoleOpen && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-blue-900">Register New Custom / Auto Role</p>
+                <span className="text-[10px] font-semibold text-blue-700">Auto-inherits template permissions</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <input
+                  type="text"
+                  value={quickRoleName}
+                  onChange={(e) => setQuickRoleName(e.target.value)}
+                  placeholder="Role name (e.g. Cost Controller)"
+                  className="sm:col-span-5 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-blue-500"
+                />
+                <select
+                  value={quickRoleTemplate}
+                  onChange={(e) => setQuickRoleTemplate(e.target.value)}
+                  className="sm:col-span-4 rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-blue-500"
+                >
+                  <option value="supervisor">Copy: Supervisor</option>
+                  <option value="finance">Copy: Finance</option>
+                  <option value="manager">Copy: Manager</option>
+                  <option value="operation_manager">Copy: Operation Manager</option>
+                  <option value="executive_chef">Copy: Executive Chef</option>
+                  <option value="storekeeper">Copy: Storekeeper</option>
+                  <option value="cashier">Copy: Cashier</option>
+                  <option value="waiter">Copy: Waiter</option>
+                  <option value="fb_team">Copy: F &amp; B Team</option>
+                  <option value="none">Minimal (Dashboard only)</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={quickRoleSaving}
+                  onClick={handleQuickRegisterRole}
+                  className="sm:col-span-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 px-2.5 py-1.5 text-xs font-semibold text-white transition"
+                >
+                  {quickRoleSaving ? 'Creating…' : 'Create & Select'}
+                </button>
+              </div>
+              {quickRoleErr && (
+                <p className="text-[11px] font-medium text-red-600">{quickRoleErr}</p>
+              )}
+            </div>
+          )}
 
           {/* Department & Station Assignment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -930,7 +1042,7 @@ const Users = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="font-bold text-ink-900 truncate">{detailUser.name}</h4>
                   <Badge color={roleColor[detailUser.role] || 'ink'}>
-                    {roleLabels[detailUser.role] || detailUser.role}
+                    {resolveRoleLabel(detailUser.role)}
                   </Badge>
                   <Badge color={detailUser.isActive ? 'green' : 'red'}>
                     {detailUser.isActive ? 'Active' : 'Disabled'}

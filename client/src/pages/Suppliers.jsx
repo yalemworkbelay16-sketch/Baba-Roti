@@ -21,7 +21,7 @@ const Suppliers = () => {
   const [detailItem, setDetailItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const { hasRole, can, canCrud } = useAuth();
-  const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager', 'operation_manager');
+  const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager', 'operation_manager', 'finance');
   const canDelete = canCrud ? canCrud('suppliers', 'delete') : (hasRole('admin') || can('manageAccounts'));
 
   const load = () => api.get('/suppliers', { params: { search } }).then(res => {

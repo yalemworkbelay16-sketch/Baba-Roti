@@ -31,6 +31,24 @@ const updateUser = asyncHandler(async (req, res) => {
     throw new Error('Only a System Owner / Developer can assign the dev role.');
   }
 
+  if (req.body.role !== undefined) {
+    const normalizedRole = String(req.body.role || '').trim().toLowerCase();
+    const BUILTIN_ROLES = new Set([
+      'dev', 'admin', 'manager', 'operation_manager', 'executive_chef',
+      'finance', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team',
+    ]);
+    if (!BUILTIN_ROLES.has(normalizedRole)) {
+      const Setting = require('../models/Setting');
+      const settings = await Setting.findOne().select('customRoles').lean();
+      const custom = Array.isArray(settings?.customRoles) ? settings.customRoles : [];
+      if (!custom.some((r) => r.key === normalizedRole)) {
+        res.status(400);
+        throw new Error(`Role "${normalizedRole}" is not registered in System Settings.`);
+      }
+    }
+    req.body.role = normalizedRole;
+  }
+
   // Prevent self-deactivation
   if (req.user && String(user._id) === String(req.user._id) && req.body.isActive === false) {
     res.status(400);

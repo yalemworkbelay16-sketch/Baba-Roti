@@ -4,15 +4,15 @@ import api from '../api/axios';
 const AuthContext = createContext(null);
 
 const DEFAULT_PERMISSIONS = {
-  recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-  postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-  transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+  recordGoods: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  checkReview: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  approveGoods: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+  postLedger: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  voidTransactions: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+  transferStationStock: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  manageStationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  viewReports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  manageAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
 };
 
 // CRUD privilege defaults per module
@@ -25,33 +25,47 @@ const DEFAULT_CRUD_PERMISSIONS = Object.fromEntries(
   CRUD_MODULES.map((mod) => [
     mod,
     {
-      view: { storekeeper: true, cashier: mod === 'products', waiter: mod === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(mod), supervisor: true, executive_chef: ['rawMaterials', 'products', 'stockMovements'].includes(mod), operation_manager: true, manager: true, admin: true },
-      edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(mod), executive_chef: ['rawMaterials', 'products'].includes(mod), operation_manager: true, manager: true, admin: true },
-      delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
+      view: { storekeeper: true, cashier: mod === 'products', waiter: mod === 'products', fb_team: ['rawMaterials', 'products', 'stockMovements'].includes(mod), supervisor: true, executive_chef: ['rawMaterials', 'products', 'stockMovements'].includes(mod), operation_manager: true, manager: true, finance: true, admin: true },
+      edit: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: !['suppliers', 'employees'].includes(mod), executive_chef: ['rawMaterials', 'products'].includes(mod), operation_manager: true, manager: true, finance: ['suppliers', 'expenses', 'purchases'].includes(mod), admin: true },
+      delete: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
     },
   ])
 );
 const DEFAULT_NAV_VISIBILITY = {
-  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, admin: true },
-  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, admin: true },
-  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, admin: true },
-  activityLog: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, admin: true },
+  dashboard: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  pos: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  captainOrder: { storekeeper: true, cashier: true, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  cashSales: { storekeeper: true, cashier: true, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  rawMaterials: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  mainStore: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  kitchenStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  barStore: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: false, admin: true },
+  stationMapping: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  products: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  stockMovements: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  stockRequests: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  suppliers: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  consumption: { storekeeper: true, cashier: false, waiter: true, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: true, admin: true },
+  production: { storekeeper: true, cashier: false, waiter: false, fb_team: true, supervisor: true, executive_chef: true, operation_manager: true, manager: true, finance: false, admin: true },
+  reports: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  expenses: { storekeeper: true, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  analytics: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+  staffAccounts: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: false, executive_chef: false, operation_manager: false, manager: false, finance: false, admin: true },
+  activityLog: { storekeeper: false, cashier: false, waiter: false, fb_team: false, supervisor: true, executive_chef: false, operation_manager: true, manager: true, finance: true, admin: true },
+};
+
+const BUILTIN_ROLE_LABELS = {
+  admin: 'Admin',
+  manager: 'Manager',
+  operation_manager: 'Operation Manager',
+  executive_chef: 'Executive Chef',
+  finance: 'Finance',
+  supervisor: 'Supervisor',
+  storekeeper: 'Store Keeper',
+  cashier: 'Cashier',
+  waiter: 'Waiter',
+  fb_team: 'F & B Team',
+  dev: 'System Developer',
 };
 
 const DEFAULT_LICENSED_MODULES = {
@@ -67,6 +81,7 @@ const clearSettingsCache = () => {
   localStorage.removeItem('hotelStockPermissions');
   localStorage.removeItem('hotelStockNavVisibility');
   localStorage.removeItem('hotelStockCrudPermissions');
+  localStorage.removeItem('hotelStockCustomRoles');
   localStorage.removeItem('hotelStockLicensedModules');
 };
 
@@ -117,6 +132,16 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
+  const [customRoles, setCustomRoles] = useState(() => {
+    try {
+      const cached = localStorage.getItem('hotelStockCustomRoles');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Zero-millisecond initial load: never block rendering if auth state is known
   const [loading, setLoading] = useState(false);
 
@@ -135,6 +160,10 @@ export const AuthProvider = ({ children }) => {
       if (res.data?.crudPermissions) {
         setCrudPermissions(res.data.crudPermissions);
         localStorage.setItem('hotelStockCrudPermissions', JSON.stringify(res.data.crudPermissions));
+      }
+      if (Array.isArray(res.data?.customRoles)) {
+        setCustomRoles(res.data.customRoles);
+        localStorage.setItem('hotelStockCustomRoles', JSON.stringify(res.data.customRoles));
       }
       // Always update licensedModules from server — even { subsystem: false } must apply
       const lm = res.data?.licensedModules ?? DEFAULT_LICENSED_MODULES;
@@ -364,6 +393,7 @@ export const AuthProvider = ({ children }) => {
       const nv = newSettings.navVisibility ?? null;
       const cp = newSettings.crudPermissions ?? null;
       const lm = newSettings.licensedModules ?? null;
+      const cr = Array.isArray(newSettings.customRoles) ? newSettings.customRoles : null;
 
       if (rp) {
         setRolePermissions(rp);
@@ -377,6 +407,10 @@ export const AuthProvider = ({ children }) => {
         setCrudPermissions(cp);
         localStorage.setItem('hotelStockCrudPermissions', JSON.stringify(cp));
       }
+      if (cr) {
+        setCustomRoles(cr);
+        localStorage.setItem('hotelStockCustomRoles', JSON.stringify(cr));
+      }
       if (lm) {
         setLicensedModules(lm);
         localStorage.setItem('hotelStockLicensedModules', JSON.stringify(lm));
@@ -385,6 +419,19 @@ export const AuthProvider = ({ children }) => {
     }
     return await fetchPermissions();
   };
+
+  const getRoleLabel = useCallback((roleKey) => {
+    if (!roleKey) return '';
+    if (BUILTIN_ROLE_LABELS[roleKey]) return BUILTIN_ROLE_LABELS[roleKey];
+    const match = customRoles.find((r) => r.key === roleKey);
+    if (match?.label) return match.label;
+    return String(roleKey)
+      .split('_')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }, [customRoles]);
+
   const sidebarTheme = licensedModules?.sidebarTheme || 'navy';
   const useMaterialIcons = licensedModules?.materialIcons !== false;
 
@@ -408,6 +455,8 @@ export const AuthProvider = ({ children }) => {
         rolePermissions,
         navVisibility,
         crudPermissions,
+        customRoles,
+        getRoleLabel,
         refreshPermissions,
       }}
     >

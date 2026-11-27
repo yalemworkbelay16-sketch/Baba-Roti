@@ -535,7 +535,7 @@ const Sidebar = ({
   const staffItems = [
     { to: '/users', label: t('nav.staffAccounts'), icon: PeopleAltRoundedIcon },
     { to: '/employees', label: t('nav.employees'), icon: ManageAccountsRoundedIcon },
-    (canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'].includes(user?.role)) && {
+    (canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'finance', 'supervisor', 'dev'].includes(user?.role)) && {
       to: '/activity-log',
       label: isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log',
       icon: HistoryRoundedIcon,
@@ -1090,7 +1090,7 @@ const Sidebar = ({
               >
                 <SubLink to="/users" label={t('nav.staffAccounts')} icon={PeopleAltRoundedIcon} onClick={onClose} />
                 <SubLink to="/employees" label={t('nav.employees')} icon={ManageAccountsRoundedIcon} onClick={onClose} />
-                {(canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'supervisor', 'dev'].includes(user?.role)) && (
+                {(canSeeNav('activityLog') || ['admin', 'manager', 'operation_manager', 'finance', 'supervisor', 'dev'].includes(user?.role)) && (
                   <SubLink
                     to="/activity-log"
                     label={isAmharic ? 'የእንቅስቃሴ መዝገብ' : 'Activity & Audit Log'}

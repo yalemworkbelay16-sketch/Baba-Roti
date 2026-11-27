@@ -6,6 +6,22 @@ const tg = require('../utils/telegramNotifier');
 const { logActivity } = require('../utils/activityLogger');
 const { getClientIp, parseDevice } = require('../utils/deviceDetector');
 
+const Setting = require('../models/Setting');
+
+const BUILTIN_ROLES = new Set([
+  'dev', 'admin', 'manager', 'operation_manager', 'executive_chef',
+  'finance', 'supervisor', 'storekeeper', 'cashier', 'waiter', 'fb_team',
+]);
+
+async function isValidSystemRole(roleKey) {
+  const key = String(roleKey || '').trim().toLowerCase();
+  if (!key) return false;
+  if (BUILTIN_ROLES.has(key)) return true;
+  const settings = await Setting.findOne().select('customRoles').lean();
+  const custom = Array.isArray(settings?.customRoles) ? settings.customRoles : [];
+  return custom.some((r) => r.key === key);
+}
+
 // @desc  Register a new user (admin only, in practice)
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, role, phone, telegramChatId, photoUrl, avatar, employeeId, assignedStation } = req.body;
@@ -16,10 +32,14 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('A user with this email already exists');
   }
 
-  let assignedRole = role || 'storekeeper';
+  let assignedRole = String(role || 'storekeeper').trim().toLowerCase();
   if (assignedRole === 'dev' && req.user?.role !== 'dev') {
     res.status(403);
     throw new Error('Only a System Owner / Developer can create accounts with the dev role.');
+  }
+  if (!(await isValidSystemRole(assignedRole))) {
+    res.status(400);
+    throw new Error(`Role "${assignedRole}" is not registered in System Settings.`);
   }
 
   const photo = photoUrl || avatar || '';

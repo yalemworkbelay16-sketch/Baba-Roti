@@ -1769,6 +1769,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
     manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     operation_manager: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     executive_chef: 'bg-amber-50 text-amber-700 border-amber-200',
+    finance: 'bg-cyan-50 text-cyan-800 border-cyan-200',
     storekeeper: 'bg-blue-50 text-blue-700 border-blue-200',
     fb_team: 'bg-teal-50 text-teal-700 border-teal-200',
     waiter: 'bg-purple-50 text-purple-700 border-purple-200',
@@ -1781,13 +1782,14 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
     manager: 'Manager',
     operation_manager: 'Operation Manager',
     executive_chef: 'Executive Chef',
+    finance: 'Finance',
     supervisor: 'Supervisor',
     storekeeper: 'Store Keeper',
     cashier: 'Cashier',
     waiter: 'Waiter',
     fb_team: 'F & B Team',
     dev: 'System Developer',
-  }[user?.role] || user?.role;
+  }[user?.role] || (user?.role ? String(user.role).split('_').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
 
   return (
     <>

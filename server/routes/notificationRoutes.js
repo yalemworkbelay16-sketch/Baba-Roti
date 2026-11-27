@@ -1,5 +1,5 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const asyncHandler = require('express-async-handler');
 const Notification = require('../models/Notification');
 const Setting = require('../models/Setting');
@@ -24,9 +24,9 @@ function canUserViewNotification(n, user, settings) {
     case 'stock_request':
       return nav.stockRequests?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'operation_manager', 'manager'].includes(role);
     case 'transaction':
-      return nav.stockMovements?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'operation_manager', 'manager'].includes(role);
+      return nav.stockMovements?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'finance', 'operation_manager', 'manager'].includes(role);
     case 'consumption': {
-      const canSeeCons = nav.consumption?.[role] ?? ['storekeeper', 'waiter', 'fb_team', 'supervisor', 'executive_chef', 'operation_manager', 'manager'].includes(role);
+      const canSeeCons = nav.consumption?.[role] ?? ['storekeeper', 'waiter', 'fb_team', 'supervisor', 'executive_chef', 'finance', 'operation_manager', 'manager'].includes(role);
       if (!canSeeCons) return false;
       if (role === 'waiter') {
         const isCreator = n.createdBy && String(n.createdBy) === userId;
@@ -36,12 +36,12 @@ function canUserViewNotification(n, user, settings) {
       return true;
     }
     case 'purchase':
-      return ['supervisor', 'operation_manager', 'manager'].includes(role);
+      return Boolean(perms.postLedger?.[role] || ['supervisor', 'operation_manager', 'manager', 'finance'].includes(role));
     case 'expense':
-      return nav.expenses?.[role] ?? ['storekeeper', 'supervisor', 'operation_manager', 'manager'].includes(role);
+      return nav.expenses?.[role] ?? ['storekeeper', 'supervisor', 'operation_manager', 'manager', 'finance'].includes(role);
     case 'material':
     case 'low_stock':
-      return nav.rawMaterials?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'operation_manager', 'manager'].includes(role);
+      return nav.rawMaterials?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'finance', 'operation_manager', 'manager'].includes(role);
     case 'production':
       return nav.production?.[role] ?? ['storekeeper', 'fb_team', 'supervisor', 'executive_chef', 'operation_manager', 'manager'].includes(role);
     case 'pos':
@@ -50,7 +50,7 @@ function canUserViewNotification(n, user, settings) {
     case 'user':
       return Boolean(perms.manageAccounts?.[role] || nav.staffAccounts?.[role]);
     case 'system':
-      return ['supervisor', 'operation_manager', 'manager'].includes(role);
+      return ['supervisor', 'operation_manager', 'manager', 'finance'].includes(role);
     default:
       return true;
   }
