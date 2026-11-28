@@ -17,6 +17,7 @@ import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { exportToExcel } from '../utils/exportUtils';
 import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
 import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
+import { getStoredCustomOptions, saveStoredCustomOption } from '../utils/customOptions';
 import {
   RAW_MATERIAL_UNIT_GROUPS as UNITS,
   isDiscreteUnit,
@@ -78,6 +79,8 @@ const RawMaterials = () => {
   const [formError, setFormError] = useState('');
   const [unitCustom, setUnitCustom] = useState(false);
   const [categoryCustom, setCategoryCustom] = useState(false);
+  const [customCategories, setCustomCategories] = useState(() => getStoredCustomOptions('baba_roti_custom_raw_cats'));
+  const [customUnits, setCustomUnits] = useState(() => getStoredCustomOptions('baba_roti_custom_raw_units'));
 
   // Quick Dispatch / Stock Transfer state (send from Main Store to Kitchen/Bar)
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -361,10 +364,10 @@ const RawMaterials = () => {
   };
   const openEdit = (m) => {
     setFormError('');
-    // Check if stored unit is in the preset list
-    const allUnits = UNITS.flatMap(g => g.items);
+    // Check if stored unit is in the preset list or saved custom list
+    const allUnits = [...UNITS.flatMap(g => g.items), ...customUnits];
     const isPresetUnit = allUnits.includes(m.unit);
-    const allCategories = [...CATEGORIES.flatMap(g => g.items), ...existingCategories];
+    const allCategories = [...CATEGORIES.flatMap(g => g.items), ...existingCategories, ...customCategories];
     const isPresetCat = allCategories.includes(m.category);
     setEditing(m);
     setForm({
@@ -419,11 +422,19 @@ const RawMaterials = () => {
     }
 
     try {
-      const payload = { ...form, code: rawCode, name: rawName };
+      const cleanCategory = String(form.category || '').trim();
+      const cleanUnit = String(form.unit || '').trim();
+      const payload = { ...form, code: rawCode, name: rawName, category: cleanCategory, unit: cleanUnit };
       if (editing) {
         await api.put(`/materials/${editing._id}`, payload);
       } else {
         await api.post('/materials', payload);
+      }
+      if (cleanCategory) {
+        setCustomCategories(saveStoredCustomOption('baba_roti_custom_raw_cats', cleanCategory, CATEGORIES.flatMap(g => g.items)));
+      }
+      if (cleanUnit) {
+        setCustomUnits(saveStoredCustomOption('baba_roti_custom_raw_units', cleanUnit, UNITS.flatMap(g => g.items)));
       }
       setModalOpen(false);
       load();
@@ -1322,14 +1333,29 @@ const RawMaterials = () => {
           <LiveConflictAlert live={liveMaterialConflicts} canEdit={canEdit} onEditExisting={(item) => openEdit(item)} />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Category</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">Category</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !categoryCustom;
+                    setCategoryCustom(next);
+                    if (next) {
+                      setForm(f => ({ ...f, category: '' }));
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {categoryCustom ? '← Choose from list' : '+ Register new'}
+                </button>
+              </div>
               {categoryCustom ? (
                 <div className="flex items-center gap-1.5">
                   <input
                     autoFocus
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    placeholder="Type custom category…"
+                    placeholder="Type new category…"
                     className="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400"
                   />
                   <button
@@ -1359,6 +1385,15 @@ const RawMaterials = () => {
                       ))}
                     </optgroup>
                   )}
+                  {customCategories.filter(c => !existingCategories.includes(c) && !CATEGORIES.some(g => g.items.includes(c))).length > 0 && (
+                    <optgroup label="Registered Custom Categories">
+                      {customCategories
+                        .filter(c => !existingCategories.includes(c) && !CATEGORIES.some(g => g.items.includes(c)))
+                        .map(c => (
+                          <option key={`custom-cat-${c}`} value={c}>{c}</option>
+                        ))}
+                    </optgroup>
+                  )}
                   {CATEGORIES.map(group => (
                     <optgroup key={group.group} label={group.group}>
                       {group.items.map(c => (
@@ -1366,12 +1401,27 @@ const RawMaterials = () => {
                       ))}
                     </optgroup>
                   ))}
-                  <option value="__custom__">✏️ Custom…</option>
+                  <option value="__custom__">✏️ Register new category…</option>
                 </select>
               )}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Unit *</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">Unit *</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !unitCustom;
+                    setUnitCustom(next);
+                    if (next) {
+                      setForm(f => ({ ...f, unit: '' }));
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {unitCustom ? '← Choose from list' : '+ Register new'}
+                </button>
+              </div>
               {unitCustom ? (
                 <div className="flex items-center gap-1.5">
                   <input
@@ -1379,7 +1429,7 @@ const RawMaterials = () => {
                     autoFocus
                     value={form.unit}
                     onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                    placeholder="Type custom unit…"
+                    placeholder="Type new unit…"
                     className="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400"
                   />
                   <button
@@ -1403,6 +1453,15 @@ const RawMaterials = () => {
                   className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400 bg-white"
                 >
                   <option value="">Select unit…</option>
+                  {customUnits.filter(u => !UNITS.some(g => g.items.includes(u))).length > 0 && (
+                    <optgroup label="Registered Custom Units">
+                      {customUnits
+                        .filter(u => !UNITS.some(g => g.items.includes(u)))
+                        .map(u => (
+                          <option key={`custom-unit-${u}`} value={u}>{u}</option>
+                        ))}
+                    </optgroup>
+                  )}
                   {UNITS.map(group => (
                     <optgroup key={group.group} label={group.group}>
                       {group.items.map(u => (
@@ -1410,7 +1469,7 @@ const RawMaterials = () => {
                       ))}
                     </optgroup>
                   ))}
-                  <option value="__custom__">✏️ Custom…</option>
+                  <option value="__custom__">✏️ Register new unit…</option>
                 </select>
               )}
             </div>

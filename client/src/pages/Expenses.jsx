@@ -37,6 +37,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { normalizeFileUrl, isPdfDocument } from '../utils/fileUrl';
+import { getStoredCustomOptions, saveStoredCustomOption } from '../utils/customOptions';
 import {
   ResponsiveContainer,
   BarChart,
@@ -361,6 +362,19 @@ export default function Expenses() {
   const [stats, setStats] = useState(null);
   const [categoriesList, setCategoriesList] = useState(DEFAULT_EXPENSE_CATEGORIES);
   const [paymentMethodsList, setPaymentMethodsList] = useState(DEFAULT_PAYMENT_METHODS);
+  const [customCategories, setCustomCategories] = useState(() => getStoredCustomOptions('baba_roti_custom_expense_cats'));
+  const [customPaymentMethods, setCustomPaymentMethods] = useState(() => getStoredCustomOptions('baba_roti_custom_expense_methods'));
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [isCustomPaymentMethod, setIsCustomPaymentMethod] = useState(false);
+
+  const mergedCategoriesList = useMemo(
+    () => Array.from(new Set([...categoriesList, ...customCategories])),
+    [categoriesList, customCategories]
+  );
+  const mergedPaymentMethodsList = useMemo(
+    () => Array.from(new Set([...paymentMethodsList, ...customPaymentMethods])),
+    [paymentMethodsList, customPaymentMethods]
+  );
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -499,9 +513,11 @@ export default function Expenses() {
     setEditingExpense(null);
     setFormError('');
     setFormReceiptError(false);
+    setIsCustomCategory(false);
+    setIsCustomPaymentMethod(false);
     setFormData({
       title: template?.title || '',
-      category: template?.category || categoriesList[0] || 'Utilities (Power, Water, Gas)',
+      category: template?.category || mergedCategoriesList[0] || 'Utilities (Power, Water, Gas)',
       amount: '',
       date: new Date().toISOString().slice(0, 10),
       paymentMethod: 'Cash',
@@ -518,6 +534,8 @@ export default function Expenses() {
     setEditingExpense(expense);
     setFormError('');
     setFormReceiptError(false);
+    setIsCustomCategory(Boolean(expense.category && !mergedCategoriesList.includes(expense.category)));
+    setIsCustomPaymentMethod(Boolean(expense.paymentMethod && !mergedPaymentMethodsList.includes(expense.paymentMethod)));
     setFormData({
       title: expense.title || '',
       category: expense.category || 'Utilities (Power, Water, Gas)',
@@ -539,20 +557,30 @@ export default function Expenses() {
       setFormError('Please enter an expense title or item description.');
       return;
     }
+    const cleanCategory = String(formData.category || '').trim();
+    if (!cleanCategory) {
+      setFormError('Please select or type an expense category.');
+      return;
+    }
     const num = Number(formData.amount);
     if (!num || num <= 0) {
       setFormError('Please enter a valid amount greater than 0 ETB.');
       return;
     }
 
+    const cleanPayment = String(formData.paymentMethod || '').trim() || 'Cash';
+    const payload = { ...formData, category: cleanCategory, paymentMethod: cleanPayment };
+
     setSaving(true);
     setFormError('');
     try {
       if (editingExpense) {
-        await api.put(`/expenses/${editingExpense._id}`, formData);
+        await api.put(`/expenses/${editingExpense._id}`, payload);
       } else {
-        await api.post('/expenses', formData);
+        await api.post('/expenses', payload);
       }
+      setCustomCategories(saveStoredCustomOption('baba_roti_custom_expense_cats', cleanCategory, DEFAULT_EXPENSE_CATEGORIES));
+      setCustomPaymentMethods(saveStoredCustomOption('baba_roti_custom_expense_methods', cleanPayment, DEFAULT_PAYMENT_METHODS));
       setModalOpen(false);
       fetchExpenses();
       fetchStats();
@@ -1170,20 +1198,57 @@ export default function Expenses() {
             {/* Category & Amount */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-ink-800 mb-1">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
-                  className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {categoriesList.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-bold text-ink-800">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isCustomCategory;
+                      setIsCustomCategory(next);
+                      if (next) {
+                        setFormData((p) => ({ ...p, category: '' }));
+                      } else if (!formData.category) {
+                        setFormData((p) => ({ ...p, category: mergedCategoriesList[0] || 'Utilities (Power, Water, Gas)' }));
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                  >
+                    {isCustomCategory ? '← Choose from list' : '+ Register new'}
+                  </button>
+                </div>
+                {isCustomCategory ? (
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={formData.category}
+                    onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
+                    placeholder="Type new expense category…"
+                    className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                ) : (
+                  <select
+                    value={formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomCategory(true);
+                        setFormData((p) => ({ ...p, category: '' }));
+                      } else {
+                        setFormData((p) => ({ ...p, category: e.target.value }));
+                      }
+                    }}
+                    className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {mergedCategoriesList.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                    <option value="__custom__">✏️ Register custom category…</option>
+                  </select>
+                )}
               </div>
 
               <div>
@@ -1219,18 +1284,54 @@ export default function Expenses() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-ink-800 mb-1">Payment Method</label>
-                <select
-                  value={formData.paymentMethod}
-                  onChange={(e) => setFormData((p) => ({ ...p, paymentMethod: e.target.value }))}
-                  className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {paymentMethodsList.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-bold text-ink-800">Payment Method</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isCustomPaymentMethod;
+                      setIsCustomPaymentMethod(next);
+                      if (next) {
+                        setFormData((p) => ({ ...p, paymentMethod: '' }));
+                      } else if (!formData.paymentMethod) {
+                        setFormData((p) => ({ ...p, paymentMethod: 'Cash' }));
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                  >
+                    {isCustomPaymentMethod ? '← Choose from list' : '+ Register new'}
+                  </button>
+                </div>
+                {isCustomPaymentMethod ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData((p) => ({ ...p, paymentMethod: e.target.value }))}
+                    placeholder="Type new payment method…"
+                    className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                ) : (
+                  <select
+                    value={formData.paymentMethod}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomPaymentMethod(true);
+                        setFormData((p) => ({ ...p, paymentMethod: '' }));
+                      } else {
+                        setFormData((p) => ({ ...p, paymentMethod: e.target.value }));
+                      }
+                    }}
+                    className="w-full rounded-xl border border-ink-200 px-3 py-2 text-xs text-ink-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {mergedPaymentMethodsList.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                    <option value="__custom__">✏️ Register custom method…</option>
+                  </select>
+                )}
               </div>
             </div>
 

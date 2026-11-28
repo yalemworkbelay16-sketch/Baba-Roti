@@ -7,6 +7,23 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import RecordAuditTrail from '../components/common/RecordAuditTrail';
+import { getStoredCustomOptions, saveStoredCustomOption } from '../utils/customOptions';
+
+const DEFAULT_SUPPLIER_CATEGORIES = [
+  'General',
+  'Produce & Vegetables',
+  'Meat & Poultry',
+  'Seafood & Fish',
+  'Dairy & Eggs',
+  'Bakery & Flour Supplies',
+  'Beverages & Soft Drinks',
+  'Coffee, Tea & Roastery',
+  'Spices & Dry Goods',
+  'Cooking Oil & Condiments',
+  'Packaging & Disposables',
+  'Cleaning & Hygiene',
+  'Kitchen Equipment & Maintenance',
+];
 
 const emptyForm = { name: '', contactPerson: '', phone: '', email: '', category: '', address: '' };
 
@@ -20,6 +37,8 @@ const Suppliers = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategories, setCustomCategories] = useState(() => getStoredCustomOptions('baba_roti_custom_supplier_cats'));
   const { hasRole, can, canCrud } = useAuth();
   const canEdit = canCrud ? canCrud('suppliers', 'edit') : hasRole('admin', 'manager', 'operation_manager', 'finance');
   const canDelete = canCrud ? canCrud('suppliers', 'delete') : (hasRole('admin') || can('manageAccounts'));
@@ -39,6 +58,12 @@ const Suppliers = () => {
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [suppliers]);
+
+  const supplierCategoryOptions = useMemo(() => {
+    const fromDb = suppliers.map((s) => String(s.category || '').trim()).filter(Boolean);
+    const active = String(form.category || '').trim();
+    return Array.from(new Set([...DEFAULT_SUPPLIER_CATEGORIES, ...fromDb, ...customCategories, ...(active ? [active] : [])]));
+  }, [suppliers, customCategories, form.category]);
 
   // Filtered by category
   const filteredSuppliers = useMemo(() => {
@@ -60,13 +85,28 @@ const Suppliers = () => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (s) => { setEditing(s); setForm(s); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setIsCustomCategory(false);
+    setForm(emptyForm);
+    setModalOpen(true);
+  };
+  const openEdit = (s) => {
+    setEditing(s);
+    setIsCustomCategory(false);
+    setForm(s);
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editing) await api.put(`/suppliers/${editing._id}`, form);
-    else await api.post('/suppliers', form);
+    const cleanCategory = String(form.category || '').trim();
+    const payload = { ...form, category: cleanCategory };
+    if (editing) await api.put(`/suppliers/${editing._id}`, payload);
+    else await api.post('/suppliers', payload);
+    if (cleanCategory) {
+      setCustomCategories(saveStoredCustomOption('baba_roti_custom_supplier_cats', cleanCategory, DEFAULT_SUPPLIER_CATEGORIES));
+    }
     setModalOpen(false);
     load();
   };
@@ -285,9 +325,57 @@ const Suppliers = () => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Category</label>
-              <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400" />
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">Category</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCustomCategory;
+                    setIsCustomCategory(next);
+                    if (next) setForm((f) => ({ ...f, category: '' }));
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {isCustomCategory ? '← Choose from list' : '+ Register new'}
+                </button>
+              </div>
+              {isCustomCategory ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    placeholder="Type new supplier category…"
+                    className="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brass-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomCategory(false)}
+                    className="rounded-lg border border-ink-200 px-2.5 py-2 text-xs text-ink-500 hover:bg-ink-50 transition"
+                  >
+                    ← List
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={form.category || ''}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setIsCustomCategory(true);
+                      setForm({ ...form, category: '' });
+                    } else {
+                      setForm({ ...form, category: e.target.value });
+                    }
+                  }}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brass-400 cursor-pointer"
+                >
+                  <option value="">Select category…</option>
+                  {supplierCategoryOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                  <option value="__custom__">✏️ Register new category…</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Contact person</label>

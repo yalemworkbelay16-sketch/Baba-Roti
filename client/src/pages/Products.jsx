@@ -13,6 +13,45 @@ import RecordAuditTrail from '../components/common/RecordAuditTrail';
 import { buildConflictMap, findLiveConflicts } from '../utils/duplicateFlags';
 import { RowWarningFlag, LiveConflictAlert } from '../components/common/DuplicateWarningBadge';
 import { convertUnit, getConversionPreview } from '../utils/units';
+import { getStoredCustomOptions, saveStoredCustomOption } from '../utils/customOptions';
+
+const DEFAULT_CHILD_CATEGORIES = [
+  'General',
+  'Bakery & Pastry',
+  'Hot Drink',
+  'Soft drink',
+  'Breakfast',
+  'Lunch & Dinner',
+  'Burger & Sandwich',
+  'Juice',
+  'Pasta',
+  'Dessert',
+];
+
+const DEFAULT_PARENT_CATEGORIES = [
+  'FOOD',
+  'BEVERAGE',
+  'JUICES',
+  'CAKES',
+  'PASTRY',
+  'BREAKFAST',
+  'DESSERT',
+  'SNACKS',
+  'HOT DRINKS',
+  'SOFT DRINKS',
+  'OTHER',
+];
+
+const DEFAULT_PRODUCT_DESCRIPTIONS = [
+  'Freshly prepared Baba Roti signature menu item',
+  'Freshly baked artisan pastry & bakery item',
+  'Hot freshly brewed espresso & café beverage',
+  'Chilled fresh-pressed natural fruit juice',
+  'Nutritious freshly cooked breakfast specialty',
+  'Savory chef-crafted lunch & dinner entrée',
+  'Classic house burger & grilled sandwich',
+  'Rich authentic Italian-style pasta dish',
+];
 
 const emptyForm = {
   code: '',
@@ -46,6 +85,13 @@ const Products = () => {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [isCustomParentCategory, setIsCustomParentCategory] = useState(false);
+  const [isCustomUom, setIsCustomUom] = useState(false);
+  const [isCustomDescription, setIsCustomDescription] = useState(false);
+  const [customCategories, setCustomCategories] = useState(() => getStoredCustomOptions('baba_roti_custom_product_cats'));
+  const [customParentCategories, setCustomParentCategories] = useState(() => getStoredCustomOptions('baba_roti_custom_parent_cats'));
+  const [customUoms, setCustomUoms] = useState(() => getStoredCustomOptions('baba_roti_custom_product_uoms'));
+  const [customDescriptions, setCustomDescriptions] = useState(() => getStoredCustomOptions('baba_roti_custom_product_descs'));
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -257,37 +303,46 @@ const Products = () => {
   };
 
   const suggestedCategories = useMemo(() => {
-    const defaults = [
-      'General',
-      'Bakery & Pastry',
-      'Hot Drink',
-      'Soft drink',
-      'Breakfast',
-      'Lunch & Dinner',
-      'Burger & Sandwich',
-      'Juice',
-      'Pasta',
-      'Dessert',
-    ];
     const fromProds = (products || []).map((p) => p.category).filter(Boolean);
-    const combined = Array.from(new Set([...defaults, ...fromProds]));
+    const combined = Array.from(new Set([...DEFAULT_CHILD_CATEGORIES, ...fromProds, ...customCategories]));
     if (form.category && !combined.includes(form.category)) {
       combined.push(form.category);
     }
     return combined;
-  }, [products, form.category]);
+  }, [products, customCategories, form.category]);
+
+  const suggestedParentCategories = useMemo(() => {
+    const fromProds = (products || []).map((p) => String(p.parentCategory || '').trim()).filter(Boolean);
+    const combined = Array.from(new Set([...DEFAULT_PARENT_CATEGORIES, ...fromProds, ...customParentCategories]));
+    if (form.parentCategory && !combined.includes(form.parentCategory)) {
+      combined.push(form.parentCategory);
+    }
+    return combined;
+  }, [products, customParentCategories, form.parentCategory]);
+
+  const suggestedDescriptions = useMemo(() => {
+    const fromProds = (products || []).map((p) => String(p.description || '').trim()).filter(Boolean);
+    const combined = Array.from(new Set([...DEFAULT_PRODUCT_DESCRIPTIONS, ...customDescriptions, ...fromProds]));
+    if (form.description && !combined.includes(form.description)) {
+      combined.push(form.description);
+    }
+    return combined;
+  }, [products, customDescriptions, form.description]);
 
   const openCreate = () => {
     setEditing(null);
     setFormError('');
     setIsCustomCategory(false);
+    setIsCustomParentCategory(false);
+    setIsCustomUom(false);
+    setIsCustomDescription(false);
     const autoCode = getNextProductCode();
     setForm({
       ...emptyForm,
       code: autoCode,
       category: 'General',
       parentCategory: 'FOOD',
-      description: 'Freshly prepared Baba Roti signature menu item',
+      description: DEFAULT_PRODUCT_DESCRIPTIONS[0],
       imageUrl: '',
     });
     setModalOpen(true);
@@ -301,13 +356,16 @@ const Products = () => {
   const openEdit = (p) => {
     setEditing(p);
     setIsCustomCategory(false);
+    setIsCustomParentCategory(false);
+    setIsCustomUom(false);
+    setIsCustomDescription(false);
     setForm({
       code: p.code || '',
       name: p.name,
       category: p.category || 'General',
       parentCategory: p.parentCategory || 'FOOD',
       uom: p.uom || 'Pcs',
-      description: p.description || 'Freshly prepared Baba Roti signature menu item',
+      description: p.description || DEFAULT_PRODUCT_DESCRIPTIONS[0],
       sellingPrice: p.sellingPrice ?? 0,
       imageUrl: p.imageUrl || '',
       ingredients: (p.ingredients || []).map((ing) => ({
@@ -515,10 +573,10 @@ const Products = () => {
     const payload = {
       code: form.code,
       name: form.name,
-      category: form.category,
-      parentCategory: form.parentCategory,
-      uom: form.uom,
-      description: form.description,
+      category: String(form.category || '').trim() || 'General',
+      parentCategory: String(form.parentCategory || '').trim() || 'FOOD',
+      uom: String(form.uom || '').trim() || 'Pcs',
+      description: String(form.description || '').trim(),
       sellingPrice: form.sellingPrice === '' ? 0 : Number(form.sellingPrice),
       imageUrl: form.imageUrl || '',
       ingredients: form.ingredients.map(({ material, quantity, unit }) => ({
@@ -532,6 +590,18 @@ const Products = () => {
         await api.put(`/products/${editing._id}`, payload);
       } else {
         await api.post('/products', payload);
+      }
+      if (payload.category) {
+        setCustomCategories(saveStoredCustomOption('baba_roti_custom_product_cats', payload.category, DEFAULT_CHILD_CATEGORIES));
+      }
+      if (payload.parentCategory) {
+        setCustomParentCategories(saveStoredCustomOption('baba_roti_custom_parent_cats', payload.parentCategory, DEFAULT_PARENT_CATEGORIES));
+      }
+      if (payload.uom) {
+        setCustomUoms(saveStoredCustomOption('baba_roti_custom_product_uoms', payload.uom));
+      }
+      if (payload.description) {
+        setCustomDescriptions(saveStoredCustomOption('baba_roti_custom_product_descs', payload.description, DEFAULT_PRODUCT_DESCRIPTIONS));
       }
       setModalOpen(false);
       load();
@@ -1492,11 +1562,28 @@ const Products = () => {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">UOM (International Unit)</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">UOM (International Unit)</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCustomUom;
+                    setIsCustomUom(next);
+                    if (next) setForm((f) => ({ ...f, uom: '' }));
+                    else if (!form.uom) setForm((f) => ({ ...f, uom: 'Pcs' }));
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {isCustomUom ? '← Units list' : '+ Register new'}
+                </button>
+              </div>
               <UnitSelect
                 value={form.uom}
                 onChange={(val) => setForm({ ...form, uom: val })}
                 placeholder="Pcs"
+                customMode={isCustomUom}
+                onCustomModeChange={setIsCustomUom}
+                extraOptions={customUoms}
                 className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
               />
             </div>
@@ -1558,17 +1645,52 @@ const Products = () => {
               )}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Parent Category</label>
-              <select
-                value={form.parentCategory || 'FOOD'}
-                onChange={(e) => setForm({ ...form, parentCategory: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="FOOD">FOOD</option>
-                <option value="BEVERAGE">BEVERAGE</option>
-                <option value="DESSERT">DESSERT</option>
-                <option value="OTHER">OTHER</option>
-              </select>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">Parent Category</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCustomParentCategory;
+                    setIsCustomParentCategory(next);
+                    if (next) {
+                      setForm((f) => ({ ...f, parentCategory: '' }));
+                    } else if (!form.parentCategory) {
+                      setForm((f) => ({ ...f, parentCategory: 'FOOD' }));
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {isCustomParentCategory ? '← Choose from list' : '+ Register new'}
+                </button>
+              </div>
+              {isCustomParentCategory ? (
+                <input
+                  type="text"
+                  value={form.parentCategory}
+                  onChange={(e) => setForm({ ...form, parentCategory: e.target.value })}
+                  placeholder="Type new parent category…"
+                  autoFocus
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+              ) : (
+                <select
+                  value={form.parentCategory || 'FOOD'}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setIsCustomParentCategory(true);
+                      setForm({ ...form, parentCategory: '' });
+                    } else {
+                      setForm({ ...form, parentCategory: e.target.value });
+                    }
+                  }}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {suggestedParentCategories.map((pc) => (
+                    <option key={pc} value={pc}>{pc}</option>
+                  ))}
+                  <option value="__custom__">+ Register new parent category…</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-600">Selling price (ETB)</label>
@@ -1577,13 +1699,53 @@ const Products = () => {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-ink-600">Description</label>
-              <input
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. Freshly prepared Baba Roti signature menu item"
-                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              />
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-ink-600">Description</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCustomDescription;
+                    setIsCustomDescription(next);
+                    if (next) {
+                      setForm((f) => ({ ...f, description: '' }));
+                    } else if (!form.description) {
+                      setForm((f) => ({ ...f, description: DEFAULT_PRODUCT_DESCRIPTIONS[0] }));
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                >
+                  {isCustomDescription ? '← Choose preset' : '+ Type manual'}
+                </button>
+              </div>
+              {isCustomDescription ? (
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Type manual food / menu description…"
+                  autoFocus
+                  className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+              ) : (
+                <select
+                  value={form.description || ''}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setIsCustomDescription(true);
+                      setForm({ ...form, description: '' });
+                    } else {
+                      setForm({ ...form, description: e.target.value });
+                    }
+                  }}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="">Select description preset…</option>
+                  {suggestedDescriptions.map((desc) => (
+                    <option key={desc} value={desc}>{desc}</option>
+                  ))}
+                  <option value="__custom__">✏️ Type manual description…</option>
+                </select>
+              )}
             </div>
 
             {/* Product Image (Manual & AI) */}

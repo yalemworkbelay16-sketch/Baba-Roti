@@ -19,12 +19,32 @@ export default function UnitSelect({
   className = '',
   compact = false,
   title = 'Select International Unit of Measurement',
+  customMode: controlledCustomMode,
+  onCustomModeChange,
+  extraOptions = [],
 }) {
-  const [customMode, setCustomMode] = useState(false);
+  const [internalCustomMode, setInternalCustomMode] = useState(false);
+  const customMode = controlledCustomMode !== undefined ? controlledCustomMode : internalCustomMode;
+  const setCustomMode = onCustomModeChange || setInternalCustomMode;
+
+  const normalizedExtraOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (extraOptions || [])
+            .map((v) => String(v || '').trim())
+            .filter(Boolean)
+        )
+      ),
+    [extraOptions]
+  );
 
   const allStandardValues = useMemo(
-    () => INTERNATIONAL_UNIT_GROUPS.flatMap((g) => g.options.map((o) => o.value)),
-    []
+    () => [
+      ...INTERNATIONAL_UNIT_GROUPS.flatMap((g) => g.options.map((o) => o.value)),
+      ...normalizedExtraOptions,
+    ],
+    [normalizedExtraOptions]
   );
 
   // Match case-insensitively or canonical-equivalent if possible, otherwise keep raw option
@@ -116,6 +136,15 @@ export default function UnitSelect({
           ))}
         </optgroup>
       ))}
+      {normalizedExtraOptions.length > 0 && (
+        <optgroup label="Registered Custom Units">
+          {normalizedExtraOptions.map((u) => (
+            <option key={`custom-${u}`} value={u}>
+              {u}
+            </option>
+          ))}
+        </optgroup>
+      )}
       <option value="__custom__">✏️ Custom unit…</option>
     </select>
   );
