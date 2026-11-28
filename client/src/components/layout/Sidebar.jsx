@@ -16,7 +16,6 @@ import MoveToInboxRoundedIcon from '@mui/icons-material/MoveToInboxRounded';
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded';
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
-import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
@@ -332,7 +331,7 @@ const Sidebar = ({
   onExpand,
 }) => {
   const { user, can, canSeeNav, sidebarTheme, useMaterialIcons, getDefaultLandingUrl } = useAuth();
-  const { isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
+  const { isAmharic, t } = useLanguage();
   const { isDark } = useTheme();
   const theme = resolveSidebarTheme(sidebarTheme, isDark);
   const location = useLocation();
@@ -1171,49 +1170,6 @@ const Sidebar = ({
             </div>
           )}
         </nav>
-
-        {/* ── LANGUAGE SWITCHER IN SIDEBAR FOOTER ── */}
-        <div className={`px-3 py-2 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
-          {!collapsed ? (
-            <>
-              <div className={`flex items-center gap-1.5 text-xs font-semibold ${theme.isLight ? 'text-slate-700' : 'text-white/85'}`}>
-                <LanguageRoundedIcon sx={{ fontSize: 16 }} />
-                <span>{t('common.language')}</span>
-              </div>
-              <div className={`flex items-center rounded-full p-0.5 text-[11px] font-bold select-none ${theme.isLight ? 'bg-slate-200/80' : 'bg-black/25'}`}>
-                <button
-                  type="button"
-                  onClick={() => setLanguage('en')}
-                  className={`px-2.5 py-0.5 rounded-full transition ${!isAmharic
-                    ? 'bg-blue-600 text-white font-extrabold shadow-xs'
-                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
-                    }`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage('am')}
-                  className={`px-2.5 py-0.5 rounded-full transition ${isAmharic
-                    ? 'bg-blue-600 text-white font-extrabold shadow-xs'
-                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
-                    }`}
-                >
-                  አማርኛ
-                </button>
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer ${theme.isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-              title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
-            >
-              <LanguageRoundedIcon sx={{ fontSize: 17 }} />
-            </button>
-          )}
-        </div>
 
         {/* ── BOTTOM USER PROFILE CARD ── */}
         <div className={`p-2 ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.07]'}`}>
