@@ -15,8 +15,20 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet" />
   <title>Baba Roti Café</title>
-  <script type="module" crossorigin src="/assets/index-BamEpG9T.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DW2cPPtZ.css">
+  <script>
+    (function () {
+      try {
+        var mode = localStorage.getItem('baba_roti_color_mode');
+        if (mode === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-color-mode', 'dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script type="module" crossorigin src="/assets/index-r55WrTqz.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DtawSlyZ.css">
 </head>
 
 <body>

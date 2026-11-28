@@ -6,6 +6,7 @@ import {
   Mic, MicOff, Volume2, VolumeX, Square,
 } from 'lucide-react';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 
 // ── Web Speech API support check ──────────────────────────────────
 const SpeechRecognition = typeof window !== 'undefined'
@@ -167,6 +168,7 @@ What would you like to know?`;
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
 export default function AiChat() {
+  const { isDark } = useTheme();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [messages, setMessages] = useState([
@@ -490,7 +492,9 @@ export default function AiChat() {
           style={{
             height: minimized ? 56 : 'min(580px, calc(100dvh - 6.25rem))',
             animation: 'megaSlideUp 0.25s ease-out',
-            background: 'linear-gradient(180deg, #fafbff 0%, #ffffff 100%)',
+            background: isDark
+              ? 'linear-gradient(180deg, #08122b 0%, #040b1d 100%)'
+              : 'linear-gradient(180deg, #fafbff 0%, #ffffff 100%)',
           }}
         >
           {/* Header */}

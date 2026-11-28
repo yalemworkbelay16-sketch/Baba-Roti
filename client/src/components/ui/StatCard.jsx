@@ -1,9 +1,9 @@
 import React from 'react';
 
 const toneMap = {
-  ink: 'bg-ink-900 text-white',
+  ink: 'bg-ink-900 dark:bg-[#0c1b40] text-white border border-transparent dark:border-[#1b2f5e]',
   brass: 'bg-brass-400 text-ink-900',
-  light: 'bg-white text-ink-900 border border-ink-100',
+  light: 'bg-white dark:bg-[#08122b] text-ink-900 dark:text-slate-100 border border-ink-100 dark:border-[#1b2f5e]',
 };
 
 const StatCard = ({ label, value, sub, icon: Icon, tone = 'light' }) => (

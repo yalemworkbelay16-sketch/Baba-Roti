@@ -7,11 +7,13 @@ import {
   ChevronRight, Search, Lightbulb, CheckCircle2, PlayCircle,
   Bell, BellRing, Trash2, Globe, QrCode, Utensils, Award,
   Sliders, Activity, Settings as SettingsIcon, FileText, Monitor, Check, Download, Printer,
+  Sun, Moon,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionTimeout } from '../../context/SessionTimeoutContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 // ─────────────────────────────────────────
 // SVG FLOW DIAGRAM GENERATOR
@@ -1744,6 +1746,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
   const { user, logout, hasRole } = useAuth();
   const { timeoutMinutes, setTimeoutMinutes } = useSessionTimeout();
   const { language, isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
+  const { isDark, setColorMode } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -1796,8 +1799,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
 
       <header
-        className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2.5 backdrop-blur-md shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:px-7 sm:py-3"
-        style={{ background: 'rgba(255,255,255,0.94)' }}
+        className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-[#1b2f5e] px-3 py-2.5 backdrop-blur-md shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:px-7 sm:py-3 transition-colors"
+        style={{ background: isDark ? 'rgba(6, 15, 36, 0.92)' : 'rgba(255,255,255,0.94)' }}
       >
         {/* Left: menu toggle + title */}
         <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
@@ -1838,6 +1841,34 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
             <span className="text-[11px] font-medium text-slate-600">
               {timeoutMinutes === 0 ? t('topbar.timeoutOff') : `${t('topbar.autoLogout')}: ${timeoutMinutes}${t('topbar.minutes')}`}
             </span>
+          </div>
+
+          {/* Light / Dark Mode Switcher */}
+          <div className="flex items-center rounded-full border border-ink-200/90 dark:border-[#1b2f5e] bg-white dark:bg-[#0b1736] p-0.5 text-[11px] sm:text-xs font-bold shadow-xs select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => setColorMode('light')}
+              className={`flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 transition-all cursor-pointer ${!isDark
+                ? 'bg-amber-400 text-slate-950 shadow-xs font-extrabold'
+                : 'text-slate-400 hover:text-white'
+                }`}
+              title="Light Mode"
+            >
+              <Sun size={12} className={!isDark ? 'text-slate-950' : 'text-amber-400'} />
+              <span className="hidden md:inline">{isAmharic ? 'ብርሃን' : 'Light'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setColorMode('dark')}
+              className={`flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-1 transition-all cursor-pointer ${isDark
+                ? 'bg-sky-600 text-white shadow-xs font-extrabold'
+                : 'text-ink-500 hover:text-ink-900'
+                }`}
+              title="Dark Mode (Blue-Black)"
+            >
+              <Moon size={12} className={isDark ? 'text-white' : 'text-sky-600'} />
+              <span className="hidden md:inline">{isAmharic ? 'ጨለማ' : 'Dark'}</span>
+            </button>
           </div>
 
           {/* Dual Language Switcher (EN | አማርኛ) - Compact on phones */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -18,6 +19,7 @@ import {
 } from 'recharts';
 
 export default function Analytics() {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('pl'); // 'pl' | 'consumption' | 'prediction' | 'records'
   const [dateRange, setDateRange] = useState('30d'); // 'daily' | 'monthly' | '7d' | '30d' | 'all' | 'custom'
   const [selectedDay, setSelectedDay] = useState(() => new Date().toISOString().slice(0, 10));
@@ -395,8 +397,8 @@ export default function Analytics() {
                   key={btn.id}
                   onClick={() => setDateRange(btn.id)}
                   className={`rounded-lg px-3 py-1.5 transition ${dateRange === btn.id || (btn.id === 'daily' && dateRange === 'today')
-                      ? 'bg-white text-blue-600 shadow-sm font-bold'
-                      : 'hover:text-ink-900'
+                    ? 'bg-white text-blue-600 shadow-sm font-bold'
+                    : 'hover:text-ink-900'
                     }`}
                 >
                   {btn.label}
@@ -559,8 +561,8 @@ export default function Analytics() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 border-b-2 px-4 py-3 font-semibold transition whitespace-nowrap ${isActive
-                  ? 'border-blue-600 text-blue-600 font-bold'
-                  : 'border-transparent text-ink-500 hover:text-ink-800'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-ink-500 hover:text-ink-800'
                 }`}
             >
               <Icon size={16} />
@@ -687,12 +689,18 @@ export default function Analytics() {
                         <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1b2f5e' : '#f1f5f9'} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: isDark ? '#cbd5e1' : '#64748b' }} />
+                    <YAxis tick={{ fontSize: 11, fill: isDark ? '#cbd5e1' : '#64748b' }} />
                     <Tooltip
                       formatter={(val) => `ETB ${fmt(val)}`}
-                      contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                      contentStyle={{
+                        backgroundColor: isDark ? '#08122b' : '#fff',
+                        borderRadius: '12px',
+                        border: isDark ? '1px solid #1b2f5e' : '1px solid #e2e8f0',
+                        color: isDark ? '#f1f5f9' : '#0f172a',
+                        fontSize: '12px',
+                      }}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" name="Revenue" />
                     <Area type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" name="Gross Profit" />
@@ -744,8 +752,8 @@ export default function Analytics() {
                     type="button"
                     onClick={() => setDateRange('daily')}
                     className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'daily' || dateRange === 'today'
-                        ? 'bg-white text-blue-600 shadow-sm font-bold'
-                        : 'text-ink-600 hover:text-ink-900'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-ink-600 hover:text-ink-900'
                       }`}
                   >
                     Daily
@@ -754,8 +762,8 @@ export default function Analytics() {
                     type="button"
                     onClick={() => setDateRange('monthly')}
                     className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'monthly'
-                        ? 'bg-white text-blue-600 shadow-sm font-bold'
-                        : 'text-ink-600 hover:text-ink-900'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-ink-600 hover:text-ink-900'
                       }`}
                   >
                     Monthly
@@ -764,8 +772,8 @@ export default function Analytics() {
                     type="button"
                     onClick={() => setDateRange('30d')}
                     className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === '30d'
-                        ? 'bg-white text-blue-600 shadow-sm font-bold'
-                        : 'text-ink-600 hover:text-ink-900'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-ink-600 hover:text-ink-900'
                       }`}
                   >
                     30D
@@ -774,8 +782,8 @@ export default function Analytics() {
                     type="button"
                     onClick={() => setDateRange('all')}
                     className={`rounded-lg px-2.5 py-1 text-xs transition ${dateRange === 'all'
-                        ? 'bg-white text-blue-600 shadow-sm font-bold'
-                        : 'text-ink-600 hover:text-ink-900'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-ink-600 hover:text-ink-900'
                       }`}
                   >
                     All

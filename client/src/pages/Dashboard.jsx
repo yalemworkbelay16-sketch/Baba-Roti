@@ -36,6 +36,7 @@ import api from '../api/axios';
 import Card from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import MobileDashboardView from '../components/dashboard/MobileDashboardView';
 import SalesAnalyticsSection from '../components/dashboard/SalesAnalyticsSection';
 
@@ -150,6 +151,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, canSeeNav, getDefaultLandingUrl } = useAuth();
   const { t, isAmharic } = useLanguage();
+  const { isDark } = useTheme();
   const [data, setData] = useState(cachedDashboardData);
   const [loading, setLoading] = useState(!cachedDashboardData);
   const [movementView, setMovementView] = useState('bar'); // 'bar' | 'area' (Bar Chart as default)
@@ -498,20 +500,20 @@ export default function Dashboard() {
                           <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="2 4" stroke="#e8edf5" vertical={false} />
+                      <CartesianGrid strokeDasharray="2 4" stroke={isDark ? '#1b2f5e' : '#e8edf5'} vertical={false} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
+                        tick={{ fontSize: 12, fill: isDark ? '#cbd5e1' : '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
                         dy={6}
                       />
                       <YAxis
-                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 11.5, fill: isDark ? '#cbd5e1' : '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1.5, strokeDasharray: '4 3' }} />
+                      <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: isDark ? '#334155' : '#e2e8f0', strokeWidth: 1.5, strokeDasharray: '4 3' }} />
                       <Area
                         type="monotone"
                         dataKey="stockIn"
@@ -545,20 +547,20 @@ export default function Dashboard() {
                           <stop offset="100%" stopColor="#f59e0b" />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="2 4" stroke="#e8edf5" vertical={false} />
+                      <CartesianGrid strokeDasharray="2 4" stroke={isDark ? '#1b2f5e' : '#e8edf5'} vertical={false} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
+                        tick={{ fontSize: 12, fill: isDark ? '#cbd5e1' : '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
                         dy={6}
                       />
                       <YAxis
-                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 11.5, fill: isDark ? '#cbd5e1' : '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip content={<CustomChartTooltip />} cursor={{ fill: '#f1f5f9', radius: 8 }} />
+                      <Tooltip content={<CustomChartTooltip />} cursor={{ fill: isDark ? 'rgba(30, 58, 138, 0.28)' : '#f1f5f9', radius: 8 }} />
                       <Bar
                         dataKey="stockIn"
                         name="Stock In"
@@ -724,7 +726,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-center my-4">
                     <div className="relative w-28 h-28">
                       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-                        <circle cx="40" cy="40" r="36" fill="none" stroke="#f1f5f9" strokeWidth="7" />
+                        <circle cx="40" cy="40" r="36" fill="none" stroke={isDark ? '#16264d' : '#f1f5f9'} strokeWidth="7" />
                         <circle
                           cx="40" cy="40" r="36" fill="none"
                           stroke={readyPct >= 80 ? '#10b981' : readyPct >= 50 ? '#f59e0b' : '#ef4444'}
@@ -825,18 +827,18 @@ export default function Dashboard() {
                           </linearGradient>
                         ))}
                       </defs>
-                      <CartesianGrid strokeDasharray="2 4" horizontal={false} stroke="#e8edf5" />
+                      <CartesianGrid strokeDasharray="2 4" horizontal={false} stroke={isDark ? '#1b2f5e' : '#e8edf5'} />
                       <XAxis
                         type="number"
                         tickFormatter={formatCompactETB}
-                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 11.5, fill: isDark ? '#cbd5e1' : '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <YAxis
                         dataKey="name"
                         type="category"
-                        tick={{ fontSize: 12, fill: '#334155', fontWeight: 600 }}
+                        tick={{ fontSize: 12, fill: isDark ? '#e2e8f0' : '#334155', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
                         width={115}
@@ -846,8 +848,15 @@ export default function Dashboard() {
                           `${formatETB(val)} (${item.payload.stock} ${item.payload.unit} @ ${formatETB(item.payload.unitCost)})`,
                           'Stock Value',
                         ]}
-                        contentStyle={{ borderRadius: 14, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}
-                        cursor={{ fill: '#f8fafc' }}
+                        contentStyle={{
+                          borderRadius: 14,
+                          border: isDark ? '1px solid #1b2f5e' : '1px solid #e2e8f0',
+                          backgroundColor: isDark ? '#08122b' : '#ffffff',
+                          color: isDark ? '#f1f5f9' : '#0f172a',
+                          fontSize: 12,
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                        }}
+                        cursor={{ fill: isDark ? 'rgba(30, 58, 138, 0.25)' : '#f8fafc' }}
                       />
                       <Bar
                         dataKey="totalValue"

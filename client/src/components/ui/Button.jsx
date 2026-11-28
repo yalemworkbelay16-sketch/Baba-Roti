@@ -1,9 +1,9 @@
 import React from 'react';
 
 const variants = {
-  primary: 'bg-ink-900 text-white hover:bg-ink-800',
+  primary: 'bg-ink-900 dark:bg-blue-600 text-white hover:bg-ink-800 dark:hover:bg-blue-500',
   brass: 'bg-brass-400 text-ink-900 hover:bg-brass-500',
-  ghost: 'bg-transparent text-ink-600 hover:bg-ink-50',
+  ghost: 'bg-transparent text-ink-600 dark:text-slate-300 hover:bg-ink-50 dark:hover:bg-[#11224a]',
   danger: 'bg-red-50 text-red-600 hover:bg-red-100',
 };
 

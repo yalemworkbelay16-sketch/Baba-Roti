@@ -41,6 +41,8 @@ import {
   BarChart3,
   RefreshCw,
   Boxes,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import DigitalMenuSettings from '../components/settings/DigitalMenuSettings';
 import StationSettings from '../components/settings/StationSettings';
@@ -48,10 +50,55 @@ import api from '../api/axios';
 import posPrint from '../utils/posPrint';
 import { checkLocalBridge, checkRelayStatus, pingPrinter as dispatcherPing, printTestPage as dispatcherTestPage } from '../utils/localPrintDispatcher';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useSessionTimeout, TIMEOUT_OPTIONS } from '../context/SessionTimeoutContext';
 import { THEME_OPTIONS } from '../config/sidebarThemes';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+
+const SystemColorModeCard = () => {
+  const { isDark, setColorMode } = useTheme();
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-ink-100 bg-ink-50/50 p-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-bold text-ink-900">System Light / Dark Display Mode</p>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${isDark
+            ? 'bg-sky-600/20 text-sky-400 border border-sky-500/40'
+            : 'bg-amber-100 text-amber-800 border border-amber-200'
+            }`}>
+            {isDark ? 'Dark (Blue-Black)' : 'Light'}
+          </span>
+        </div>
+        <p className="text-xs text-ink-500 mt-1">
+          Switches all pages, cards, tables, and inputs between crisp Light mode and Blue-Black Dark mode (paired with the sidebar).
+        </p>
+      </div>
+      <div className="flex items-center rounded-xl border border-ink-200 bg-white p-1 gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => setColorMode('light')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${!isDark
+            ? 'bg-amber-400 text-slate-950 shadow-xs'
+            : 'text-ink-500 hover:text-ink-900'
+            }`}
+        >
+          <Sun size={14} /> Light
+        </button>
+        <button
+          type="button"
+          onClick={() => setColorMode('dark')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${isDark
+            ? 'bg-sky-600 text-white shadow-xs'
+            : 'text-ink-500 hover:text-ink-900'
+            }`}
+        >
+          <Moon size={14} /> Dark
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const CAPABILITIES = [
   { key: 'recordGoods', label: 'Record Goods Receiving (Cash/Credit GRV)' },
@@ -1937,6 +1984,9 @@ export default function Settings() {
               </p>
 
               <form onSubmit={handleSystemSubmit} className="space-y-5">
+                {/* System Display Mode (Light vs Dark) */}
+                <SystemColorModeCard />
+
                 {/* Material Icons Toggle */}
                 <div className="flex items-center justify-between rounded-xl border border-ink-100 bg-ink-50/50 p-4">
                   <div className="pr-4">

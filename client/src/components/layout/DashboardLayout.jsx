@@ -58,7 +58,7 @@ const DashboardLayout = () => {
   const title = titles[location.pathname] || 'Baba Roti Café';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f4f7fb]">
+    <div className="flex h-screen overflow-hidden bg-[#f4f7fb] dark:bg-[#030919]">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -76,18 +76,18 @@ const DashboardLayout = () => {
           />
         </div>
         {isPos ? (
-          <main className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#f4f7fb] pb-16 lg:pb-0">
+          <main className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#f4f7fb] dark:bg-[#030919] pb-16 lg:pb-0">
             <Outlet />
           </main>
         ) : (
-          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6 flex flex-col justify-between pb-32 lg:pb-6 bg-[#f4f7fb]">
+          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6 flex flex-col justify-between pb-32 lg:pb-6 bg-[#f4f7fb] dark:bg-[#030919]">
             <div className="w-full max-w-[1600px] mx-auto">
               <Outlet />
             </div>
-            <footer className="w-full max-w-[1600px] mx-auto mt-10 pt-5 border-t border-slate-200/80 hidden lg:flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 pb-2">
+            <footer className="w-full max-w-[1600px] mx-auto mt-10 pt-5 border-t border-slate-200/80 dark:border-[#1b2f5e] hidden lg:flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 pb-2">
               <p>© 2026 Baba Roti Café Management System · All rights reserved.</p>
               <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span>Developed By <strong className="text-ink-800 font-semibold">Mega Tech Teams</strong></span>
+                <span>Developed By <strong className="text-ink-800 dark:text-slate-200 font-semibold">Mega Tech Teams</strong></span>
               </div>
             </footer>
           </main>
