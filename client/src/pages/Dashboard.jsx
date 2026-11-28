@@ -300,14 +300,14 @@ export default function Dashboard() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+              <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
                 {t('dashboard.title')}
               </h1>
-              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
                 {isAmharic ? 'ቀጥታ' : 'Live'}
               </span>
             </div>
-            <p className="text-sm text-ink-400 mt-0.5">
+            <p className="text-sm font-medium text-ink-500 mt-1">
               {t('dashboard.subtitle')}
             </p>
           </div>
@@ -368,9 +368,9 @@ export default function Dashboard() {
           </div>
 
           {/* Materials Tracked */}
-          <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-soft">
+          <div className="rounded-2xl border border-slate-200/85 bg-white p-5 shadow-soft">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider">{t('dashboard.trackedMaterials')}</p>
+              <p className="text-xs font-bold text-ink-500 uppercase tracking-wider">{t('dashboard.trackedMaterials')}</p>
               <span className="rounded-xl bg-blue-50 p-2 text-blue-600">
                 <Boxes size={18} />
               </span>
@@ -379,20 +379,20 @@ export default function Dashboard() {
               <p className="text-3xl font-black text-ink-900 tabular-nums">
                 {data.totalMaterials}
               </p>
-              <span className="text-xs text-ink-400">{isAmharic ? 'ንቁ ዕቃዎች' : 'active items'}</span>
+              <span className="text-xs font-medium text-ink-500">{isAmharic ? 'ንቁ ዕቃዎች' : 'active items'}</span>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-ink-500 border-t border-ink-50 pt-2.5">
+            <div className="mt-3 flex items-center justify-between text-xs text-ink-600 border-t border-slate-100 pt-2.5">
               <span>{isAmharic ? `በ ${categoryData.length} ምድቦች` : `In ${categoryData.length} categories`}</span>
-              <Link to="/materials" className="font-medium text-blue-600 hover:underline inline-flex items-center gap-0.5">
+              <Link to="/materials" className="font-semibold text-blue-600 hover:underline inline-flex items-center gap-0.5">
                 {isAmharic ? 'አሳይ' : 'Browse'} <ChevronRight size={12} />
               </Link>
             </div>
           </div>
 
           {/* Today's Stock Flow */}
-          <div className="rounded-2xl border border-ink-100 bg-white p-5 shadow-soft">
+          <div className="rounded-2xl border border-slate-200/85 bg-white p-5 shadow-soft">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider">{t('dashboard.todaysMovement')}</p>
+              <p className="text-xs font-bold text-ink-500 uppercase tracking-wider">{t('dashboard.todaysMovement')}</p>
               <span className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
                 <Truck size={18} />
               </span>
@@ -441,7 +441,7 @@ export default function Dashboard() {
                       <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                         Stock Flow Trend
                       </h3>
-                      <p className="text-[11px] text-ink-400 font-medium">Last 7 Days</p>
+                      <p className="text-xs text-ink-500 font-medium">Last 7 Days</p>
                     </div>
                   </div>
                 </div>
@@ -501,13 +501,13 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="2 4" stroke="#e8edf5" vertical={false} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
+                        tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
                         dy={6}
                       />
                       <YAxis
-                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
@@ -548,13 +548,13 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="2 4" stroke="#e8edf5" vertical={false} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
+                        tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
                         dy={6}
                       />
                       <YAxis
-                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
@@ -606,7 +606,7 @@ export default function Dashboard() {
                   <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                     Valuation by Category
                   </h3>
-                  <p className="text-[11px] text-ink-400 font-medium">Stock asset distribution</p>
+                  <p className="text-xs text-ink-500 font-medium">Stock asset distribution</p>
                 </div>
               </div>
 
@@ -646,11 +646,11 @@ export default function Dashboard() {
                 </ResponsiveContainer>
                 {/* Center stat inside donut */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-[10px] uppercase font-bold text-ink-400 tracking-wider">Total Value</span>
+                  <span className="text-[10.5px] uppercase font-bold text-ink-500 tracking-wider">Total Value</span>
                   <span className="text-sm font-black text-ink-900 mt-0.5 leading-tight">
                     {formatCompactETB(data.stockValue)}
                   </span>
-                  <span className="text-[10px] text-ink-400 mt-0.5">{categoryData.length} categories</span>
+                  <span className="text-[10.5px] font-medium text-ink-500 mt-0.5">{categoryData.length} categories</span>
                 </div>
               </div>
 
@@ -709,7 +709,7 @@ export default function Dashboard() {
                   <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                     Inventory Health
                   </h3>
-                  <p className="text-[11px] text-ink-400 font-medium">Live stock vs reorder thresholds</p>
+                  <p className="text-xs text-ink-500 font-medium">Live stock vs reorder thresholds</p>
                 </div>
               </div>
 
@@ -803,7 +803,7 @@ export default function Dashboard() {
                     <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                       Top Inventory Assets by Value
                     </h3>
-                    <p className="text-[11px] text-ink-400 font-medium">Highest capital concentration in store</p>
+                    <p className="text-xs text-ink-500 font-medium">Highest capital concentration in store</p>
                   </div>
                 </div>
               </div>
@@ -829,7 +829,7 @@ export default function Dashboard() {
                       <XAxis
                         type="number"
                         tickFormatter={formatCompactETB}
-                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        tick={{ fontSize: 11.5, fill: '#64748b', fontWeight: 500 }}
                         axisLine={false}
                         tickLine={false}
                       />
@@ -894,7 +894,7 @@ export default function Dashboard() {
                   <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                     Urgent Reorder Checklist
                   </h3>
-                  <p className="text-[11px] text-ink-400 font-medium">Items below safety threshold</p>
+                  <p className="text-xs text-ink-500 font-medium">Items below safety threshold</p>
                 </div>
               </div>
               <Link
@@ -963,7 +963,7 @@ export default function Dashboard() {
                   <h3 className="font-display text-base font-bold text-ink-900 leading-tight">
                     Recent Stock Activity
                   </h3>
-                  <p className="text-[11px] text-ink-400 font-medium">Latest transaction audit trail</p>
+                  <p className="text-xs text-ink-500 font-medium">Latest transaction audit trail</p>
                 </div>
               </div>
               <Link
@@ -1003,8 +1003,8 @@ export default function Dashboard() {
                         <p className="text-xs font-semibold text-ink-900 truncate" title={matSummary}>
                           {matSummary}
                         </p>
-                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-400">
-                          <span className={`rounded px-1.5 py-0.2 border text-[10px] font-semibold ${vConfig.color}`}>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-ink-500">
+                          <span className={`rounded px-1.5 py-0.5 border text-[11px] font-semibold ${vConfig.color}`}>
                             {vConfig.label}
                           </span>
                           <span>by {t.performedBy?.name || 'System'}</span>
@@ -1013,7 +1013,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="text-right flex-shrink-0 text-[11px] text-ink-400 whitespace-nowrap">
+                    <div className="text-right flex-shrink-0 text-xs font-medium text-ink-500 whitespace-nowrap">
                       {new Date(t.date || t.createdAt).toLocaleDateString(undefined, {
                         month: 'short',
                         day: 'numeric',

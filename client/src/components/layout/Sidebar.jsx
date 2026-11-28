@@ -96,23 +96,25 @@ const SubLink = ({ to, label, icon: Icon, end = false, onClick, target, rel, isI
       target={target}
       rel={rel}
       className={() =>
-        `group flex items-center justify-between rounded-lg px-2 py-1 text-[11px] font-medium transition-all duration-150 ${active
+        `group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-all duration-150 ${active
           ? theme.subitemActive
           : theme.subitemInactive
         }`
       }
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${theme.isLight ? 'text-slate-500 group-hover:text-slate-900' : 'text-white/70 group-hover:text-white'
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${active
+          ? (theme.isLight ? 'text-white' : 'text-white')
+          : (theme.isLight ? 'text-slate-500 group-hover:text-slate-900' : 'text-white/75 group-hover:text-white')
           }`}>
-          <Icon sx={{ fontSize: 13 }} />
+          <Icon sx={{ fontSize: 15 }} />
         </span>
         <span className="truncate">{label}</span>
       </div>
       {badge !== undefined && badge !== null && (
-        <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${active
-          ? (theme.isLight ? 'bg-blue-600 text-white' : 'bg-white/30 text-white')
-          : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/70')
+        <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ml-1.5 shrink-0 tabular ${active
+          ? (theme.isLight ? 'bg-white/25 text-white' : 'bg-white/25 text-white')
+          : (theme.isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/15 text-white/85')
           }`}>
           {badge}
         </span>
@@ -126,10 +128,10 @@ const SectionLabel = ({ children, collapsed }) => {
   const theme = SIDEBAR_THEMES[sidebarTheme] || SIDEBAR_THEMES.navy;
 
   return collapsed ? (
-    <div className={`my-1.5 mx-2 border-t ${theme.isLight ? 'border-slate-200' : 'border-white/10'}`} />
+    <div className={`my-2 mx-2 border-t ${theme.isLight ? 'border-slate-200' : 'border-white/15'}`} />
   ) : (
-    <div className="px-2 pt-2 pb-0.5 flex items-center gap-2 select-none">
-      <span className={`text-[9px] font-extrabold uppercase tracking-[0.16em] ${theme.sectionLabelText || 'text-white/40'}`}>
+    <div className="px-2.5 pt-3 pb-1 flex items-center gap-2 select-none">
+      <span className={`text-[10.5px] font-extrabold uppercase tracking-[0.14em] ${theme.sectionLabelText || 'text-white/60'}`}>
         {children}
       </span>
       <div className={`h-[1px] flex-1 bg-gradient-to-r ${theme.sectionDivider}`} />
@@ -157,7 +159,7 @@ const CollapsibleNav = ({
         type="button"
         onClick={onToggle}
         title={collapsed ? label : undefined}
-        className={`group w-full flex items-center gap-2 rounded-xl py-1 px-1.5 text-left transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center py-1.5 px-0' : ''
+        className={`group w-full flex items-center gap-2.5 rounded-xl py-1.5 px-2 text-left transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center py-2 px-0' : ''
           } ${isActive
             ? theme.activeLink
             : theme.hoverLink
@@ -166,36 +168,36 @@ const CollapsibleNav = ({
         {/* Sleek Icon: Material UI colorful squircle OR Classic minimal icon */}
         {useMaterialIcons ? (
           <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white transition-transform duration-150 group-hover:scale-105 ${isActive ? 'ring-1.5 ring-white/40' : ''
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white transition-transform duration-150 group-hover:scale-105 ${isActive ? 'ring-1.5 ring-white/40' : ''
               }`}
             style={{
               background: iconGradient,
               boxShadow: '0 2px 6px rgba(0,0,0,0.22)',
             }}
           >
-            <Icon sx={{ fontSize: 16 }} />
+            <Icon sx={{ fontSize: 17 }} />
           </span>
         ) : (
           <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
               ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
-              : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
+              : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/85 group-hover:bg-white/[0.14] group-hover:text-white')
               }`}
           >
-            <Icon sx={{ fontSize: 16 }} />
+            <Icon sx={{ fontSize: 17 }} />
           </span>
         )}
 
         {!collapsed && (
           <>
             <div className="min-w-0 flex-1">
-              <p className={`text-[12px] font-bold tracking-tight leading-tight ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-800 group-hover:text-slate-950' : 'text-white')
+              <p className={`text-[13px] font-bold tracking-tight leading-snug ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-800 group-hover:text-slate-950' : 'text-white')
                 }`}>
                 {label}
               </p>
               {subtitle && (
                 <p
-                  className={`text-[9.5px] truncate leading-tight mt-0.5 ${isActive ? theme.subtitleActive : theme.subtitleInactive
+                  className={`text-[10.5px] truncate leading-tight mt-0.5 ${isActive ? theme.subtitleActive : theme.subtitleInactive
                     }`}
                 >
                   {subtitle}
@@ -203,11 +205,11 @@ const CollapsibleNav = ({
               )}
             </div>
             <span
-              className={`flex items-center justify-center transition-transform duration-150 ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-400 group-hover:text-slate-800' : 'text-white/40 group-hover:text-white')
+              className={`flex items-center justify-center transition-transform duration-150 ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-400 group-hover:text-slate-800' : 'text-white/50 group-hover:text-white')
                 } ${open ? 'rotate-90' : ''
                 }`}
             >
-              <ChevronRightRoundedIcon sx={{ fontSize: 14 }} />
+              <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
             </span>
           </>
         )}
@@ -246,7 +248,7 @@ const MenuLink = ({
       onClick={onClick}
       title={collapsed ? label : undefined}
       className={({ isActive }) =>
-        `group flex items-center gap-2 rounded-xl py-1 px-1.5 transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center py-1.5 px-0' : ''
+        `group flex items-center gap-2.5 rounded-xl py-1.5 px-2 transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center py-2 px-0' : ''
         } ${isActive
           ? theme.activeLink
           : theme.hoverLink
@@ -258,45 +260,45 @@ const MenuLink = ({
           {/* Sleek Icon: Material UI colorful squircle OR Classic minimal icon */}
           {useMaterialIcons ? (
             <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white transition-transform duration-150 group-hover:scale-105 ${isActive ? 'ring-1.5 ring-white/40' : ''
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white transition-transform duration-150 group-hover:scale-105 ${isActive ? 'ring-1.5 ring-white/40' : ''
                 }`}
               style={{
                 background: iconGradient,
                 boxShadow: '0 2px 6px rgba(0,0,0,0.22)',
               }}
             >
-              <Icon sx={{ fontSize: 16 }} />
+              <Icon sx={{ fontSize: 17 }} />
             </span>
           ) : (
             <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-hover:scale-105 ${isActive
                 ? (theme.isLight ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/20 text-white shadow-xs')
-                : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/80 group-hover:bg-white/[0.14] group-hover:text-white')
+                : (theme.isLight ? 'bg-slate-200/80 text-slate-700 group-hover:bg-slate-300 group-hover:text-slate-900' : 'bg-white/[0.08] text-white/85 group-hover:bg-white/[0.14] group-hover:text-white')
                 }`}
             >
-              <Icon sx={{ fontSize: 16 }} />
+              <Icon sx={{ fontSize: 17 }} />
             </span>
           )}
 
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
-                <p className={`text-[12px] font-bold tracking-tight leading-tight ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-800 group-hover:text-slate-950' : 'text-white')
+                <p className={`text-[13px] font-bold tracking-tight leading-snug ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-800 group-hover:text-slate-950' : 'text-white')
                   }`}>
                   {label}
                 </p>
                 {subtitle && (
                   <p
-                    className={`text-[9.5px] truncate leading-tight mt-0.5 ${isActive ? theme.subtitleActive : theme.subtitleInactive
+                    className={`text-[10.5px] truncate leading-tight mt-0.5 ${isActive ? theme.subtitleActive : theme.subtitleInactive
                       }`}
                   >
                     {subtitle}
                   </p>
                 )}
               </div>
-              <span className={`flex items-center justify-center group-hover:translate-x-0.5 transition-all ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-400 group-hover:text-slate-800' : 'text-white/35 group-hover:text-white')
+              <span className={`flex items-center justify-center group-hover:translate-x-0.5 transition-all ${isActive ? 'text-white' : (theme.isLight ? 'text-slate-400 group-hover:text-slate-800' : 'text-white/45 group-hover:text-white')
                 }`}>
-                <ChevronRightRoundedIcon sx={{ fontSize: 14 }} />
+                <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
               </span>
             </>
           )}
@@ -559,7 +561,7 @@ const Sidebar = ({
           transition-all duration-300 ease-in-out
           lg:static lg:translate-x-0
           ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-          ${collapsed ? 'w-[64px]' : 'w-[242px]'}
+          ${collapsed ? 'w-[68px]' : 'w-[258px]'}
         `}
         style={{
           background: theme.bg,
@@ -617,12 +619,12 @@ const Sidebar = ({
 
           {/* Row 2: Dynamic Greeting Text */}
           {!collapsed && (
-            <div className="relative mt-1.5">
-              <h3 className={`text-[12px] font-bold tracking-tight flex items-center gap-1 transition-colors ${theme.headerText || 'text-white'
+            <div className="relative mt-2">
+              <h3 className={`text-[13px] font-bold tracking-tight flex items-center gap-1.5 transition-colors ${theme.headerText || 'text-white'
                 }`}>
                 {greeting.text} <span>{greeting.emoji}</span>
               </h3>
-              <p className={`text-[9.5px] font-medium leading-tight mt-0.5 transition-colors ${theme.headerSubtext || 'text-blue-200/50'
+              <p className={`text-[11px] font-medium leading-tight mt-0.5 transition-colors ${theme.headerSubtext || 'text-blue-200/75'
                 }`}>
                 Manage your restaurant with ease
               </p>
@@ -630,8 +632,8 @@ const Sidebar = ({
           )}
         </div>
 
-        {/* ── NAVIGATION MENU (COMPACT & PADDING OPTIMIZED) ── */}
-        <nav className="relative flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        {/* ── NAVIGATION MENU (CLEAN, READABLE & COMFORTABLE PADDING) ── */}
+        <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2 py-2.5 sidebar-scroll">
           {/* 1. Dashboard */}
           {canSeeNav('dashboard') && (
             <div
@@ -805,11 +807,11 @@ const Sidebar = ({
                           : 'border-white/15 bg-black/25 shadow-inner backdrop-blur-xs'
                           }`}
                       >
-                        <div className="px-2 py-0.5 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider border-b pb-1 mb-1">
-                          <span className={theme.isLight ? 'text-blue-900/70 border-slate-200' : 'text-white/50 border-white/10'}>
+                        <div className={`px-2 py-0.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider border-b pb-1 mb-1 ${theme.isLight ? 'text-blue-900/80 border-slate-200' : 'text-white/75 border-white/15'}`}>
+                          <span>
                             {isAmharic ? 'የስቶክ መጋዘኖች' : 'Stores & Production'}
                           </span>
-                          <span className={`text-[8.5px] px-1.5 py-0.2 rounded-full font-bold ${theme.isLight ? 'bg-blue-100 text-blue-800' : 'bg-white/15 text-white/80'
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${theme.isLight ? 'bg-blue-100 text-blue-800' : 'bg-white/15 text-white/90'
                             }`}>
                             4
                           </span>
@@ -1156,18 +1158,20 @@ const Sidebar = ({
         </nav>
 
         {/* ── LANGUAGE SWITCHER IN SIDEBAR FOOTER ── */}
-        <div className={`px-2.5 py-1.5 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
+        <div className={`px-3 py-2 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
           {!collapsed ? (
             <>
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-white/70">
-                <LanguageRoundedIcon sx={{ fontSize: 15 }} />
+              <div className={`flex items-center gap-1.5 text-xs font-semibold ${theme.isLight ? 'text-slate-700' : 'text-white/85'}`}>
+                <LanguageRoundedIcon sx={{ fontSize: 16 }} />
                 <span>{t('common.language')}</span>
               </div>
-              <div className="flex items-center rounded-full bg-black/20 p-0.5 text-[10px] font-bold select-none">
+              <div className={`flex items-center rounded-full p-0.5 text-[11px] font-bold select-none ${theme.isLight ? 'bg-slate-200/80' : 'bg-black/25'}`}>
                 <button
                   type="button"
                   onClick={() => setLanguage('en')}
-                  className={`px-2 py-0.5 rounded-full transition ${!isAmharic ? 'bg-blue-600 text-white font-extrabold shadow-xs' : 'text-white/60 hover:text-white'
+                  className={`px-2.5 py-0.5 rounded-full transition ${!isAmharic
+                    ? 'bg-blue-600 text-white font-extrabold shadow-xs'
+                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
                     }`}
                 >
                   EN
@@ -1175,7 +1179,9 @@ const Sidebar = ({
                 <button
                   type="button"
                   onClick={() => setLanguage('am')}
-                  className={`px-2 py-0.5 rounded-full transition ${isAmharic ? 'bg-blue-600 text-white font-extrabold shadow-xs' : 'text-white/60 hover:text-white'
+                  className={`px-2.5 py-0.5 rounded-full transition ${isAmharic
+                    ? 'bg-blue-600 text-white font-extrabold shadow-xs'
+                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
                     }`}
                 >
                   አማርኛ
@@ -1186,16 +1192,16 @@ const Sidebar = ({
             <button
               type="button"
               onClick={toggleLanguage}
-              className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer ${theme.isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
               title={isAmharic ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
             >
-              <LanguageRoundedIcon sx={{ fontSize: 16 }} />
+              <LanguageRoundedIcon sx={{ fontSize: 17 }} />
             </button>
           )}
         </div>
 
-        {/* ── BOTTOM USER PROFILE CARD (COMPACT) ── */}
-        <div className={`p-1.5 ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.07]'}`}>
+        {/* ── BOTTOM USER PROFILE CARD ── */}
+        <div className={`p-2 ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.07]'}`}>
           <div
             onClick={() => navigate('/profile')}
             onMouseEnter={(e) =>
@@ -1213,27 +1219,27 @@ const Sidebar = ({
               )
             }
             onMouseLeave={scheduleCloseFlyout}
-            className={`group relative flex items-center gap-2 rounded-xl py-1.5 px-2 transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center p-1' : ''
+            className={`group relative flex items-center gap-2.5 rounded-xl py-2 px-2.5 transition-all duration-150 cursor-pointer ${collapsed ? 'justify-center p-1.5' : ''
               } ${theme.userCardBg}`}
           >
-            {/* Avatar with Circular Amber Accent & Green Online Indicator (28px) */}
+            {/* Avatar with Circular Amber Accent & Green Online Indicator */}
             <div className="relative shrink-0">
               {user?.avatar ? (
                 <img
                   src={user.avatar}
                   alt={user?.name}
-                  className="h-7 w-7 rounded-full object-cover ring-1 ring-white/20"
+                  className="h-8 w-8 rounded-full object-cover ring-1 ring-white/20"
                 />
               ) : (
                 <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full font-bold text-white text-[11px] shadow-xs"
+                  className="flex h-8 w-8 items-center justify-center rounded-full font-bold text-white text-xs shadow-xs"
                   style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' }}
                 >
                   {user?.name?.[0]?.toUpperCase() || 'H'}
                 </div>
               )}
               {/* Online Green Indicator */}
-              <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 border ${theme.isLight ? 'border-white' : 'border-[#071233]'
+              <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border ${theme.isLight ? 'border-white' : 'border-[#071233]'
                 }`} />
             </div>
 
@@ -1241,18 +1247,18 @@ const Sidebar = ({
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1">
-                  <p className={`truncate text-[11.5px] font-bold leading-tight ${theme.isLight ? 'text-slate-800' : 'text-white'
+                  <p className={`truncate text-[12.5px] font-bold leading-tight ${theme.isLight ? 'text-slate-800' : 'text-white'
                     }`}>
                     {user?.name || 'Hotel Admin'}
                   </p>
-                  <span className={`mt-0.5 inline-flex items-center rounded-full px-1.5 py-0.2 text-[8.5px] font-bold capitalize tracking-wide ${theme.userRoleBadge || 'bg-amber-400/20 border border-amber-400/30 text-amber-300'
+                  <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold capitalize tracking-wide ${theme.userRoleBadge || 'bg-amber-400/20 border border-amber-400/30 text-amber-200'
                     }`}>
                     {user?.role || 'Admin'}
                   </span>
                 </div>
-                <span className={`group-hover:translate-x-0.5 transition-all ${theme.isLight ? 'text-slate-400 group-hover:text-slate-700' : 'text-white/35 group-hover:text-white'
+                <span className={`group-hover:translate-x-0.5 transition-all ${theme.isLight ? 'text-slate-400 group-hover:text-slate-700' : 'text-white/50 group-hover:text-white'
                   }`}>
-                  <ChevronRightRoundedIcon sx={{ fontSize: 14 }} />
+                  <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
                 </span>
               </>
             )}
@@ -1267,7 +1273,7 @@ const Sidebar = ({
           onMouseLeave={closeFlyoutImmediately}
           style={{
             position: 'fixed',
-            left: `${(flyout.rect?.right || 64) + 6}px`,
+            left: `${(flyout.rect?.right || 68) + 6}px`,
             top: `${Math.max(
               10,
               Math.min(
@@ -1383,7 +1389,7 @@ const Sidebar = ({
                     }`}>
                     <SubIcon sx={{ fontSize: 13 }} />
                   </span>
-                  <span className="flex-1 truncate text-[11.5px]">{sub.label}</span>
+                  <span className="flex-1 truncate text-[12.5px] font-medium">{sub.label}</span>
                   <ChevronRightRoundedIcon
                     sx={{ fontSize: 13 }}
                     className={`ml-auto transition-all ${theme.isLight ? 'text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5' : 'text-blue-300/40 group-hover:text-white group-hover:translate-x-0.5'

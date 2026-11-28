@@ -14,7 +14,7 @@ const styles = {
 };
 
 const Badge = ({ children, color = 'ink' }) => (
-  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[color]}`}>
+  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[color]}`}>
     {children}
   </span>
 );

@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   overflow-x: clip;
 }
@@ -10,22 +12,53 @@ html, body, #root {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
 body {
-  @apply bg-ink-50 text-ink-900 antialiased;
+  @apply bg-[#f4f7fb] text-ink-900 antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #d7ddea; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #aeb9d2; }
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d7ddea;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aeb9d2;
+}
 
 *:focus-visible {
   outline: 2px solid #c89b3c;
@@ -34,6 +67,7 @@ body {
 
 /* ── Print Styles ──────────────────────────────────────────────────── */
 @media print {
+
   /* Hide EVERYTHING by default */
   body * {
     visibility: hidden !important;
@@ -92,7 +126,8 @@ body {
     font-size: 11px !important;
   }
 
-  th, td {
+  th,
+  td {
     border: 1px solid #e5e7eb !important;
     padding: 5px 8px !important;
     color: #111827 !important;
@@ -104,7 +139,8 @@ body {
   }
 
   /* Remove background colors from cards for clean print */
-  .rounded-xl, .rounded-lg {
+  .rounded-xl,
+  .rounded-lg {
     box-shadow: none !important;
     border: 1px solid #e5e7eb !important;
   }

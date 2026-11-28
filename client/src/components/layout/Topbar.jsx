@@ -1796,28 +1796,28 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
 
       <header
-        className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200/60 px-2.5 py-2 backdrop-blur-md shadow-sm sm:px-8 sm:py-3"
-        style={{ background: 'rgba(255,255,255,0.88)' }}
+        className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2.5 backdrop-blur-md shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:px-7 sm:py-3"
+        style={{ background: 'rgba(255,255,255,0.94)' }}
       >
         {/* Left: menu toggle + title */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
           <button
             onClick={onMenuClick}
-            className="rounded-md p-1.5 text-ink-500 hover:bg-ink-50 lg:hidden shrink-0"
+            className="rounded-lg p-1.5 text-ink-600 hover:bg-slate-100 lg:hidden shrink-0 transition"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center rounded-md p-1.5 text-ink-500 hover:bg-ink-100 transition shrink-0"
+            className="hidden lg:flex items-center justify-center rounded-lg p-1.5 text-ink-600 hover:bg-slate-100 hover:text-ink-900 transition shrink-0 cursor-pointer"
             title="Toggle sidebar"
           >
-            <Menu size={22} />
+            <Menu size={21} />
           </button>
           <div className="min-w-0">
-            <p className="text-sm sm:text-xl font-bold text-ink-900 truncate">{title}</p>
-            <p className="hidden sm:block text-xs text-ink-500 truncate">
+            <h1 className="font-display text-base sm:text-xl font-extrabold tracking-tight text-ink-900 truncate leading-tight">{title}</h1>
+            <p className="hidden sm:block text-xs font-medium text-ink-500 truncate mt-0.5">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
               })}
@@ -1886,8 +1886,8 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
                 </span>
               )}
               <div className="hidden text-left sm:block">
-                <p className="text-xs font-semibold leading-tight text-ink-800">{user?.name}</p>
-                <p className="text-[10px] leading-none text-ink-400">{roleDisplayName}</p>
+                <p className="text-xs font-bold leading-tight text-ink-900">{user?.name}</p>
+                <p className="text-[11px] font-medium leading-none text-ink-500 mt-0.5">{roleDisplayName}</p>
               </div>
               <ChevronDown size={13} className={`text-ink-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>

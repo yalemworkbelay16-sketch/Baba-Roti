@@ -7,10 +7,15 @@ import AiChat from '../AiChat';
 
 const titles = {
   '/': 'Dashboard',
+  '/pos': 'POS Ordering',
+  '/captain-order': 'Captain Order',
+  '/cash-sales': 'Baba Consumption',
+  '/menu': 'Digital Menu',
   '/materials': 'Raw Materials',
   '/production': 'Kitchen & Bar Production',
   '/products': 'Menu & Recipes',
   '/analytics': 'Analytics & Performance',
+  '/expenses': 'Expenses & Petty Cash',
   '/transactions': 'Stock Movements',
   '/transactions/cash-grv': 'Cash GRV Entries',
   '/transactions/credit-grv': 'Credit GRV Entries',
@@ -37,6 +42,7 @@ const titles = {
   '/users': 'Staff Accounts',
   '/employees': 'Employee Management',
   '/consumption': 'Consumption Management',
+  '/activity-log': 'Activity & Audit Log',
   '/settings': 'System Settings',
   '/profile': 'User Profile',
   '/recycle-bin': 'Recycle Bin',
@@ -49,10 +55,10 @@ const DashboardLayout = () => {
   const location = useLocation();
   const isPos = location.pathname === '/pos';
   const isDashboard = location.pathname === '/';
-  const title = titles[location.pathname] || 'Baba Roti  Café Plc Stock';
+  const title = titles[location.pathname] || 'Baba Roti Café';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-ink-50">
+    <div className="flex h-screen overflow-hidden bg-[#f4f7fb]">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -60,7 +66,7 @@ const DashboardLayout = () => {
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
         onExpand={() => setSidebarCollapsed(false)}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Topbar: hidden on mobile when viewing the mobile-optimized Dashboard or POS */}
         <div className={(isDashboard || isPos) ? 'hidden lg:block' : 'block'}>
           <Topbar
@@ -70,21 +76,18 @@ const DashboardLayout = () => {
           />
         </div>
         {isPos ? (
-          <main className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#f8fafc] pb-16 lg:pb-0">
+          <main className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#f4f7fb] pb-16 lg:pb-0">
             <Outlet />
           </main>
         ) : (
-          <main
-            className="flex-1 overflow-y-auto px-3 py-4 sm:px-8 sm:py-6 flex flex-col justify-between pb-32 lg:pb-6"
-            style={{ background: 'linear-gradient(135deg, #f0f4ff 0%, #f8faff 50%, #ffffff 100%)' }}
-          >
-            <div>
+          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6 flex flex-col justify-between pb-32 lg:pb-6 bg-[#f4f7fb]">
+            <div className="w-full max-w-[1600px] mx-auto">
               <Outlet />
             </div>
-            <footer className="mt-12 pt-6 border-t border-ink-100 hidden lg:flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ink-400 pb-2">
-              <p>© 2026 Baba Roti  CaféHotel Management System · All rights reserved.</p>
+            <footer className="w-full max-w-[1600px] mx-auto mt-10 pt-5 border-t border-slate-200/80 hidden lg:flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 pb-2">
+              <p>© 2026 Baba Roti Café Management System · All rights reserved.</p>
               <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span>Developed By <strong className="text-ink-700 font-semibold">Mega Tech Teams</strong></span>
+                <span>Developed By <strong className="text-ink-800 font-semibold">Mega Tech Teams</strong></span>
               </div>
             </footer>
           </main>
