@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { syncServerClock } from '../utils/ethiopiaTime';
 
 let apiBase = import.meta.env.VITE_API_URL || '/api';
 
@@ -29,7 +30,12 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res?.headers?.date) {
+      syncServerClock(res.headers.date);
+    }
+    return res;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('hotelStockAuth');

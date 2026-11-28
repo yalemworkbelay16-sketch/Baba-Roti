@@ -10,14 +10,11 @@ import ApproveModal, { TrailTimeline } from '../components/ui/ApproveModal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
+import { getEthiopiaDateKey } from '../utils/ethiopiaTime';
 
 const emptyItem = { material: '', quantity: 1, unitCost: 0 };
 
-const toLocalDateKey = (val) => {
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const toLocalDateKey = getEthiopiaDateKey;
 
 // Which action buttons to show per status
 const NEXT_ACTIONS = {

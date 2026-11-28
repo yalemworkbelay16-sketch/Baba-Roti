@@ -12,6 +12,7 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import useHighlightRow from '../hooks/useHighlightRow';
+import { getEthiopiaDateKey } from '../utils/ethiopiaTime';
 
 // ── Constants ────────────────────────────────────────────────────
 const DEPARTMENTS = [
@@ -38,11 +39,7 @@ const EMPTY_ITEM = { material: '', requestedQty: 1, note: '' };
 const formatETB = (n) =>
   `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const toLocalDateKey = (val) => {
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const toLocalDateKey = getEthiopiaDateKey;
 
 // ── Status Badge ─────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {

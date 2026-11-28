@@ -16,6 +16,14 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 import { posPrint } from '../utils/posPrint';
 import { dispatchPrint } from '../utils/localPrintDispatcher';
 import useHighlightRow from '../hooks/useHighlightRow';
+import {
+  getEthiopiaDateKey,
+  getEthiopiaDateTimeLocalValue,
+  ethiopiaLocalToIsoWithOffset,
+  shiftDateKey,
+  formatEthiopiaDateTime,
+  getEthiopiaNow,
+} from '../utils/ethiopiaTime';
 
 /* ── Category config ─────────────────────────────────────────────── */
 const CATEGORIES = [
@@ -29,15 +37,17 @@ const CATEGORIES = [
 const catByKey = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
 const emptyItem = () => ({ product: '', quantity: 1 });
 
-const emptyForm = {
+const getEmptyForm = () => ({
   category: 'staff_meal',
-  date: new Date().toISOString().slice(0, 16),
+  date: getEthiopiaDateTimeLocalValue(),
   beneficiary: '',
   pax: 1,
   department: '',
   notes: '',
   items: [emptyItem()],
-};
+});
+
+const emptyForm = getEmptyForm();
 
 const isDrinkProduct = (p) => {
   const pc = String(p?.parentCategory || '').toLowerCase();
@@ -47,21 +57,7 @@ const isDrinkProduct = (p) => {
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const toLocalDateKey = (val) => {
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const shiftDateKey = (dateKey, deltaDays) => {
-  const [y, m, d] = String(dateKey || '').split('-').map(Number);
-  const dt = (y && m && d) ? new Date(y, m - 1, d) : new Date();
-  dt.setDate(dt.getDate() + deltaDays);
-  return toLocalDateKey(dt);
-};
+const toLocalDateKey = (val) => getEthiopiaDateKey(val);
 
 export default function Consumption() {
   const { user, can, hasRole } = useAuth();
@@ -458,11 +454,11 @@ export default function Consumption() {
     const empName = (form.beneficiary || '').trim().toLowerCase();
     const empId = selectedEmployeeObj?._id ? String(selectedEmployeeObj._id) : null;
     const userId = user?._id ? String(user._id) : null;
-    const todayStr = new Date().toDateString();
+    const todayKey = getEthiopiaDateKey();
 
     const matchingRecords = (records || []).filter(r => {
       if (r.category !== 'staff_meal' || r.status === 'voided') return false;
-      if (new Date(r.date).toDateString() !== todayStr) return false;
+      if (getEthiopiaDateKey(r.date) !== todayKey) return false;
 
       const rBeneficiary = String(r.beneficiary || '').trim().toLowerCase();
       const rEmpId = r.employee ? String(r.employee?._id || r.employee) : null;
@@ -526,7 +522,26 @@ export default function Consumption() {
     return map;
   }, [isPrivileged, currentUserEmployee, selectedEmployeeObj]);
 
+  const requestedPortionBreakdown = useMemo(() => {
+    const prodMap = new Map(products.map(p => [String(p._id), p]));
+    let food = 0;
+    let drinks = 0;
+    for (const it of form.items || []) {
+      if (!it.product) continue;
+      const p = prodMap.get(String(it.product));
+      const q = Number(it.quantity) || 1;
+      if (isDrinkProduct(p)) drinks += q;
+      else food += q;
+    }
+    return { food, drinks, total: food + drinks };
+  }, [form.items, products]);
+
   const isDailyQuotaReached = form.category === 'staff_meal' && effectiveTodayUsed >= dailyMealLimit;
+  const isSelectedQuotaBlocked = !isPrivileged && form.category === 'staff_meal' && (
+    availableProducts.length === 0 ||
+    (hasAllowedFoodItems && requestedPortionBreakdown.food > 0 && effectiveTodayUsed + requestedPortionBreakdown.food > dailyMealLimit) ||
+    (!hasAllowedFoodItems && requestedPortionBreakdown.total > 0 && effectiveTodayUsed + requestedPortionBreakdown.total > dailyMealLimit)
+  );
 
   /* ── form helpers ── */
   const openCreate = () => {
@@ -538,8 +553,9 @@ export default function Consumption() {
       ? (currentUserEmployee?.department || user?.department || '')
       : '';
     setForm({
-      ...emptyForm,
+      ...getEmptyForm(),
       category: 'staff_meal',
+      date: getEthiopiaDateTimeLocalValue(),
       beneficiary: defaultBeneficiary,
       department: defaultDept,
     });
@@ -572,7 +588,7 @@ export default function Consumption() {
     setEditing(r);
     setForm({
       category: r.category,
-      date: new Date(r.date).toISOString().slice(0, 16),
+      date: getEthiopiaDateTimeLocalValue(r.date),
       beneficiary: r.beneficiary || '',
       pax: r.pax || 1,
       department: r.department || '',
@@ -745,6 +761,7 @@ export default function Consumption() {
 
       const payload = {
         ...form,
+        date: form.date ? ethiopiaLocalToIsoWithOffset(form.date) : getEthiopiaNow().toISOString(),
         items: cleanItems,
         employee: selectedEmployeeObj?._id || currentUserEmployee?._id || undefined,
         autoApprove: form.category === 'staff_meal',
@@ -1241,7 +1258,7 @@ export default function Consumption() {
                         <CatIcon size={10} /> {cat.label}
                       </span>
                     </div>
-                    <p className="text-[11px] text-ink-400 mt-0.5">{new Date(r.date).toLocaleString()}</p>
+                    <p className="text-[11px] text-ink-400 mt-0.5">{formatEthiopiaDateTime(r.date)}</p>
                   </div>
                   <div className="shrink-0">
                     {r.category === 'staff_meal' && r.status === 'approved' ? (
@@ -1341,7 +1358,7 @@ export default function Consumption() {
                 return (
                   <tr key={r._id} ref={setRowRef(r)} className={rowClass(r, 'hover:bg-blue-50/20 transition-colors')} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">
-                      {new Date(r.date).toLocaleString()}
+                      {formatEthiopiaDateTime(r.date)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-blue-600">
                       {r.voucherNo || '—'}
@@ -1693,15 +1710,22 @@ export default function Consumption() {
                       const maxToday = productDailyLimitsMap[pId] || 1;
                       const remToday = Math.max(0, maxToday - usedToday);
                       const isItemLimitReached = usedToday >= maxToday;
+                      const isDrink = isDrinkProduct(p);
+                      const isMealPoolFull = !isDrink && hasAllowedFoodItems && isDailyQuotaReached;
+                      const isBlocked = (isItemLimitReached || isMealPoolFull) && !isPrivileged;
                       return {
                         value: p._id,
                         label: isItemLimitReached
                           ? `⚠️ ${p.name} (${usedToday}/${maxToday} ordered today - Limit reached)`
-                          : `${p.name} (${remToday} left today)`,
+                          : isMealPoolFull
+                            ? `⚠️ ${p.name} (Daily meal quota ${effectiveTodayUsed}/${dailyMealLimit} reached)`
+                            : `${p.name} (${remToday} left today${isDrink && hasAllowedFoodItems ? ' · Drink' : ''})`,
                         sublabel: isItemLimitReached
                           ? `Daily limit reached for today`
-                          : (p.sellingPrice ? `Price: ETB ${p.sellingPrice} · ${p.category || 'Menu'}` : (p.category || 'Menu')),
-                        disabled: isItemLimitReached && !isPrivileged,
+                          : isMealPoolFull
+                            ? `Meal limit reached — drinks remain available`
+                            : (p.sellingPrice ? `Price: ETB ${p.sellingPrice} · ${p.category || 'Menu'}` : (p.category || 'Menu')),
+                        disabled: isBlocked,
                       };
                     })}
                     value={item.product}
@@ -1744,7 +1768,7 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(false)}
-                    disabled={submitting || (!isPrivileged && (availableProducts.length === 0 || isDailyQuotaReached))}
+                    disabled={submitting || isSelectedQuotaBlocked}
                     className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save consumption record only without printing KOT ticket"
                   >
@@ -1753,7 +1777,7 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(true)}
-                    disabled={submitting || (!isPrivileged && (availableProducts.length === 0 || isDailyQuotaReached))}
+                    disabled={submitting || isSelectedQuotaBlocked}
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Printer size={15} />
@@ -1762,8 +1786,8 @@ export default function Consumption() {
                         ? 'Ordering & Printing…'
                         : (!isPrivileged && availableProducts.length === 0)
                           ? 'No Allowed Meals Configured'
-                          : (!isPrivileged && isDailyQuotaReached)
-                            ? 'Daily Quota Reached for Today'
+                          : isSelectedQuotaBlocked
+                            ? 'Daily Quota Reached for Selected Item'
                             : '🍽️ Order & Print Captain Order'}
                     </span>
                   </button>
@@ -1809,7 +1833,7 @@ export default function Consumption() {
                   )}
                 </div>
                 <div><p className="text-xs text-ink-400">Date</p>
-                  <p className="font-medium">{new Date(detailRecord.date).toLocaleString()}</p>
+                  <p className="font-medium">{formatEthiopiaDateTime(detailRecord.date)}</p>
                 </div>
                 <div><p className="text-xs text-ink-400">Pax</p>
                   <p className="font-medium">{detailRecord.pax || 1} people</p>

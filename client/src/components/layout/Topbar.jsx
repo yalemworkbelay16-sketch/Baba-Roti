@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSessionTimeout } from '../../context/SessionTimeoutContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
+import { formatEthiopiaLongDate } from '../../utils/ethiopiaTime';
 
 // ─────────────────────────────────────────
 // SVG FLOW DIAGRAM GENERATOR
@@ -1821,9 +1822,7 @@ const Topbar = ({ onMenuClick, onToggleCollapse, title }) => {
           <div className="min-w-0">
             <h1 className="font-display text-base sm:text-xl font-extrabold tracking-tight text-ink-900 truncate leading-tight">{title}</h1>
             <p className="hidden sm:block text-xs font-medium text-ink-500 truncate mt-0.5">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-              })}
+              {formatEthiopiaLongDate()}
             </p>
           </div>
         </div>
