@@ -1510,6 +1510,37 @@ async function notifyPersonalStaffConsumption(record, performerUser) {
   }
 }
 
+// ── Over-limit staff meal attempt / override alert strictly for Admin & System Developer ──
+function notifyStaffQuotaExceeded({
+  staffName = 'Staff',
+  department = '',
+  actorName = '',
+  actorRole = '',
+  reason = '',
+  itemsSummary = '',
+  voucherNo = '',
+  recordedOverLimit = false,
+}) {
+  const headerBadge = recordedOverLimit
+    ? '🚨 <b>STAFF ATE BEYOND DAILY LIMIT (RECORDED)</b>'
+    : '⚠️ <b>STAFF OVER-LIMIT MEAL ORDER ATTEMPT</b>';
+
+  sendTelegram(
+    `🏨 <b>${HOTEL}</b>
+━━━━━━━━━━━━━━━━━━━━
+${headerBadge}
+
+👤 <b>Staff:</b>      <b>${staffName}</b>${department ? ` (${department})` : ''}
+🧑‍💼 <b>Submitted by:</b> ${actorName || staffName}${actorRole ? ` (${actorRole})` : ''}
+${voucherNo ? `🔖 <b>Voucher:</b>    <code>${voucherNo}</code>\n` : ''}🍽️ <b>Items:</b>      ${itemsSummary || '—'}
+📌 <b>Details:</b>    ${reason || 'Daily meal/item allowance exceeded'}
+🕐 <b>Time:</b>       ${now()}
+━━━━━━━━━━━━━━━━━━━━
+<i>Admin & System Developer Alert</i>`,
+    { adminAndDevOnly: true }
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 module.exports = {
   HOTEL,
@@ -1547,6 +1578,7 @@ module.exports = {
   notifyInventoryCountApproved,
   notifyConsumptionCreated,
   notifyConsumptionApproved,
+  notifyStaffQuotaExceeded,
   notifyStockRequestCreated,
   notifyStockRequestApproved,
   notifyStockIssued,

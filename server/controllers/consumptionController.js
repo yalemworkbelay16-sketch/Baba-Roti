@@ -19,6 +19,71 @@ const generateVoucherNo = async () => {
   return `CONS-${String(count + 1).padStart(5, '0')}`;
 };
 
+const formatOrdinal = (n) => {
+  const num = Number(n) || 0;
+  const mod100 = num % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+  const mod10 = num % 10;
+  if (mod10 === 1) return `${num}st`;
+  if (mod10 === 2) return `${num}nd`;
+  if (mod10 === 3) return `${num}rd`;
+  return `${num}th`;
+};
+
+const limitAlertCooldownMap = new Map();
+
+function announceStaffOverLimit({
+  staffName,
+  department,
+  actor,
+  itemsSummary,
+  reason,
+  recordedOverLimit = false,
+  voucherNo = '',
+  entityId = '',
+}) {
+  // Prevent duplicate spam when a blocked staff retries within 30 seconds
+  if (!recordedOverLimit) {
+    const key = `${String(actor?._id || staffName).toLowerCase()}:${reason}`;
+    const lastAt = limitAlertCooldownMap.get(key) || 0;
+    if (Date.now() - lastAt < 30000) return;
+    limitAlertCooldownMap.set(key, Date.now());
+  }
+
+  const title = recordedOverLimit
+    ? '🚨 Staff Consumed Meal Over Daily Limit'
+    : '⚠️ Staff Over-Limit Meal Attempt';
+  const msg = recordedOverLimit
+    ? `${staffName} consumed ${itemsSummary} beyond daily limit (${reason})${voucherNo ? ` — Voucher ${voucherNo}` : ''}.`
+    : `${staffName} tried to order ${itemsSummary} over daily allowance (${reason}).`;
+
+  notify.push({
+    type: 'consumption',
+    title,
+    message: msg,
+    icon: recordedOverLimit ? '🚨' : '⚠️',
+    link: '/consumption',
+    entityId: entityId || '',
+    voucherNo: voucherNo || '',
+    severity: 'warning',
+    userId: actor?._id,
+    allowedRoles: ['admin', 'dev'],
+  });
+
+  if (typeof tg.notifyStaffQuotaExceeded === 'function') {
+    tg.notifyStaffQuotaExceeded({
+      staffName,
+      department,
+      actorName: actor?.name || staffName,
+      actorRole: actor?.role || '',
+      reason,
+      itemsSummary,
+      voucherNo,
+      recordedOverLimit,
+    });
+  }
+}
+
 // ── Helper: deduct raw materials based on product recipes ─────────
 async function applyConsumptionStock(items, reverse = false, actor = null) {
   let settings = null;
@@ -194,6 +259,7 @@ const createConsumption = asyncHandler(async (req, res) => {
 
   // ── Staff Meal Daily Quota & Frequency Validation ──────────────────────────
   let employeeDoc = null;
+  let overLimitWarnings = [];
   if (isStaffMeal) {
     const Employee = require('../models/Employee');
     if (req.body.employee) {
@@ -300,6 +366,12 @@ const createConsumption = asyncHandler(async (req, res) => {
 
       let requestedNewPortions = 0;
       let requestedNewMealPortions = 0;
+      const isPrivilegedActor = ['admin', 'dev'].includes(req.user.role);
+      const staffLabel = beneficiary || `${employeeDoc?.firstName || ''} ${employeeDoc?.lastName || ''}`.trim() || req.user?.name || 'Staff';
+      const requestedSummary = items
+        .map(it => `${resolvedProductDocs[String(it.product)]?.name || 'Item'} ×${Number(it.quantity) || 1}`)
+        .join(', ');
+
       for (const itm of items) {
         const pId = String(itm.product);
         const reqQty = Number(itm.quantity) || 1;
@@ -314,10 +386,25 @@ const createConsumption = asyncHandler(async (req, res) => {
 
         if (usedForThisItem + reqQty > maxForThisItem) {
           const pName = prodDoc?.name || 'this item';
-          res.status(400);
-          throw new Error(
-            `Daily meal limit reached: ${beneficiary || 'Staff'} has already ordered "${pName}" today (${usedForThisItem}/${maxForThisItem} used). Daily allowance is ${maxForThisItem} portion per day.`
-          );
+          const nthAttempt = formatOrdinal(usedForThisItem + reqQty);
+          const itemReason = `${pName} is allowed ${maxForThisItem} per day (already ${usedForThisItem}/${maxForThisItem} used today — ${nthAttempt} time)`;
+
+          if (!isPrivilegedActor) {
+            announceStaffOverLimit({
+              staffName: staffLabel,
+              department: department || employeeDoc?.department || '',
+              actor: req.user,
+              itemsSummary: requestedSummary,
+              reason: itemReason,
+              recordedOverLimit: false,
+            });
+            res.status(400);
+            throw new Error(
+              `⚠️ Warning: "${pName}" is allowed ${maxForThisItem} per day (you have already used ${usedForThisItem}/${maxForThisItem} today — cannot order a ${nthAttempt} time). Admin & System Developer have been notified.`
+            );
+          } else {
+            overLimitWarnings.push(itemReason);
+          }
         }
       }
 
@@ -325,10 +412,26 @@ const createConsumption = asyncHandler(async (req, res) => {
       const effectiveNewPortions = hasAllowedFood ? requestedNewMealPortions : requestedNewPortions;
 
       if (effectiveNewPortions > 0 && effectiveConsumedToday + effectiveNewPortions > overallDailyLimit) {
-        res.status(400);
-        throw new Error(
-          `Daily meal quota reached: ${beneficiary || 'Staff'} has already ordered ${effectiveConsumedToday}/${overallDailyLimit} ${hasAllowedFood ? 'meal' : 'drink'} portions today. Allowed limit is ${overallDailyLimit} per day.`
-        );
+        const mealWord = hasAllowedFood ? 'meal' : 'drink';
+        const nthMeal = formatOrdinal(effectiveConsumedToday + effectiveNewPortions);
+        const quotaReason = `Daily ${mealWord} quota is ${overallDailyLimit}/day (already ${effectiveConsumedToday}/${overallDailyLimit} used today — ${nthMeal} ${mealWord})`;
+
+        if (!isPrivilegedActor) {
+          announceStaffOverLimit({
+            staffName: staffLabel,
+            department: department || employeeDoc?.department || '',
+            actor: req.user,
+            itemsSummary: requestedSummary,
+            reason: quotaReason,
+            recordedOverLimit: false,
+          });
+          res.status(400);
+          throw new Error(
+            `⚠️ Warning: Daily ${mealWord} quota reached (${effectiveConsumedToday}/${overallDailyLimit} used today — cannot order a ${nthMeal} ${mealWord}). Admin & System Developer have been notified.`
+          );
+        } else {
+          overLimitWarnings.push(quotaReason);
+        }
       }
     }
   }
@@ -385,6 +488,20 @@ const createConsumption = asyncHandler(async (req, res) => {
   if (typeof tg.notifyPersonalStaffConsumption === 'function') {
     tg.notifyPersonalStaffConsumption(populated, req.user);
   }
+  if (isStaffMeal && overLimitWarnings.length > 0) {
+    const staffLabel = beneficiary || `${employeeDoc?.firstName || ''} ${employeeDoc?.lastName || ''}`.trim() || req.user?.name || 'Staff';
+    const itemsText = (populated.items || []).map(i => `${i.product?.name || 'Item'} ×${i.quantity}`).join(', ');
+    announceStaffOverLimit({
+      staffName: staffLabel,
+      department: department || employeeDoc?.department || '',
+      actor: req.user,
+      itemsSummary: itemsText,
+      reason: overLimitWarnings.join(' | '),
+      recordedOverLimit: true,
+      voucherNo: populated.voucherNo,
+      entityId: populated._id,
+    });
+  }
   notify.push({
     type: 'consumption',
     title: shouldAutoApprove ? 'Staff Meal Ordered & Approved' : 'New Consumption Record',
@@ -397,7 +514,10 @@ const createConsumption = asyncHandler(async (req, res) => {
     severity: shouldAutoApprove ? 'success' : 'info',
     userId: req.user._id,
   });
-  res.status(201).json(populated);
+  res.status(201).json({
+    ...populated,
+    overLimitWarning: overLimitWarnings.length > 0 ? overLimitWarnings.join(' · ') : null,
+  });
 });
 
 // ── PUT /api/consumption/:id ──────────────────────────────────────

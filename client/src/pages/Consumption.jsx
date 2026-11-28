@@ -55,6 +55,17 @@ const isDrinkProduct = (p) => {
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const formatOrdinal = (n) => {
+  const num = Number(n) || 0;
+  const mod100 = num % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+  const mod10 = num % 10;
+  if (mod10 === 1) return `${num}st`;
+  if (mod10 === 2) return `${num}nd`;
+  if (mod10 === 3) return `${num}rd`;
+  return `${num}th`;
+};
+
 const toLocalDateKey = (val) => getLocalDateKey(val);
 
 export default function Consumption() {
@@ -535,10 +546,58 @@ export default function Consumption() {
   }, [form.items, products]);
 
   const isDailyQuotaReached = form.category === 'staff_meal' && effectiveTodayUsed >= dailyMealLimit;
+
+  // Live pre-order warnings whenever selected items/quantities exceed per-item or daily limits
+  const liveQuotaWarnings = useMemo(() => {
+    if (form.category !== 'staff_meal') return [];
+    const warnings = [];
+    const prodMap = new Map(products.map(p => [String(p._id), p]));
+
+    for (const it of form.items || []) {
+      if (!it.product) continue;
+      const pId = String(it.product);
+      const prod = prodMap.get(pId);
+      const pName = prod?.name || 'This item';
+      const reqQty = Number(it.quantity) || 1;
+      const usedToday = todayEmployeeConsumption.byProduct[pId] || 0;
+      const maxToday = productDailyLimitsMap[pId] || 1;
+
+      if (usedToday + reqQty > maxToday) {
+        const nthAttempt = formatOrdinal(usedToday + reqQty);
+        warnings.push(
+          `${pName} is allowed ${maxToday} per day — already ordered ${usedToday}/${maxToday} today. Ordering a ${nthAttempt} time exceeds the daily allowance.`
+        );
+      }
+    }
+
+    if (hasAllowedFoodItems && requestedPortionBreakdown.food > 0 && effectiveTodayUsed + requestedPortionBreakdown.food > dailyMealLimit) {
+      const nthMeal = formatOrdinal(effectiveTodayUsed + requestedPortionBreakdown.food);
+      warnings.push(
+        `Daily meal quota is ${dailyMealLimit} per day (${effectiveTodayUsed}/${dailyMealLimit} ordered today — ${nthMeal} meal exceeds daily limit).`
+      );
+    } else if (!hasAllowedFoodItems && requestedPortionBreakdown.total > 0 && effectiveTodayUsed + requestedPortionBreakdown.total > dailyMealLimit) {
+      const nthDrink = formatOrdinal(effectiveTodayUsed + requestedPortionBreakdown.total);
+      warnings.push(
+        `Daily drink quota is ${dailyMealLimit} per day (${effectiveTodayUsed}/${dailyMealLimit} ordered today — ${nthDrink} portion exceeds daily limit).`
+      );
+    }
+
+    return Array.from(new Set(warnings));
+  }, [
+    form.category,
+    form.items,
+    products,
+    todayEmployeeConsumption,
+    productDailyLimitsMap,
+    hasAllowedFoodItems,
+    requestedPortionBreakdown,
+    effectiveTodayUsed,
+    dailyMealLimit,
+  ]);
+
   const isSelectedQuotaBlocked = !isPrivileged && form.category === 'staff_meal' && (
     availableProducts.length === 0 ||
-    (hasAllowedFoodItems && requestedPortionBreakdown.food > 0 && effectiveTodayUsed + requestedPortionBreakdown.food > dailyMealLimit) ||
-    (!hasAllowedFoodItems && requestedPortionBreakdown.total > 0 && effectiveTodayUsed + requestedPortionBreakdown.total > dailyMealLimit)
+    liveQuotaWarnings.length > 0
   );
 
   /* ── form helpers ── */
@@ -732,31 +791,6 @@ export default function Consumption() {
         return;
       }
 
-      if (form.category === 'staff_meal' && !isPrivileged) {
-        let requestedMealPortions = 0;
-        let requestedTotalPortions = 0;
-        for (const item of cleanItems) {
-          const pId = String(item.product);
-          const q = Number(item.quantity) || 1;
-          const prod = products.find(p => String(p._id) === pId);
-          requestedTotalPortions += q;
-          if (!isDrinkProduct(prod)) requestedMealPortions += q;
-          const usedForP = todayEmployeeConsumption.byProduct[pId] || 0;
-          const maxForP = productDailyLimitsMap[pId] || 1;
-          if (usedForP + q > maxForP) {
-            setFormError(`Daily limit exceeded for "${prod?.name || 'this item'}": Already ordered ${usedForP}/${maxForP} today. Limit is ${maxForP} portion per day.`);
-            setSubmitting(false);
-            return;
-          }
-        }
-        const effectiveReq = hasAllowedFoodItems ? requestedMealPortions : requestedTotalPortions;
-        if (effectiveReq > 0 && effectiveTodayUsed + effectiveReq > dailyMealLimit) {
-          setFormError(`Daily meal quota exceeded: You can only order ${Math.max(0, dailyMealLimit - effectiveTodayUsed)} more ${hasAllowedFoodItems ? 'meal' : 'drink'} portion(s) today (Limit: ${dailyMealLimit} per day).`);
-          setSubmitting(false);
-          return;
-        }
-      }
-
       const payload = {
         ...form,
         date: form.date ? localDateTimeInputToIso(form.date) : new Date().toISOString(),
@@ -824,16 +858,23 @@ export default function Consumption() {
             console.warn('[CONSUMPTION] Background KOT print dispatch error:', printErr);
           });
 
-          setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted and order sent to kitchen printer.`);
+          setSuccessToast(
+            savedRecord?.overLimitWarning
+              ? `⚠️ Staff meal #${savedRecord?.voucherNo || ''} recorded OVER DAILY LIMIT (${savedRecord.overLimitWarning}) — Admin & System Developer notified.`
+              : `🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Stock deducted and order sent to kitchen printer.`
+          );
         } catch (kotErr) {
           console.warn('Captain order error:', kotErr);
           setSuccessToast(`🍽️ Staff meal #${savedRecord?.voucherNo || ''} recorded & auto-approved! (Stock deducted)`);
         }
       } else {
         const isStaff = form.category === 'staff_meal';
-        setSuccessToast(isStaff
-          ? `🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Raw materials deducted from Kitchen & Bar.`
-          : `Consumption record ${savedRecord?.voucherNo || ''} recorded successfully.`
+        setSuccessToast(
+          savedRecord?.overLimitWarning
+            ? `⚠️ Staff meal #${savedRecord?.voucherNo || ''} recorded OVER DAILY LIMIT (${savedRecord.overLimitWarning}) — Admin & System Developer notified.`
+            : isStaff
+              ? `🍽️ Staff meal #${savedRecord?.voucherNo || ''} auto-approved! Raw materials deducted from Kitchen & Bar.`
+              : `Consumption record ${savedRecord?.voucherNo || ''} recorded successfully.`
         );
       }
 
@@ -1710,20 +1751,20 @@ export default function Consumption() {
                       const isItemLimitReached = usedToday >= maxToday;
                       const isDrink = isDrinkProduct(p);
                       const isMealPoolFull = !isDrink && hasAllowedFoodItems && isDailyQuotaReached;
-                      const isBlocked = (isItemLimitReached || isMealPoolFull) && !isPrivileged;
+                      const nthAttempt = formatOrdinal(usedToday + 1);
                       return {
                         value: p._id,
                         label: isItemLimitReached
-                          ? `⚠️ ${p.name} (${usedToday}/${maxToday} ordered today - Limit reached)`
+                          ? `⚠️ ${p.name} (${usedToday}/${maxToday} used today — Limit ${maxToday}/day reached)`
                           : isMealPoolFull
                             ? `⚠️ ${p.name} (Daily meal quota ${effectiveTodayUsed}/${dailyMealLimit} reached)`
-                            : `${p.name} (${remToday} left today${isDrink && hasAllowedFoodItems ? ' · Drink' : ''})`,
+                            : `${p.name} (${remToday}/${maxToday} left today${isDrink && hasAllowedFoodItems ? ' · Drink' : ''})`,
                         sublabel: isItemLimitReached
-                          ? `Daily limit reached for today`
+                          ? `Allowed ${maxToday}/day · Ordering ${nthAttempt} time exceeds limit (Admin & Dev alerted)`
                           : isMealPoolFull
-                            ? `Meal limit reached — drinks remain available`
-                            : (p.sellingPrice ? `Price: ETB ${p.sellingPrice} · ${p.category || 'Menu'}` : (p.category || 'Menu')),
-                        disabled: isBlocked,
+                            ? `Daily meal limit reached — drinks remain available (Admin & Dev alerted)`
+                            : (p.sellingPrice ? `Allowed ${maxToday}/day · Price: ETB ${p.sellingPrice} · ${p.category || 'Menu'}` : `Allowed ${maxToday}/day · ${p.category || 'Menu'}`),
+                        disabled: false,
                       };
                     })}
                     value={item.product}
@@ -1739,6 +1780,30 @@ export default function Consumption() {
                 </div>
               ))}
             </div>
+
+            {/* Live Pre-Order Limit Warning Banner */}
+            {liveQuotaWarnings.length > 0 && (
+              <div className="mt-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 flex items-start gap-2.5 shadow-2xs">
+                <AlertCircle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-amber-950">
+                    {isPrivileged
+                      ? '⚠️ Over-Limit Warning (Admin / System Dev Override)'
+                      : '⚠️ Daily Allowance Limit Warning'}
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-amber-900">
+                    {liveQuotaWarnings.map((w, wi) => (
+                      <li key={wi}>{w}</li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] font-semibold text-amber-800">
+                    {isPrivileged
+                      ? 'Submitting this order will record it beyond the employee daily limit and announce an alert to Admin & System Developer.'
+                      : 'Submitting an order beyond your allowed daily limit will alert Admin & System Developer.'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
@@ -1766,7 +1831,7 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(false)}
-                    disabled={submitting || isSelectedQuotaBlocked}
+                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
                     className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save consumption record only without printing KOT ticket"
                   >
@@ -1775,8 +1840,11 @@ export default function Consumption() {
                   <button
                     type="button"
                     onClick={() => handleSave(true)}
-                    disabled={submitting || isSelectedQuotaBlocked}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={submitting || (!isPrivileged && availableProducts.length === 0)}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isSelectedQuotaBlocked
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+                      }`}
                   >
                     <Printer size={15} />
                     <span>
@@ -1785,7 +1853,7 @@ export default function Consumption() {
                         : (!isPrivileged && availableProducts.length === 0)
                           ? 'No Allowed Meals Configured'
                           : isSelectedQuotaBlocked
-                            ? 'Daily Quota Reached for Selected Item'
+                            ? 'Over Daily Limit (Blocked · Notify Admin)'
                             : '🍽️ Order & Print Captain Order'}
                     </span>
                   </button>
