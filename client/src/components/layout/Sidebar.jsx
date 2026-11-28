@@ -48,8 +48,6 @@ import SyncAltRoundedIcon from '@mui/icons-material/SyncAltRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import CircleRoundedIcon from '@mui/icons-material/CircleRounded';
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
-import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
-import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 
 const resolveSidebarTheme = (sidebarThemeId, isDark) => {
   const chosen = SIDEBAR_THEMES[sidebarThemeId] || SIDEBAR_THEMES.blueblack;
@@ -335,7 +333,7 @@ const Sidebar = ({
 }) => {
   const { user, can, canSeeNav, sidebarTheme, useMaterialIcons, getDefaultLandingUrl } = useAuth();
   const { isAmharic, toggleLanguage, setLanguage, t } = useLanguage();
-  const { isDark, setColorMode, toggleColorMode } = useTheme();
+  const { isDark } = useTheme();
   const theme = resolveSidebarTheme(sidebarTheme, isDark);
   const location = useLocation();
   const navigate = useNavigate();
@@ -1173,53 +1171,6 @@ const Sidebar = ({
             </div>
           )}
         </nav>
-
-        {/* ── COLOR MODE SWITCHER (LIGHT / DARK) ── */}
-        <div className={`px-3 py-2 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
-          {!collapsed ? (
-            <>
-              <div className={`flex items-center gap-1.5 text-xs font-semibold ${theme.isLight ? 'text-slate-700' : 'text-white/85'}`}>
-                {isDark ? <DarkModeRoundedIcon sx={{ fontSize: 16 }} /> : <LightModeRoundedIcon sx={{ fontSize: 16 }} />}
-                <span>{isAmharic ? 'ገጽታ' : 'Appearance'}</span>
-              </div>
-              <div className={`flex items-center rounded-full p-0.5 text-[11px] font-bold select-none ${theme.isLight ? 'bg-slate-200/80' : 'bg-black/25'}`}>
-                <button
-                  type="button"
-                  onClick={() => setColorMode('light')}
-                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full transition cursor-pointer ${!isDark
-                    ? 'bg-amber-400 text-slate-950 font-extrabold shadow-xs'
-                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
-                    }`}
-                  title="Switch system to Light Mode"
-                >
-                  <LightModeRoundedIcon sx={{ fontSize: 12 }} />
-                  <span>{isAmharic ? 'ብርሃን' : 'Light'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setColorMode('dark')}
-                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full transition cursor-pointer ${isDark
-                    ? 'bg-sky-600 text-white font-extrabold shadow-xs'
-                    : (theme.isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/75 hover:text-white')
-                    }`}
-                  title="Switch system to Blue-Black Dark Mode"
-                >
-                  <DarkModeRoundedIcon sx={{ fontSize: 12 }} />
-                  <span>{isAmharic ? 'ጨለማ' : 'Dark'}</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={toggleColorMode}
-              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer ${theme.isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {isDark ? <LightModeRoundedIcon sx={{ fontSize: 17 }} /> : <DarkModeRoundedIcon sx={{ fontSize: 17 }} />}
-            </button>
-          )}
-        </div>
 
         {/* ── LANGUAGE SWITCHER IN SIDEBAR FOOTER ── */}
         <div className={`px-3 py-2 flex items-center justify-between ${theme.isLight ? 'border-t border-slate-200' : 'border-t border-white/[0.08]'}`}>
