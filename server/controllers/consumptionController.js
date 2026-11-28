@@ -238,13 +238,10 @@ const createConsumption = asyncHandler(async (req, res) => {
       throw new Error(`Not allowed: ${beneficiary || 'This employee'} is restricted and not allowed any staff meals.`);
     }
 
-    // Check today's existing consumption in Ethiopia Time (Africa/Addis_Ababa, UTC+3)
-    const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
-    const eatNow = new Date(Date.now() + EAT_OFFSET_MS);
-    const startOfDay = new Date(
-      Date.UTC(eatNow.getUTCFullYear(), eatNow.getUTCMonth(), eatNow.getUTCDate(), 0, 0, 0, 0) - EAT_OFFSET_MS
-    );
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1);
+    // Check today's existing consumption for this employee against system calendar day
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const allowedProdsList = Array.isArray(employeeDoc?.allowedProducts) ? employeeDoc.allowedProducts : [];
     const allowedSet = new Set(allowedProdsList.map(p => String(p?._id || p)));
@@ -338,23 +335,12 @@ const createConsumption = asyncHandler(async (req, res) => {
 
   const shouldAutoApprove = req.body.autoApprove !== undefined ? Boolean(req.body.autoApprove) : isStaffMeal;
 
-  let parsedDate = new Date();
-  if (date) {
-    const rawDate = String(date).trim();
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(rawDate)) {
-      parsedDate = new Date(`${rawDate}:00+03:00`);
-    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(rawDate)) {
-      parsedDate = new Date(`${rawDate}+03:00`);
-    } else {
-      parsedDate = new Date(rawDate);
-    }
-    if (Number.isNaN(parsedDate.getTime())) parsedDate = new Date();
-  }
+  const parsedDate = date ? new Date(date) : new Date();
 
   const record = await Consumption.create({
     voucherNo: voucherNo || (await generateVoucherNo()),
     category,
-    date: parsedDate,
+    date: Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate,
     beneficiary: beneficiary || '',
     employee: employeeDoc?._id || req.body.employee || undefined,
     pax: Number(pax) || 1,

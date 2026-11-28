@@ -10,11 +10,11 @@ import ApproveModal, { TrailTimeline } from '../components/ui/ApproveModal';
 import ExportDropdown from '../components/ui/ExportDropdown';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
-import { getEthiopiaDateKey } from '../utils/ethiopiaTime';
+import { getLocalDateKey } from '../utils/dateTime';
 
 const emptyItem = { material: '', quantity: 1, unitCost: 0 };
 
-const toLocalDateKey = getEthiopiaDateKey;
+const toLocalDateKey = getLocalDateKey;
 
 // Which action buttons to show per status
 const NEXT_ACTIONS = {

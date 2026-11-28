@@ -17,13 +17,11 @@ import { posPrint } from '../utils/posPrint';
 import { dispatchPrint } from '../utils/localPrintDispatcher';
 import useHighlightRow from '../hooks/useHighlightRow';
 import {
-  getEthiopiaDateKey,
-  getEthiopiaDateTimeLocalValue,
-  ethiopiaLocalToIsoWithOffset,
+  getLocalDateKey,
+  getLocalDateTimeInputValue,
+  localDateTimeInputToIso,
   shiftDateKey,
-  formatEthiopiaDateTime,
-  getEthiopiaNow,
-} from '../utils/ethiopiaTime';
+} from '../utils/dateTime';
 
 /* ── Category config ─────────────────────────────────────────────── */
 const CATEGORIES = [
@@ -39,7 +37,7 @@ const emptyItem = () => ({ product: '', quantity: 1 });
 
 const getEmptyForm = () => ({
   category: 'staff_meal',
-  date: getEthiopiaDateTimeLocalValue(),
+  date: getLocalDateTimeInputValue(),
   beneficiary: '',
   pax: 1,
   department: '',
@@ -57,7 +55,7 @@ const isDrinkProduct = (p) => {
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const toLocalDateKey = (val) => getEthiopiaDateKey(val);
+const toLocalDateKey = (val) => getLocalDateKey(val);
 
 export default function Consumption() {
   const { user, can, hasRole } = useAuth();
@@ -454,11 +452,11 @@ export default function Consumption() {
     const empName = (form.beneficiary || '').trim().toLowerCase();
     const empId = selectedEmployeeObj?._id ? String(selectedEmployeeObj._id) : null;
     const userId = user?._id ? String(user._id) : null;
-    const todayKey = getEthiopiaDateKey();
+    const todayKey = getLocalDateKey();
 
     const matchingRecords = (records || []).filter(r => {
       if (r.category !== 'staff_meal' || r.status === 'voided') return false;
-      if (getEthiopiaDateKey(r.date) !== todayKey) return false;
+      if (getLocalDateKey(r.date) !== todayKey) return false;
 
       const rBeneficiary = String(r.beneficiary || '').trim().toLowerCase();
       const rEmpId = r.employee ? String(r.employee?._id || r.employee) : null;
@@ -555,7 +553,7 @@ export default function Consumption() {
     setForm({
       ...getEmptyForm(),
       category: 'staff_meal',
-      date: getEthiopiaDateTimeLocalValue(),
+      date: getLocalDateTimeInputValue(),
       beneficiary: defaultBeneficiary,
       department: defaultDept,
     });
@@ -588,7 +586,7 @@ export default function Consumption() {
     setEditing(r);
     setForm({
       category: r.category,
-      date: getEthiopiaDateTimeLocalValue(r.date),
+      date: getLocalDateTimeInputValue(r.date),
       beneficiary: r.beneficiary || '',
       pax: r.pax || 1,
       department: r.department || '',
@@ -761,7 +759,7 @@ export default function Consumption() {
 
       const payload = {
         ...form,
-        date: form.date ? ethiopiaLocalToIsoWithOffset(form.date) : getEthiopiaNow().toISOString(),
+        date: form.date ? localDateTimeInputToIso(form.date) : new Date().toISOString(),
         items: cleanItems,
         employee: selectedEmployeeObj?._id || currentUserEmployee?._id || undefined,
         autoApprove: form.category === 'staff_meal',
@@ -1258,7 +1256,7 @@ export default function Consumption() {
                         <CatIcon size={10} /> {cat.label}
                       </span>
                     </div>
-                    <p className="text-[11px] text-ink-400 mt-0.5">{formatEthiopiaDateTime(r.date)}</p>
+                    <p className="text-[11px] text-ink-400 mt-0.5">{new Date(r.date).toLocaleString()}</p>
                   </div>
                   <div className="shrink-0">
                     {r.category === 'staff_meal' && r.status === 'approved' ? (
@@ -1358,7 +1356,7 @@ export default function Consumption() {
                 return (
                   <tr key={r._id} ref={setRowRef(r)} className={rowClass(r, 'hover:bg-blue-50/20 transition-colors')} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">
-                      {formatEthiopiaDateTime(r.date)}
+                      {new Date(r.date).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-blue-600">
                       {r.voucherNo || '—'}
@@ -1833,7 +1831,7 @@ export default function Consumption() {
                   )}
                 </div>
                 <div><p className="text-xs text-ink-400">Date</p>
-                  <p className="font-medium">{formatEthiopiaDateTime(detailRecord.date)}</p>
+                  <p className="font-medium">{new Date(detailRecord.date).toLocaleString()}</p>
                 </div>
                 <div><p className="text-xs text-ink-400">Pax</p>
                   <p className="font-medium">{detailRecord.pax || 1} people</p>
