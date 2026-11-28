@@ -4,6 +4,7 @@ import {
   UtensilsCrossed, Users, Briefcase, BookOpen, Gift, FileText,
   RefreshCw, Pencil, Printer, Check, ShieldCheck, Lock,
   Settings2, AlertCircle, UserCheck, Clock,
+  Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,22 @@ const isDrinkProduct = (p) => {
 
 const etb = (n) => `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const toLocalDateKey = (val) => {
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const shiftDateKey = (dateKey, deltaDays) => {
+  const [y, m, d] = String(dateKey || '').split('-').map(Number);
+  const dt = (y && m && d) ? new Date(y, m - 1, d) : new Date();
+  dt.setDate(dt.getDate() + deltaDays);
+  return toLocalDateKey(dt);
+};
+
 export default function Consumption() {
   const { user, can, hasRole } = useAuth();
   const isPrivileged = ['dev', 'admin'].includes(user?.role);
@@ -59,6 +76,10 @@ export default function Consumption() {
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
+  const [dateMode, setDateMode] = useState('today'); // 'today' | 'yesterday' | 'custom' | 'all'
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()));
+  const [selectedStaff, setSelectedStaff] = useState('ALL');
+  const [showSummaryPanel, setShowSummaryPanel] = useState(true);
   const [loading, setLoading] = useState(false);
   const [successToast, setSuccessToast] = useState('');
 
@@ -177,38 +198,173 @@ export default function Consumption() {
     };
   }, [user, employees, isPrivileged]);
 
-  /* ── filtered + paginated ── */
-  const filtered = useMemo(() => {
-    const safe = Array.isArray(records) ? records : [];
-    // If not privileged (dev / admin), only show records belonging to the current user
-    const scoped = isPrivileged
-      ? safe
-      : safe.filter(r => {
-        if (!r.beneficiary) return false;
-        const b = r.beneficiary.toLowerCase();
-        const myName = (user?.name || '').trim().toLowerCase();
-        const myEmpName = currentUserEmployee
-          ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim().toLowerCase()
-          : '';
-        return (myEmpName && (b.includes(myEmpName) || myEmpName.includes(b))) ||
-          (myName && (b.includes(myName) || myName.includes(b)));
-      });
+  const activeDateKey = useMemo(() => {
+    if (dateMode === 'all') return '';
+    if (dateMode === 'today') return toLocalDateKey(new Date());
+    if (dateMode === 'yesterday') return shiftDateKey(toLocalDateKey(new Date()), -1);
+    return selectedDate || toLocalDateKey(new Date());
+  }, [dateMode, selectedDate]);
 
-    if (!search) return scoped;
+  /* ── role + date + staff + search filtering ── */
+  const scopedByRole = useMemo(() => {
+    const safe = Array.isArray(records) ? records : [];
+    if (isPrivileged) return safe;
+    return safe.filter(r => {
+      if (!r.beneficiary) return false;
+      const b = r.beneficiary.toLowerCase();
+      const myName = (user?.name || '').trim().toLowerCase();
+      const myEmpName = currentUserEmployee
+        ? `${currentUserEmployee.firstName || ''} ${currentUserEmployee.lastName || ''}`.trim().toLowerCase()
+        : '';
+      return (myEmpName && (b.includes(myEmpName) || myEmpName.includes(b))) ||
+        (myName && (b.includes(myName) || myName.includes(b)));
+    });
+  }, [records, isPrivileged, user, currentUserEmployee]);
+
+  const scopedByDate = useMemo(() => {
+    if (!activeDateKey) return scopedByRole;
+    return scopedByRole.filter(r => toLocalDateKey(r.date) === activeDateKey);
+  }, [scopedByRole, activeDateKey]);
+
+  // Unique staff options with consumption counts for the selected date range
+  const staffFilterOptions = useMemo(() => {
+    const countsByName = new Map();
+    const displayByKey = new Map();
+
+    scopedByDate.forEach(r => {
+      if (r.status === 'voided') return;
+      const raw = String(r.beneficiary || r.performedBy?.name || '').trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      if (!displayByKey.has(key)) displayByKey.set(key, raw);
+      countsByName.set(key, (countsByName.get(key) || 0) + 1);
+    });
+
+    if (isPrivileged) {
+      employees.forEach(e => {
+        const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim();
+        if (!fullName) return;
+        const key = fullName.toLowerCase();
+        if (!displayByKey.has(key)) displayByKey.set(key, fullName);
+        if (!countsByName.has(key)) countsByName.set(key, 0);
+      });
+    }
+
+    return Array.from(displayByKey.entries())
+      .map(([key, name]) => ({ key, name, count: countsByName.get(key) || 0 }))
+      .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
+  }, [scopedByDate, employees, isPrivileged]);
+
+  const filtered = useMemo(() => {
+    let list = scopedByDate;
+
+    if (selectedStaff && selectedStaff !== 'ALL') {
+      const target = selectedStaff.toLowerCase();
+      list = list.filter(r => {
+        const ben = String(r.beneficiary || '').trim().toLowerCase();
+        const byName = String(r.performedBy?.name || '').trim().toLowerCase();
+        return ben === target || ben.includes(target) || target.includes(ben) || (!ben && byName === target);
+      });
+    }
+
+    if (!search) return list;
     const q = search.toLowerCase();
-    return scoped.filter(r =>
+    return list.filter(r =>
       r.voucherNo?.toLowerCase().includes(q) ||
       r.beneficiary?.toLowerCase().includes(q) ||
-      r.department?.toLowerCase().includes(q)
+      r.department?.toLowerCase().includes(q) ||
+      (r.items || []).some(it => String(it.product?.name || '').toLowerCase().includes(q))
     );
-  }, [records, search, isPrivileged, user, currentUserEmployee]);
+  }, [scopedByDate, selectedStaff, search]);
+
+  // Daily "Who Ate How Much" Summary (uses activeDateKey, or Today when in 'all' view)
+  const summaryDateKey = activeDateKey || toLocalDateKey(new Date());
+  const dailyStaffSummary = useMemo(() => {
+    const prodMap = new Map(products.map(p => [String(p._id), p]));
+    const dayRecords = scopedByRole.filter(
+      r => r.status !== 'voided' && toLocalDateKey(r.date) === summaryDateKey
+    );
+
+    const byStaff = new Map();
+    let totalVouchers = 0;
+    let totalPortions = 0;
+    let totalFood = 0;
+    let totalDrinks = 0;
+    let totalCost = 0;
+
+    dayRecords.forEach(r => {
+      const rawName = String(r.beneficiary || r.performedBy?.name || 'Unassigned').trim() || 'Unassigned';
+      const key = rawName.toLowerCase();
+      if (!byStaff.has(key)) {
+        byStaff.set(key, {
+          key,
+          name: rawName,
+          vouchers: 0,
+          portions: 0,
+          food: 0,
+          drinks: 0,
+          cost: 0,
+          itemsMap: new Map(),
+        });
+      }
+      const entry = byStaff.get(key);
+      entry.vouchers += 1;
+      totalVouchers += 1;
+
+      const recCost = Number(r.totalRecipeCost || 0);
+      entry.cost += recCost;
+      totalCost += recCost;
+
+      (r.items || []).forEach(it => {
+        const pId = String(it.product?._id || it.product);
+        const prodMeta = (typeof it.product === 'object' && it.product?.name) ? it.product : prodMap.get(pId);
+        const prodName = prodMeta?.name || 'Item';
+        const q = Number(it.quantity) || 1;
+        const drink = isDrinkProduct(prodMeta);
+
+        entry.portions += q;
+        totalPortions += q;
+        if (drink) {
+          entry.drinks += q;
+          totalDrinks += q;
+        } else {
+          entry.food += q;
+          totalFood += q;
+        }
+        entry.itemsMap.set(prodName, (entry.itemsMap.get(prodName) || 0) + q);
+      });
+    });
+
+    const staffList = Array.from(byStaff.values())
+      .map(s => ({
+        ...s,
+        itemsList: Array.from(s.itemsMap.entries()).map(([name, qty]) => ({ name, qty })),
+      }))
+      .sort((a, b) => (b.portions - a.portions) || (b.cost - a.cost) || a.name.localeCompare(b.name));
+
+    return {
+      dateKey: summaryDateKey,
+      staffList,
+      totalStaff: staffList.length,
+      totalVouchers,
+      totalPortions,
+      totalFood,
+      totalDrinks,
+      totalCost,
+    };
+  }, [scopedByRole, products, summaryDateKey]);
 
   const { setRowRef, rowClass } = useHighlightRow({
     items: records,
     displayed: filtered,
     pageSize,
     setPage,
-    onEnsureVisible: () => { setFilterCat(''); setSearch(''); },
+    onEnsureVisible: () => {
+      setFilterCat('');
+      setSearch('');
+      setDateMode('all');
+      setSelectedStaff('ALL');
+    },
   });
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -698,27 +854,36 @@ export default function Consumption() {
     } finally { setActionWorking(false); }
   };
 
-  /* ── export data ── */
-  const exportData = useMemo(() => (Array.isArray(records) ? records : []).map(r => ({
+  /* ── export data (reflects active date, staff user, category & search filters) ── */
+  const exportData = useMemo(() => filtered.map(r => ({
     'Voucher No': r.voucherNo || '—',
     'Date': new Date(r.date).toLocaleDateString(),
     'Category': catByKey[r.category]?.label || r.category,
     'Beneficiary': r.beneficiary || '—',
     'Pax': r.pax || 1,
     'Department': r.department || '—',
+    'Items Consumed': (r.items || []).map(i => `${i.product?.name || 'Item'} x${i.quantity}`).join(', '),
     'Recipe Cost': Number(r.totalRecipeCost || 0).toFixed(2),
     'Status': r.status?.toUpperCase(),
     'Recorded By': r.performedBy?.name || '—',
-  })), [records]);
+  })), [filtered]);
 
-  // Dynamic category counts
+  // Dynamic category counts (aligned with active date & staff filter)
   const catCounts = useMemo(() => {
-    const counts = { all: records.length };
-    records.forEach(r => {
+    let base = scopedByDate;
+    if (selectedStaff && selectedStaff !== 'ALL') {
+      const target = selectedStaff.toLowerCase();
+      base = base.filter(r => {
+        const ben = String(r.beneficiary || '').trim().toLowerCase();
+        return ben === target || ben.includes(target) || target.includes(ben);
+      });
+    }
+    const counts = { all: base.length };
+    base.forEach(r => {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [records]);
+  }, [scopedByDate, selectedStaff]);
 
   return (
     <div className="space-y-4">
@@ -736,13 +901,85 @@ export default function Consumption() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
         <div>
           <h1 className="hidden lg:block text-xl font-bold text-ink-900">Consumption Management</h1>
           <p className="text-xs text-ink-500">
             Staff meals, guest entertainment &amp; internal consumption — tracked &amp; costed
           </p>
         </div>
+
+        {/* ── Date Control Bar (Red Box 1): Today / Yesterday / Pick Date / All ── */}
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-2.5 py-1.5 shadow-2xs">
+          <Calendar size={14} className="text-blue-600 shrink-0 mr-0.5" />
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: 'all', label: 'All Dates' },
+          ].map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                setDateMode(opt.id);
+                if (opt.id === 'today') setSelectedDate(toLocalDateKey(new Date()));
+                else if (opt.id === 'yesterday') setSelectedDate(shiftDateKey(toLocalDateKey(new Date()), -1));
+                setPage(1);
+              }}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${dateMode === opt.id
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-ink-600 hover:bg-ink-50'
+                }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <div className="flex items-center gap-1 border-l border-ink-100 pl-1.5 ml-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                const base = activeDateKey || toLocalDateKey(new Date());
+                setSelectedDate(shiftDateKey(base, -1));
+                setDateMode('custom');
+                setPage(1);
+              }}
+              className="rounded-md p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 cursor-pointer"
+              title="Previous day"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <input
+              type="date"
+              value={dateMode === 'all' ? '' : activeDateKey}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  setDateMode('all');
+                } else {
+                  setSelectedDate(val);
+                  setDateMode('custom');
+                }
+                setPage(1);
+              }}
+              className="rounded-lg border border-ink-200 bg-ink-50/60 px-2 py-1 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+              title="Filter consumption by specific date"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const base = activeDateKey || toLocalDateKey(new Date());
+                setSelectedDate(shiftDateKey(base, 1));
+                setDateMode('custom');
+                setPage(1);
+              }}
+              className="rounded-md p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 cursor-pointer"
+              title="Next day"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <ExportDropdown
             data={exportData}
@@ -779,40 +1016,161 @@ export default function Consumption() {
         </div>
       </div>
 
-      {/* ── Category filter tabs with counts (compact scrollable row on phones) ── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap rounded-xl border border-ink-100 bg-white p-2 sm:p-3 shadow-2xs">
-        <button
-          onClick={() => { setFilterCat(''); }}
-          className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${!filterCat
-            ? 'bg-blue-900 text-white shadow-xs'
-            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-        >
-          <span>All</span>
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${!filterCat ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
-            {records.length}
+      {/* ── Category filter tabs + Staff User Dropdown (Red Box 2) ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 rounded-xl border border-ink-100 bg-white p-2.5 sm:p-3 shadow-2xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap">
+          <button
+            onClick={() => { setFilterCat(''); setPage(1); }}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${!filterCat
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+          >
+            <span>All</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${!filterCat ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
+              {catCounts.all || 0}
+            </span>
+          </button>
+          {CATEGORIES.map(cat => {
+            const Icon = cat.icon;
+            const count = catCounts[cat.key] || 0;
+            const isActive = filterCat === cat.key;
+            return (
+              <button key={cat.key}
+                onClick={() => { setFilterCat(isActive ? '' : cat.key); setPage(1); }}
+                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
+                  }`}
+              >
+                <Icon size={12} className={isActive ? 'text-white' : ''} />
+                <span>{cat.label}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Select Show by Staff User */}
+        <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-ink-100 pt-2 lg:pt-0 lg:pl-3">
+          <span className="flex items-center gap-1 text-xs font-semibold text-ink-600 whitespace-nowrap">
+            <Users size={13} className="text-blue-600" />
+            Staff User:
           </span>
-        </button>
-        {CATEGORIES.map(cat => {
-          const Icon = cat.icon;
-          const count = catCounts[cat.key] || 0;
-          const isActive = filterCat === cat.key;
-          return (
-            <button key={cat.key}
-              onClick={() => setFilterCat(isActive ? '' : cat.key)}
-              className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${isActive ? `${cat.activeCls} text-white shadow-xs ring-2 ring-blue-400/40` : 'bg-white border border-ink-200 text-ink-600 hover:border-blue-400'
-                }`}
+          <select
+            value={selectedStaff}
+            onChange={(e) => { setSelectedStaff(e.target.value); setPage(1); }}
+            className="min-w-[180px] max-w-[240px] rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+          >
+            <option value="ALL">All Staff Users ({staffFilterOptions.filter(s => s.count > 0).length} active)</option>
+            {staffFilterOptions.map(st => (
+              <option key={st.key} value={st.name}>
+                {st.name}{st.count > 0 ? ` (${st.count})` : ''}
+              </option>
+            ))}
+          </select>
+          {selectedStaff !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => { setSelectedStaff('ALL'); setPage(1); }}
+              className="rounded-lg border border-ink-200 bg-ink-50 px-2 py-1 text-[11px] font-semibold text-ink-600 hover:bg-ink-100 cursor-pointer"
+              title="Show all staff"
             >
-              <Icon size={12} className={isActive ? 'text-white' : ''} />
-              <span>{cat.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
-                }`}>
-                {count}
-              </span>
+              Reset
             </button>
-          );
-        })}
+          )}
+        </div>
+      </div>
+
+      {/* ── Daily "Who Ate How Much" Summary Panel ── */}
+      <div className="rounded-xl border border-ink-100 bg-white shadow-2xs overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-ink-100 bg-ink-50/40">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-600 text-white">
+              <UtensilsCrossed size={13} />
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-ink-900">
+              Daily Staff Consumption — {summaryDateKey === toLocalDateKey(new Date()) ? 'Today' : summaryDateKey}
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 font-bold text-blue-700">
+                {dailyStaffSummary.totalStaff} Staff Ate
+              </span>
+              <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-bold text-emerald-700">
+                {dailyStaffSummary.totalPortions} Items ({dailyStaffSummary.totalFood} Meals · {dailyStaffSummary.totalDrinks} Drinks)
+              </span>
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 font-bold text-amber-800">
+                {dailyStaffSummary.totalVouchers} Vouchers · {etb(dailyStaffSummary.totalCost)}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSummaryPanel(v => !v)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
+          >
+            {showSummaryPanel ? <><ChevronUp size={14} /> Hide Details</> : <><ChevronDown size={14} /> Who Ate How Much</>}
+          </button>
+        </div>
+
+        {showSummaryPanel && (
+          <div className="p-3">
+            {dailyStaffSummary.staffList.length === 0 ? (
+              <p className="text-xs text-ink-400 text-center py-2">
+                No consumption recorded for {summaryDateKey}.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                {dailyStaffSummary.staffList.map(st => {
+                  const isSelected = selectedStaff !== 'ALL' && selectedStaff.toLowerCase() === st.key;
+                  return (
+                    <button
+                      key={st.key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStaff(isSelected ? 'ALL' : st.name);
+                        setPage(1);
+                      }}
+                      className={`text-left rounded-xl border p-2.5 transition cursor-pointer ${isSelected
+                        ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                        : 'border-ink-100 bg-ink-50/40 hover:border-blue-300 hover:bg-blue-50/30'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-ink-900 truncate">{st.name}</p>
+                          <p className="text-[11px] text-ink-500 mt-0.5">
+                            {st.vouchers} order{st.vouchers !== 1 ? 's' : ''} · {st.food} meal{st.food !== 1 ? 's' : ''}, {st.drinks} drink{st.drinks !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                            {st.portions} total
+                          </span>
+                          <p className="text-[11px] font-bold text-ink-800 mt-0.5 tabular-nums">{etb(st.cost)}</p>
+                        </div>
+                      </div>
+                      {st.itemsList.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {st.itemsList.slice(0, 3).map(it => (
+                            <span key={it.name} className="inline-flex items-center rounded-md bg-white border border-ink-100 px-1.5 py-0.5 text-[10px] font-medium text-ink-700">
+                              {it.name} <span className="ml-1 font-bold text-blue-600">×{it.qty}</span>
+                            </span>
+                          ))}
+                          {st.itemsList.length > 3 && (
+                            <span className="text-[10px] font-semibold text-ink-400">+{st.itemsList.length - 3} more</span>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Search ── */}
