@@ -3,7 +3,7 @@ import {
   Plus, X, CheckCircle2, XCircle, Send, PackageCheck,
   Clock, AlertTriangle, ChevronDown, RefreshCw, Search,
   Layers, ArrowRight, Eye, Trash2, Filter, Building2,
-  ClipboardList, PackageOpen, TrendingDown, Zap,
+  ClipboardList, PackageOpen, TrendingDown, Zap, Calendar,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +37,12 @@ const EMPTY_ITEM = { material: '', requestedQty: 1, note: '' };
 
 const formatETB = (n) =>
   `ETB ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const toLocalDateKey = (val) => {
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // ── Status Badge ─────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -206,6 +212,8 @@ export default function StockIssueRequest() {
   // ── Filters ──────────────────────────────────────────────────
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDept, setFilterDept] = useState('');
+  const [datePreset, setDatePreset] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'custom'
+  const [customDate, setCustomDate] = useState(() => toLocalDateKey(new Date()));
   const [search, setSearch] = useState('');
 
   // ── Create/Edit modal ────────────────────────────────────────
@@ -319,6 +327,13 @@ export default function StockIssueRequest() {
 
   // ── Filtered list ────────────────────────────────────────────
   const filtered = useMemo(() => {
+    const now = new Date();
+    const todayKey = toLocalDateKey(now);
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    const weekKey = toLocalDateKey(weekAgo);
+    const monthPrefix = todayKey.slice(0, 7);
+
     return requests.filter(r => {
       if (isStationRestricted) {
         const targetStation = userStation === 'bar' ? 'bar' : 'kitchen';
@@ -327,6 +342,14 @@ export default function StockIssueRequest() {
         return false;
       }
       if (filterStatus && r.status !== filterStatus) return false;
+      if (datePreset !== 'all') {
+        const reqDateKey = toLocalDateKey(r.requestDate || r.createdAt);
+        if (!reqDateKey) return false;
+        if (datePreset === 'today' && reqDateKey !== todayKey) return false;
+        if (datePreset === 'week' && (reqDateKey < weekKey || reqDateKey > todayKey)) return false;
+        if (datePreset === 'month' && !reqDateKey.startsWith(monthPrefix)) return false;
+        if (datePreset === 'custom' && customDate && reqDateKey !== customDate) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const matchVoucher = r.voucherNo?.toLowerCase().includes(q);
@@ -337,12 +360,12 @@ export default function StockIssueRequest() {
       }
       return true;
     });
-  }, [requests, filterStatus, filterDept, search, isStationRestricted, userStation]);
+  }, [requests, filterStatus, filterDept, datePreset, customDate, search, isStationRestricted, userStation]);
 
   const { setRowRef, rowClass } = useHighlightRow({
     items: requests,
     displayed: filtered,
-    onEnsureVisible: () => { setFilterStatus(''); setFilterDept(''); setSearch(''); },
+    onEnsureVisible: () => { setFilterStatus(''); setFilterDept(''); setDatePreset('all'); setSearch(''); },
   });
 
   // ── Form helpers ─────────────────────────────────────────────
@@ -692,9 +715,42 @@ export default function StockIssueRequest() {
             </span>
           )}
 
-          {(filterStatus || filterDept || search) && (
+          {/* Date View Filter */}
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-ink-200 bg-white px-2 py-1">
+            <Calendar size={13} className="text-blue-600 mr-0.5 shrink-0" />
+            {[
+              { id: 'all', label: 'All Dates' },
+              { id: 'today', label: 'Today' },
+              { id: 'week', label: '7 Days' },
+              { id: 'month', label: 'Month' },
+            ].map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDatePreset(d.id)}
+                className={`rounded-lg px-2 py-1 text-xs font-semibold transition cursor-pointer ${datePreset === d.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-ink-600 hover:bg-ink-50'
+                  }`}
+              >
+                {d.label}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={datePreset === 'custom' ? customDate : ''}
+              onChange={(e) => {
+                if (!e.target.value) setDatePreset('all');
+                else { setCustomDate(e.target.value); setDatePreset('custom'); }
+              }}
+              className="rounded-lg border border-ink-200 bg-ink-50/60 px-2 py-1 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+              title="Filter requisitions by date"
+            />
+          </div>
+
+          {(filterStatus || filterDept || datePreset !== 'all' || search) && (
             <button
-              onClick={() => { setFilterStatus(''); setFilterDept(''); setSearch(''); }}
+              onClick={() => { setFilterStatus(''); setFilterDept(''); setDatePreset('all'); setSearch(''); }}
               className="text-xs font-semibold text-rose-600 hover:text-rose-800"
             >
               Clear filters

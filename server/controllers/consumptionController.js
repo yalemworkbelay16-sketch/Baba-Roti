@@ -1,8 +1,10 @@
 const asyncHandler = require('express-async-handler');
+const bcrypt = require('bcryptjs');
 const Consumption = require('../models/Consumption');
 const { CONSUMPTION_CATEGORIES, CATEGORY_LABELS } = require('../models/Consumption');
 const Product = require('../models/Product');
 const RawMaterial = require('../models/RawMaterial');
+const User = require('../models/User');
 const { invalidateDashboardCache } = require('./dashboardController');
 const { clearContextCache } = require('../utils/systemContextService');
 const tg = require('../utils/telegramNotifier');
@@ -486,7 +488,28 @@ const approveConsumption = asyncHandler(async (req, res) => {
 
 // ── POST /api/consumption/:id/void ───────────────────────────────
 const voidConsumption = asyncHandler(async (req, res) => {
-  const { note = '' } = req.body;
+  if (!['admin', 'manager', 'dev'].includes(req.user?.role)) {
+    res.status(403);
+    throw new Error('Only Admin and Manager accounts are allowed to void consumption records.');
+  }
+
+  const { note = '', reason = '', password = '' } = req.body;
+  const cleanReason = String(reason || note || '').trim();
+  if (!cleanReason) {
+    res.status(400);
+    throw new Error('A void reason is required.');
+  }
+  if (!password) {
+    res.status(400);
+    throw new Error('Password confirmation is required to void this consumption.');
+  }
+
+  const authUser = await User.findById(req.user._id).select('+password');
+  if (!authUser || !(await bcrypt.compare(String(password), authUser.password))) {
+    res.status(401);
+    throw new Error('Invalid password. Void authorization failed.');
+  }
+
   const record = await Consumption.findById(req.params.id);
   if (!record) { res.status(404); throw new Error('Record not found'); }
   if (record.status === 'voided') { res.status(400); throw new Error('Already voided'); }
@@ -497,7 +520,13 @@ const voidConsumption = asyncHandler(async (req, res) => {
   }
 
   record.status = 'voided';
-  record.trail.push({ action: 'voided', by: req.user._id, byName: req.user.name, byRole: req.user.role, note });
+  record.trail.push({
+    action: 'voided',
+    by: req.user._id,
+    byName: req.user.name,
+    byRole: req.user.role,
+    note: cleanReason,
+  });
   await record.save();
 
   invalidateDashboardCache();
@@ -506,7 +535,7 @@ const voidConsumption = asyncHandler(async (req, res) => {
   notify.push({
     type: 'consumption',
     title: 'Consumption Voided',
-    message: `${req.user.name} voided voucher ${record.voucherNo}`,
+    message: `${req.user.name} voided voucher ${record.voucherNo} (${cleanReason})`,
     icon: '🔴',
     link: '/consumption',
     entityId: record._id,

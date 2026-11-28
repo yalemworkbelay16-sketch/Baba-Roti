@@ -21,7 +21,7 @@ router.get('/:id',     getConsumptionById);
 router.post('/',              createConsumption);
 router.put('/:id',            updateConsumption);
 router.post('/:id/approve',   authorizePermission('approveGoods'), approveConsumption);
-router.post('/:id/void',      authorizePermission('voidTransactions'), voidConsumption);
+router.post('/:id/void',      authorize('admin', 'manager', 'dev'), voidConsumption);
 router.delete('/:id',         authorizePermission('voidTransactions'), deleteConsumption);
 
 module.exports = router;

@@ -69,7 +69,7 @@ export default function Consumption() {
   const canManageStaffMeals = ['admin', 'dev'].includes(user?.role);
   const canCreate = can('recordGoods') || Boolean(user);
   const canApprove = can('approveGoods');
-  const canVoid = can('voidTransactions');
+  const canVoid = ['admin', 'manager', 'dev'].includes(user?.role);
 
   const [records, setRecords] = useState([]);
   const [products, setProducts] = useState([]);
@@ -110,6 +110,7 @@ export default function Consumption() {
   const [actionType, setActionType] = useState(null); // 'approve'|'void'
   const [actionRecord, setActionRecord] = useState(null);
   const [actionNote, setActionNote] = useState('');
+  const [actionPassword, setActionPassword] = useState('');
   const [actionWorking, setActionWorking] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -840,14 +841,29 @@ export default function Consumption() {
   /* ── approve / void ── */
   const openAction = (record, type) => {
     setActionRecord(record); setActionType(type);
-    setActionNote(''); setActionError(''); setActionOpen(true);
+    setActionNote(''); setActionPassword(''); setActionError(''); setActionOpen(true);
   };
 
   const handleAction = async () => {
+    if (actionType === 'void') {
+      if (!actionNote.trim()) {
+        setActionError('Please enter a reason for voiding this consumption.');
+        return;
+      }
+      if (!actionPassword) {
+        setActionError('Please enter your Admin or Manager password to confirm.');
+        return;
+      }
+    }
+
     setActionWorking(true); setActionError('');
     try {
-      await api.post(`/consumption/${actionRecord._id}/${actionType}`, { note: actionNote });
+      const body = actionType === 'void'
+        ? { note: actionNote.trim(), reason: actionNote.trim(), password: actionPassword }
+        : { note: actionNote };
+      await api.post(`/consumption/${actionRecord._id}/${actionType}`, body);
       setActionOpen(false);
+      setActionPassword('');
       load();
     } catch (err) {
       setActionError(err.response?.data?.message || 'Action failed.');
@@ -1883,8 +1899,8 @@ export default function Consumption() {
       </Modal>
 
       {/* ══ Approve / Void Confirmation Modal ══ */}
-      <Modal open={actionOpen} onClose={() => setActionOpen(false)}
-        title={actionType === 'approve' ? '✅ Approve Consumption' : '🔴 Void Consumption'}
+      <Modal open={actionOpen} onClose={() => { setActionOpen(false); setActionPassword(''); }}
+        title={actionType === 'approve' ? '✅ Approve Consumption' : '🔴 Void Consumption (Admin / Manager)'}
         width="max-w-sm">
         <div className="space-y-3">
           <p className="text-sm text-ink-600">
@@ -1894,23 +1910,44 @@ export default function Consumption() {
             }
           </p>
           <div>
-            <label className="block text-xs font-semibold text-ink-700 mb-1">Note (optional)</label>
-            <input value={actionNote} onChange={e => setActionNote(e.target.value)}
-              placeholder="Add a note…"
-              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
+              {actionType === 'void' ? 'Void Reason *' : 'Note (optional)'}
+            </label>
+            <input
+              value={actionNote}
+              onChange={e => setActionNote(e.target.value)}
+              placeholder={actionType === 'void' ? 'Enter reason for voiding…' : 'Add a note…'}
+              required={actionType === 'void'}
+              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            />
           </div>
+          {actionType === 'void' && (
+            <div>
+              <label className="block text-xs font-semibold text-ink-700 mb-1">
+                Admin / Manager Password *
+              </label>
+              <input
+                type="password"
+                value={actionPassword}
+                onChange={e => setActionPassword(e.target.value)}
+                placeholder="Enter your password to authorize void…"
+                required
+                className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+            </div>
+          )}
           {actionError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{actionError}</p>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <button onClick={() => setActionOpen(false)}
+            <button onClick={() => { setActionOpen(false); setActionPassword(''); }}
               className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50">
               Cancel
             </button>
             <button onClick={handleAction} disabled={actionWorking}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 ${actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 cursor-pointer ${actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
                 }`}>
-              {actionWorking ? 'Working…' : (actionType === 'approve' ? 'Approve & Deduct Stock' : 'Void')}
+              {actionWorking ? 'Working…' : (actionType === 'approve' ? 'Approve & Deduct Stock' : 'Authorize & Void')}
             </button>
           </div>
         </div>

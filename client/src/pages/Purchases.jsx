@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, Eye, X, ShoppingCart, Search, CheckCircle2, Clock, Check, AlertCircle, FileText } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Eye, X, ShoppingCart, Search, CheckCircle2, Clock, Check, AlertCircle, FileText, Calendar } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api/axios';
 import DataTable from '../components/ui/DataTable';
@@ -12,6 +12,12 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
 
 const emptyItem = { material: '', quantity: 1, unitCost: 0 };
+
+const toLocalDateKey = (val) => {
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // Which action buttons to show per status
 const NEXT_ACTIONS = {
@@ -41,6 +47,8 @@ export default function Purchases() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'draft' | 'checked' | 'approved' | 'received' | 'cancelled'
   const [supplierFilter, setSupplierFilter] = useState('all');
+  const [datePreset, setDatePreset] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'custom'
+  const [customDate, setCustomDate] = useState(() => toLocalDateKey(new Date()));
   const [importResult, setImportResult] = useState(null);
   const importRef = useRef();
 
@@ -72,18 +80,38 @@ export default function Purchases() {
     api.get('/materials').then(r => setMaterials(Array.isArray(r.data) ? r.data : [])).catch(() => setMaterials([]));
   }, []);
 
-  // Dynamic counts per status
+  const dateFilteredPurchases = useMemo(() => {
+    if (datePreset === 'all') return purchases;
+    const now = new Date();
+    const todayKey = toLocalDateKey(now);
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    const weekKey = toLocalDateKey(weekAgo);
+    const monthPrefix = todayKey.slice(0, 7);
+
+    return purchases.filter((p) => {
+      const k = toLocalDateKey(p.purchaseDate || p.createdAt);
+      if (!k) return false;
+      if (datePreset === 'today') return k === todayKey;
+      if (datePreset === 'week') return k >= weekKey && k <= todayKey;
+      if (datePreset === 'month') return k.startsWith(monthPrefix);
+      if (datePreset === 'custom') return !customDate || k === customDate;
+      return true;
+    });
+  }, [purchases, datePreset, customDate]);
+
+  // Dynamic counts per status (aligned with active date view)
   const statusCounts = useMemo(() => {
-    const counts = { all: purchases.length, draft: 0, checked: 0, approved: 0, received: 0, cancelled: 0 };
-    purchases.forEach((p) => {
+    const counts = { all: dateFilteredPurchases.length, draft: 0, checked: 0, approved: 0, received: 0, cancelled: 0 };
+    dateFilteredPurchases.forEach((p) => {
       if (counts[p.status] !== undefined) counts[p.status]++;
     });
     return counts;
-  }, [purchases]);
+  }, [dateFilteredPurchases]);
 
   // Filtered purchases
   const filteredPurchases = useMemo(() => {
-    return purchases.filter((p) => {
+    return dateFilteredPurchases.filter((p) => {
       if (statusFilter !== 'all' && p.status !== statusFilter) return false;
       if (supplierFilter !== 'all') {
         const supId = p.supplier?._id || p.supplier;
@@ -99,7 +127,7 @@ export default function Purchases() {
       }
       return true;
     });
-  }, [purchases, statusFilter, supplierFilter, search]);
+  }, [dateFilteredPurchases, statusFilter, supplierFilter, search]);
 
   // ── Export data ──
   const exportData = useMemo(() => {
@@ -258,16 +286,51 @@ export default function Purchases() {
 
   return (
     <div className="space-y-4">
-      {/* ── Toolbar with Search ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search invoice, supplier, item…"
-            className="w-full rounded-lg border border-ink-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 shadow-2xs"
-          />
+      {/* ── Toolbar with Search + Date View ── */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="relative w-full sm:w-64">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search invoice, supplier, item…"
+              className="w-full rounded-lg border border-ink-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 shadow-2xs"
+            />
+          </div>
+
+          {/* Date View Selector */}
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-ink-200 bg-white px-2 py-1 shadow-2xs">
+            <Calendar size={13} className="text-blue-600 mr-0.5 shrink-0" />
+            {[
+              { id: 'all', label: 'All Dates' },
+              { id: 'today', label: 'Today' },
+              { id: 'week', label: '7 Days' },
+              { id: 'month', label: 'This Month' },
+            ].map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDatePreset(d.id)}
+                className={`rounded-lg px-2 py-1 text-xs font-semibold transition cursor-pointer ${datePreset === d.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-ink-600 hover:bg-ink-50'
+                  }`}
+              >
+                {d.label}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={datePreset === 'custom' ? customDate : ''}
+              onChange={(e) => {
+                if (!e.target.value) setDatePreset('all');
+                else { setCustomDate(e.target.value); setDatePreset('custom'); }
+              }}
+              className="rounded-lg border border-ink-200 bg-ink-50/60 px-2 py-1 text-xs font-semibold text-ink-800 outline-none focus:border-blue-500 cursor-pointer"
+              title="Filter purchases by exact date"
+            />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportDropdown
@@ -423,10 +486,10 @@ export default function Purchases() {
                 <option key={s._id} value={s._id}>{s.name}</option>
               ))}
             </select>
-            {(statusFilter !== 'all' || supplierFilter !== 'all' || search) && (
+            {(statusFilter !== 'all' || supplierFilter !== 'all' || datePreset !== 'all' || search) && (
               <button
                 type="button"
-                onClick={() => { setStatusFilter('all'); setSupplierFilter('all'); setSearch(''); }}
+                onClick={() => { setStatusFilter('all'); setSupplierFilter('all'); setDatePreset('all'); setSearch(''); }}
                 className="text-xs text-ink-400 hover:text-ink-700 underline pl-1"
                 title="Reset filters"
               >
